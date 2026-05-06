@@ -1,0 +1,73 @@
+name: changji_app
+description: Changji - AI Voice Notes for One-Person Companies
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # 状态管理
+  flutter_riverpod: ^2.6.1
+
+  # 路由
+  go_router: ^13.2.5
+
+  # 数据库
+  drift: ^2.31.0
+  drift_flutter: ^0.2.8
+  sqlite3_flutter_libs: ^0.5.42
+
+  # 录音
+  record: ^6.2.0
+  permission_handler: ^11.4.0
+
+  # OCR
+  google_mlkit_text_recognition: ^0.11.0
+  image_picker: ^1.2.2
+
+  # 网络请求
+  dio: ^5.8.0
+
+  # 本地存储
+  shared_preferences: ^2.5.5
+
+  # 工具库
+  path_provider: ^2.1.4
+  path_provider_android: '<2.3.0'
+  path: ^1.9.1
+  intl: ^0.20.2
+  uuid: ^4.5.1
+
+  # UI组件
+  flutter_slidable: ^3.1.2
+
+  # 音频播放
+  just_audio: ^0.9.46
+
+  # 分享
+  share_plus: ^7.2.2
+
+  # 系统播放器
+  url_launcher: ^6.2.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.7
+  drift_dev: ^2.31.0
+  mockito: ^5.4.4
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  generate: true

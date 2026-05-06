@@ -1,0 +1,319 @@
+{
+  "@@locale": "en",
+  "appName": "Changji",
+  "@appName": {
+    "description": "Application name"
+  },
+  "appTagline": "AI Voice Notes for One-Person Companies",
+  "@appTagline": {
+    "description": "Application tagline"
+  },
+  "homeTitle": "My Notes",
+  "@homeTitle": {
+    "description": "Home page title"
+  },
+  "recordButton": "Record",
+  "@recordButton": {
+    "description": "Record button text"
+  },
+  "stopButton": "Stop",
+  "@stopButton": {
+    "description": "Stop button text"
+  },
+  "pauseButton": "Pause",
+  "@pauseButton": {
+    "description": "Pause button text"
+  },
+  "resumeButton": "Resume",
+  "@resumeButton": {
+    "description": "Resume button text"
+  },
+  "cancelButton": "Cancel",
+  "@cancelButton": {
+    "description": "Cancel button text"
+  },
+  "saveButton": "Save",
+  "@saveButton": {
+    "description": "Save button text"
+  },
+  "deleteButton": "Delete",
+  "@deleteButton": {
+    "description": "Delete button text"
+  },
+  "editButton": "Edit",
+  "@editButton": {
+    "description": "Edit button text"
+  },
+  "shareButton": "Share",
+  "@shareButton": {
+    "description": "Share button text"
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Settings page title"
+  },
+  "apiKeySettings": "API Key Settings",
+  "@apiKeySettings": {
+    "description": "API key settings section title"
+  },
+  "openaiApiKey": "OpenAI API Key",
+  "@openaiApiKey": {
+    "description": "OpenAI API key label"
+  },
+  "apiKeyHint": "Enter your OpenAI API key",
+  "@apiKeyHint": {
+    "description": "API key input hint"
+  },
+  "apiKeyHelp": "Your API key is stored locally and never shared",
+  "@apiKeyHelp": {
+    "description": "API key help text"
+  },
+  "themeSettings": "Theme",
+  "@themeSettings": {
+    "description": "Theme settings section title"
+  },
+  "lightTheme": "Light",
+  "@lightTheme": {
+    "description": "Light theme option"
+  },
+  "darkTheme": "Dark",
+  "@darkTheme": {
+    "description": "Dark theme option"
+  },
+  "systemTheme": "System Default",
+  "@systemTheme": {
+    "description": "System default theme option"
+  },
+  "languageSettings": "Language",
+  "@languageSettings": {
+    "description": "Language settings section title"
+  },
+  "english": "English",
+  "@english": {
+    "description": "English language option"
+  },
+  "chinese": "Chinese",
+  "@chinese": {
+    "description": "Chinese language option"
+  },
+  "recordingTitle": "Recording",
+  "@recordingTitle": {
+    "description": "Recording page title"
+  },
+  "recordingInProgress": "Recording in progress...",
+  "@recordingInProgress": {
+    "description": "Recording in progress text"
+  },
+  "tapToStop": "Tap to stop",
+  "@tapToStop": {
+    "description": "Tap to stop hint"
+  },
+  "ocrTitle": "OCR Scan",
+  "@ocrTitle": {
+    "description": "OCR page title"
+  },
+  "ocrDescription": "Take a photo or select an image to extract text",
+  "@ocrDescription": {
+    "description": "OCR page description"
+  },
+  "takePhoto": "Take Photo",
+  "@takePhoto": {
+    "description": "Take photo button"
+  },
+  "selectImage": "Select from Gallery",
+  "@selectImage": {
+    "description": "Select image button"
+  },
+  "transcribeTitle": "Transcribe",
+  "@transcribeTitle": {
+    "description": "Transcribe page title"
+  },
+  "transcribeDescription": "Convert voice to text using AI",
+  "@transcribeDescription": {
+    "description": "Transcribe page description"
+  },
+  "transcribing": "Transcribing...",
+  "@transcribing": {
+    "description": "Transcribing in progress"
+  },
+  "transcribeSuccess": "Transcription complete",
+  "@transcribeSuccess": {
+    "description": "Transcription success message"
+  },
+  "transcribeError": "Transcription failed",
+  "@transcribeError": {
+    "description": "Transcription error message"
+  },
+  "retryButton": "Retry",
+  "@retryButton": {
+    "description": "Retry button"
+  },
+  "noRecords": "No records yet",
+  "@noRecords": {
+    "description": "No records message"
+  },
+  "createFirstRecord": "Tap the microphone to create your first note",
+  "@createFirstRecord": {
+    "description": "Create first record hint"
+  },
+  "searchHint": "Search notes...",
+  "@searchHint": {
+    "description": "Search input hint"
+  },
+  "allNotes": "All Notes",
+  "@allNotes": {
+    "description": "All notes filter"
+  },
+  "favorites": "Favorites",
+  "@favorites": {
+    "description": "Favorites filter"
+  },
+  "tags": "Tags",
+  "@tags": {
+    "description": "Tags section"
+  },
+  "addTag": "Add Tag",
+  "@addTag": {
+    "description": "Add tag button"
+  },
+  "untitled": "Untitled",
+  "@untitled": {
+    "description": "Untitled note default title"
+  },
+  "today": "Today",
+  "@today": {
+    "description": "Today date label"
+  },
+  "yesterday": "Yesterday",
+  "@yesterday": {
+    "description": "Yesterday date label"
+  },
+  "privacyPolicy": "Privacy Policy",
+  "@privacyPolicy": {
+    "description": "Privacy policy link"
+  },
+  "termsOfService": "Terms of Service",
+  "@termsOfService": {
+    "description": "Terms of service link"
+  },
+  "about": "About",
+  "@about": {
+    "description": "About section"
+  },
+  "version": "Version",
+  "@version": {
+    "description": "Version label"
+  },
+  "confirmDelete": "Are you sure you want to delete this note?",
+  "@confirmDelete": {
+    "description": "Delete confirmation message"
+  },
+  "confirmDeleteTitle": "Delete Note",
+  "@confirmDeleteTitle": {
+    "description": "Delete confirmation dialog title"
+  },
+  "yes": "Yes",
+  "@yes": {
+    "description": "Yes button"
+  },
+  "no": "No",
+  "@no": {
+    "description": "No button"
+  },
+  "permissionRequired": "Permission Required",
+  "@permissionRequired": {
+    "description": "Permission required dialog title"
+  },
+  "microphonePermission": "Microphone access is required for recording",
+  "@microphonePermission": {
+    "description": "Microphone permission rationale"
+  },
+  "cameraPermission": "Camera access is required for OCR",
+  "@cameraPermission": {
+    "description": "Camera permission rationale"
+  },
+  "storagePermission": "Storage access is required to save recordings",
+  "@storagePermission": {
+    "description": "Storage permission rationale"
+  },
+  "grantPermission": "Grant Permission",
+  "@grantPermission": {
+    "description": "Grant permission button"
+  },
+  "errorGeneric": "Something went wrong. Please try again.",
+  "@errorGeneric": {
+    "description": "Generic error message"
+  },
+  "errorNetwork": "Network error. Please check your connection.",
+  "@errorNetwork": {
+    "description": "Network error message"
+  },
+  "errorApiKey": "Invalid API key. Please check your settings.",
+  "@errorApiKey": {
+    "description": "API key error message"
+  },
+  "dataManagement": "Data Management",
+  "@dataManagement": {
+    "description": "Data management section title"
+  },
+  "dataBackup": "Data Backup",
+  "@dataBackup": {
+    "description": "Data backup option"
+  },
+  "dataRestore": "Data Restore",
+  "@dataRestore": {
+    "description": "Data restore option"
+  },
+  "exportData": "Export Data",
+  "@exportData": {
+    "description": "Export data option"
+  },
+  "importData": "Import Data",
+  "@importData": {
+    "description": "Import data option"
+  },
+  "clearData": "Clear All Data",
+  "@clearData": {
+    "description": "Clear all data option"
+  },
+  "clearDataConfirm": "This will permanently delete all your records. This action cannot be undone.",
+  "@clearDataConfirm": {
+    "description": "Clear data confirmation message"
+  },
+  "recordQuality": "Recording Quality",
+  "@recordQuality": {
+    "description": "Recording quality setting"
+  },
+  "recordFormat": "Recording Format",
+  "@recordFormat": {
+    "description": "Recording format setting"
+  },
+  "highQuality": "High Quality",
+  "@highQuality": {
+    "description": "High quality option"
+  },
+  "mediumQuality": "Medium Quality",
+  "@mediumQuality": {
+    "description": "Medium quality option"
+  },
+  "lowQuality": "Low Quality",
+  "@lowQuality": {
+    "description": "Low quality option"
+  },
+  "helpAndFeedback": "Help & Feedback",
+  "@helpAndFeedback": {
+    "description": "Help and feedback option"
+  },
+  "contactUs": "Contact Us",
+  "@contactUs": {
+    "description": "Contact us option"
+  },
+  "rateApp": "Rate App",
+  "@rateApp": {
+    "description": "Rate app option"
+  },
+  "shareApp": "Share App",
+  "@shareApp": {
+    "description": "Share app option"
+  }
+}
