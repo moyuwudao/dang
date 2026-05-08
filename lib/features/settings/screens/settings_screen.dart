@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/services/background_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/services/transcription_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -29,11 +28,27 @@ class SettingsScreen extends ConsumerWidget {
             title: l10n.apiKeySettings,
             children: [
               ListTile(
-                leading: const Icon(Icons.key_outlined, color: AppColors.primary),
+                leading:
+                    const Icon(Icons.auto_fix_high, color: AppColors.success),
+                title: const Text('快速配置向导'),
+                subtitle: const Text('3步完成AI服务配置，推荐新手使用'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/api-key-wizard'),
+              ),
+              ListTile(
+                leading:
+                    const Icon(Icons.key_outlined, color: AppColors.primary),
                 title: Text(l10n.openaiApiKey),
                 subtitle: Text(l10n.apiKeyHelp),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/settings/api-key'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.dns, color: AppColors.secondary),
+                title: const Text('多API配置管理'),
+                subtitle: const Text('为语音/图像/文本配置独立API，支持多平台'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/multi-api'),
               ),
             ],
           ),
@@ -44,7 +59,8 @@ class SettingsScreen extends ConsumerWidget {
             title: l10n.themeSettings,
             children: [
               ListTile(
-                leading: const Icon(Icons.palette_outlined, color: AppColors.info),
+                leading:
+                    const Icon(Icons.palette_outlined, color: AppColors.info),
                 title: Text(l10n.themeSettings),
                 subtitle: Text(_getThemeModeText(context, themeMode)),
                 trailing: const Icon(Icons.chevron_right),
@@ -72,13 +88,83 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _retryFailedTranscriptions(context, ref),
               ),
+              ListTile(
+                leading: const Icon(Icons.smart_toy, color: AppColors.primary),
+                title: const Text('自动分析设置'),
+                subtitle: const Text('转写完成后自动进行AI分析'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/auto-analysis'),
+              ),
+            ],
+          ),
+
+          // AI Role Management
+          _buildSection(
+            context,
+            title: 'AI角色管理',
+            children: [
+              ListTile(
+                leading:
+                    const Icon(Icons.psychology, color: AppColors.secondary),
+                title: const Text('AI分析角色'),
+                subtitle: const Text('管理系统角色和自定义分析角色'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/roles'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.description_outlined,
+                    color: AppColors.purple),
+                title: const Text('Prompt模板管理'),
+                subtitle: const Text('管理内置和自定义AI分析模板'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/prompt-templates'),
+              ),
+              ListTile(
+                leading:
+                    const Icon(Icons.article_outlined, color: AppColors.info),
+                title: const Text('分析模板设置'),
+                subtitle: const Text('设置周报和脑图的默认分析模板'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/analysis-templates'),
+              ),
+            ],
+          ),
+
+          // Smart Reminders
+          _buildSection(
+            context,
+            title: '智能提醒',
+            children: [
+              ListTile(
+                leading: const Icon(Icons.notifications_active,
+                    color: AppColors.primary),
+                title: const Text('提醒事项'),
+                subtitle: const Text('查看和管理您的待办提醒'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showRemindersDialog(context),
+              ),
+            ],
+          ),
+
+          // Data Statistics
+          _buildSection(
+            context,
+            title: '数据统计',
+            children: [
+              ListTile(
+                leading: const Icon(Icons.bar_chart, color: AppColors.info),
+                title: const Text('使用统计'),
+                subtitle: const Text('查看记录趋势和热门标签'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showStatsDialog(context),
+              ),
             ],
           ),
 
           // Usage Statistics
           _buildSection(
             context,
-            title: 'Usage Statistics',
+            title: l10n.usageStatistics,
             children: [
               Consumer(
                 builder: (context, ref, child) {
@@ -86,62 +172,79 @@ class SettingsScreen extends ConsumerWidget {
                   return usageStatsAsync.when(
                     data: (stats) {
                       if (stats.isEmpty) {
-                        return const ListTile(
-                          leading: Icon(Icons.bar_chart, color: AppColors.info),
-                          title: Text('No usage data yet'),
-                          subtitle: Text('Start using AI features to see statistics'),
+                        return ListTile(
+                          leading: const Icon(Icons.bar_chart,
+                              color: AppColors.info),
+                          title: Text(l10n.usageStatsEmpty),
+                          subtitle: Text(l10n.usageStatsEmptyHint),
                         );
                       }
                       return Column(
-                        children: stats.entries.map((entry) {
-                          final providerName = entry.key;
-                          final providerStats = entry.value as Map<String, dynamic>;
-                          final callCount = providerStats['callCount'] ?? 0;
-                          final tokenCount = providerStats['tokenCount'] ?? 0;
-                          final features = providerStats['features'] as Map<String, dynamic>? ?? {};
-                          final lastUsed = providerStats['lastUsed'] != null
-                              ? DateTime.tryParse(providerStats['lastUsed'])
-                              : null;
+                        children: [
+                          ...stats.entries.map((entry) {
+                            final providerName = entry.key;
+                            final providerStats =
+                                entry.value as Map<String, dynamic>;
+                            final callCount = providerStats['callCount'] ?? 0;
+                            final tokenCount = providerStats['tokenCount'] ?? 0;
+                            final features = providerStats['features']
+                                    as Map<String, dynamic>? ??
+                                {};
+                            final lastUsed = providerStats['lastUsed'] != null
+                                ? DateTime.tryParse(providerStats['lastUsed'])
+                                : null;
 
-                          return ListTile(
-                            leading: const Icon(Icons.smart_toy, color: AppColors.primary),
-                            title: Text(providerName.toUpperCase()),
-                            subtitle: Text(
-                              '$callCount calls · $tokenCount tokens${lastUsed != null ? ' · Last used: ${_formatDate(lastUsed)}' : ''}',
-                            ),
-                            trailing: features.isNotEmpty
-                                ? Wrap(
-                                    spacing: 4,
-                                    children: features.entries.map((f) {
-                                      return Chip(
-                                        label: Text(
-                                          '${f.key}: ${f.value}',
-                                          style: const TextStyle(fontSize: 10),
-                                        ),
-                                        padding: EdgeInsets.zero,
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      );
-                                    }).toList(),
-                                  )
-                                : null,
-                          );
-                        }).toList(),
+                            return ListTile(
+                              leading: const Icon(Icons.smart_toy,
+                                  color: AppColors.primary),
+                              title: Text(providerName.toUpperCase()),
+                              subtitle: Text(
+                                '$callCount ${l10n.calls} · $tokenCount ${l10n.tokens}${lastUsed != null ? ' · ${l10n.lastUsed}: ${_formatDate(lastUsed)}' : ''}',
+                              ),
+                              trailing: features.isNotEmpty
+                                  ? Wrap(
+                                      spacing: 4,
+                                      children: features.entries.map((f) {
+                                        return Chip(
+                                          label: Text(
+                                            '${f.key}: ${f.value}',
+                                            style:
+                                                const TextStyle(fontSize: 10),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        );
+                                      }).toList(),
+                                    )
+                                  : null,
+                            );
+                          }),
+                          // 查看详情按钮
+                          ListTile(
+                            leading: const Icon(Icons.visibility,
+                                color: AppColors.info),
+                            title: Text(l10n.usageStatsDetail),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => _showUsageStatsDetail(context, stats),
+                          ),
+                        ],
                       );
                     },
                     loading: () => const ListTile(
                       leading: CircularProgressIndicator(),
                       title: Text('Loading usage stats...'),
                     ),
-                    error: (_, __) => const ListTile(
-                      leading: Icon(Icons.error, color: AppColors.error),
-                      title: Text('Failed to load usage stats'),
+                    error: (_, __) => ListTile(
+                      leading: const Icon(Icons.error, color: AppColors.error),
+                      title: Text(l10n.errorGeneric),
                     ),
                   );
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.delete_sweep, color: AppColors.error),
-                title: const Text('Clear Usage Statistics'),
+                title: Text(l10n.usageStatsClear),
                 onTap: () => _showClearUsageStatsDialog(context, ref),
               ),
             ],
@@ -153,19 +256,19 @@ class SettingsScreen extends ConsumerWidget {
             title: l10n.dataManagement,
             children: [
               ListTile(
-                leading: const Icon(Icons.backup_outlined, color: AppColors.info),
+                leading:
+                    const Icon(Icons.backup_outlined, color: AppColors.info),
                 title: Text(l10n.dataBackup),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  // TODO: Data backup
-                },
+                onTap: () => context.push('/settings/backup'),
               ),
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: AppColors.error),
-                title: Text(l10n.deleteButton),
-                subtitle: Text(l10n.confirmDelete),
+                leading:
+                    const Icon(Icons.delete_sweep, color: AppColors.warning),
+                title: const Text('回收站'),
+                subtitle: const Text('查看和管理已删除的记录'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showClearDataDialog(context, ref),
+                onTap: () => context.push('/settings/recycle-bin'),
               ),
             ],
           ),
@@ -199,7 +302,8 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSection(BuildContext context, {
+  Widget _buildSection(
+    BuildContext context, {
     required String title,
     required List<Widget> children,
   }) {
@@ -257,7 +361,9 @@ class SettingsScreen extends ConsumerWidget {
               leading: const Icon(Icons.light_mode),
               title: Text(l10n.lightTheme),
               onTap: () {
-                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.light);
+                ref
+                    .read(themeModeProvider.notifier)
+                    .setThemeMode(ThemeMode.light);
                 Navigator.pop(context);
               },
             ),
@@ -265,7 +371,9 @@ class SettingsScreen extends ConsumerWidget {
               leading: const Icon(Icons.dark_mode),
               title: Text(l10n.darkTheme),
               onTap: () {
-                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.dark);
+                ref
+                    .read(themeModeProvider.notifier)
+                    .setThemeMode(ThemeMode.dark);
                 Navigator.pop(context);
               },
             ),
@@ -273,7 +381,9 @@ class SettingsScreen extends ConsumerWidget {
               leading: const Icon(Icons.settings_suggest),
               title: Text(l10n.systemTheme),
               onTap: () {
-                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.system);
+                ref
+                    .read(themeModeProvider.notifier)
+                    .setThemeMode(ThemeMode.system);
                 Navigator.pop(context);
               },
             ),
@@ -295,9 +405,9 @@ class SettingsScreen extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.language),
               title: Text(l10n.english),
-              trailing: ref.watch(localeProvider).languageCode == 'en' 
-                ? const Icon(Icons.check, color: AppColors.primary) 
-                : null,
+              trailing: ref.watch(localeProvider).languageCode == 'en'
+                  ? const Icon(Icons.check, color: AppColors.primary)
+                  : null,
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale(const Locale('en'));
                 Navigator.pop(context);
@@ -306,9 +416,9 @@ class SettingsScreen extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.language),
               title: Text(l10n.chinese),
-              trailing: ref.watch(localeProvider).languageCode == 'zh' 
-                ? const Icon(Icons.check, color: AppColors.primary) 
-                : null,
+              trailing: ref.watch(localeProvider).languageCode == 'zh'
+                  ? const Icon(Icons.check, color: AppColors.primary)
+                  : null,
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale(const Locale('zh'));
                 Navigator.pop(context);
@@ -320,12 +430,13 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _retryFailedTranscriptions(BuildContext context, WidgetRef ref) async {
+  Future<void> _retryFailedTranscriptions(
+      BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context)!;
     try {
       final transcriptionService = ref.read(transcriptionServiceProvider);
       await transcriptionService.retryAllFailed();
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -346,32 +457,138 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  void _showClearUsageStatsDialog(BuildContext context, WidgetRef ref) {
+  void _showRemindersDialog(BuildContext context) {
+    context.push('/reminders');
+  }
+
+  void _showStatsDialog(BuildContext context) {
+    context.push('/statistics');
+  }
+
+  void _showUsageStatsDetail(BuildContext context, Map<String, dynamic> stats) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear Usage Statistics'),
-        content: const Text('Are you sure you want to clear all usage statistics? This action cannot be undone.'),
+        title: Text(l10n.usageStatsDetail),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: stats.entries.map((entry) {
+                final providerName = entry.key;
+                final providerStats = entry.value as Map<String, dynamic>;
+                final callCount = providerStats['callCount'] ?? 0;
+                final tokenCount = providerStats['tokenCount'] ?? 0;
+                final features =
+                    providerStats['features'] as Map<String, dynamic>? ?? {};
+                final lastUsed = providerStats['lastUsed'] != null
+                    ? DateTime.tryParse(providerStats['lastUsed'])
+                    : null;
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          providerName.toUpperCase(),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildStatRow('${l10n.calls}:', callCount.toString()),
+                        _buildStatRow('${l10n.tokens}:', tokenCount.toString()),
+                        if (lastUsed != null)
+                          _buildStatRow(
+                              '${l10n.lastUsed}:', _formatDate(lastUsed)),
+                        if (features.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            '${l10n.features}:',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 8,
+                            children: features.entries.map((f) {
+                              return Chip(
+                                label: Text('${f.key}: ${f.value}'),
+                                backgroundColor:
+                                    AppColors.primary.withOpacity(0.1),
+                                side: BorderSide.none,
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelButton),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(value),
+        ],
+      ),
+    );
+  }
+
+  void _showClearUsageStatsDialog(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.usageStatsClear),
+        content: Text(l10n.usageStatsClearConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () async {
               await StorageService.clearUsageStats();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(l10n.usageStatsClear),
+                  backgroundColor: AppColors.success,
+                ),
+              );
               Navigator.pop(context);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Usage statistics cleared'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-              }
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Clear'),
+            child: Text(l10n.clear),
           ),
         ],
       ),
@@ -397,12 +614,10 @@ class SettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               await ref.read(settingsNotifierProvider.notifier).clearAllData();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.deleteButton)),
+              );
               Navigator.pop(context);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.deleteButton)),
-                );
-              }
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: Text(l10n.yes),

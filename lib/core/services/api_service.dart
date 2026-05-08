@@ -12,6 +12,28 @@ final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService();
 });
 
+class AudioChunkInfo {
+  final int index;
+  final Duration startTime;
+  final Duration endTime;
+  final int size;
+
+  const AudioChunkInfo({
+    required this.index,
+    required this.startTime,
+    required this.endTime,
+    required this.size,
+  });
+
+  String get durationText {
+    final start =
+        '${startTime.inMinutes}:${(startTime.inSeconds % 60).toString().padLeft(2, '0')}';
+    final end =
+        '${endTime.inMinutes}:${(endTime.inSeconds % 60).toString().padLeft(2, '0')}';
+    return '$start - $end';
+  }
+}
+
 class ApiService {
   late Dio _dio;
   AiModelConfig? _currentConfig;
@@ -32,7 +54,8 @@ class ApiService {
     );
   }
 
-  bool get isConfigured => _isConfigured && _currentConfig != null && _apiKey != null;
+  bool get isConfigured =>
+      _isConfigured && _currentConfig != null && _apiKey != null;
 
   AiModelConfig? get currentConfig => _currentConfig;
 
@@ -97,18 +120,25 @@ class ApiService {
 
   String _extractDioError(DioException e) {
     final response = e.response;
-    if (response != null && response.data != null) {
-      try {
-        if (response.data is Map) {
-          final error = response.data['error'];
-          if (error is Map) {
-            return error['message'] ?? error['code']?.toString() ?? response.data.toString();
+    if (response != null) {
+      debugPrint('Error Response Status: ${response.statusCode}');
+      debugPrint('Error Response Headers: ${response.headers}');
+      if (response.data != null) {
+        debugPrint('Error Response Data: ${response.data}');
+        try {
+          if (response.data is Map) {
+            final error = response.data['error'];
+            if (error is Map) {
+              return error['message'] ??
+                  error['code']?.toString() ??
+                  response.data.toString();
+            }
+            return response.data['message'] ?? response.data.toString();
           }
-          return response.data['message'] ?? response.data.toString();
+          return response.data.toString();
+        } catch (_) {
+          return response.statusMessage ?? e.message ?? 'Unknown error';
         }
-        return response.data.toString();
-      } catch (_) {
-        return response.statusMessage ?? e.message ?? 'Unknown error';
       }
     }
     return e.message ?? 'Network error';
@@ -198,7 +228,7 @@ class ApiService {
 
     final chunkByteSize = byteRate * _chunkDurationSeconds;
     final originalDataSize = dataView.getUint32(40, Endian.little);
-    final originalDataStart = _wavHeaderSize;
+    const originalDataStart = _wavHeaderSize;
 
     if (originalDataSize <= chunkByteSize) {
       return [wavBytes];
@@ -215,7 +245,7 @@ class ApiService {
 
       // Build a proper WAV header for this chunk
       final chunkTotalSize = currentChunkSize + _wavHeaderSize - 8;
-      final subchunk1Size = 16; // PCM format
+      const subchunk1Size = 16; // PCM format
       final blockAlign = numChannels * (bitsPerSample ~/ 8);
 
       final header = Uint8List(_wavHeaderSize);
@@ -246,7 +276,8 @@ class ApiService {
           wavBytes, originalDataStart + offset);
 
       chunks.add(chunk);
-      debugPrint('Chunk ${chunkIndex + 1}: ${currentChunkSize ~/ byteRate}s, ${(chunk.length / 1024).toStringAsFixed(0)}KB');
+      debugPrint(
+          'Chunk ${chunkIndex + 1}: ${currentChunkSize ~/ byteRate}s, ${(chunk.length / 1024).toStringAsFixed(0)}KB');
 
       offset += currentChunkSize;
       chunkIndex++;
@@ -267,10 +298,12 @@ class ApiService {
 
     // 根据提供商选择默认模型
     final effectiveModel = model ?? _currentConfig!.asrModel;
-    debugPrint('TranscribeAudio: provider=${_currentConfig!.name}, model=$effectiveModel');
+    debugPrint(
+        'TranscribeAudio: provider=${_currentConfig!.name}, model=$effectiveModel');
 
     if (!_currentConfig!.supportsTranscription) {
-      throw Exception('${_currentConfig!.displayName} 不支持语音转写。请使用 OpenAI、Gemini 或 Qwen 进行转写。');
+      throw Exception(
+          '${_currentConfig!.displayName} 不支持语音转写。请使用 OpenAI、Gemini 或 Qwen 进行转写。');
     }
 
     final file = File(audioFilePath);
@@ -290,34 +323,38 @@ class ApiService {
 
     try {
       String result;
-      
+
       // 检查是否需要分片处理
       final needsChunk = useChunking && _needsChunking(audioFilePath);
-      
+
       if (needsChunk) {
         onProgress?.call('split', '音频文件较大，开始分片处理');
-        result = await _transcribeWithChunking(audioFilePath, model: effectiveModel, onProgress: onProgress);
+        result = await _transcribeWithChunking(audioFilePath,
+            model: effectiveModel, onProgress: onProgress);
       } else {
         switch (_currentConfig!.transcriptionMethod) {
           case TranscriptionMethod.whisperApi:
             onProgress?.call('upload', '上传音频到OpenAI Whisper');
-            result = await _transcribeWhisper(audioFilePath, model: effectiveModel);
+            result =
+                await _transcribeWhisper(audioFilePath, model: effectiveModel);
             onProgress?.call('process', 'AI转写完成');
             break;
           case TranscriptionMethod.audioUpload:
             onProgress?.call('upload', '上传音频到Gemini');
-            result = await _transcribeAudioUpload(audioFilePath, model: effectiveModel);
+            result = await _transcribeAudioUpload(audioFilePath,
+                model: effectiveModel);
             onProgress?.call('process', 'AI转写完成');
             break;
           case TranscriptionMethod.nativeAsr:
           case TranscriptionMethod.asyncAsr:
             onProgress?.call('upload', '上传音频到${_currentConfig!.displayName}');
-            result = await _transcribeNativeAsr(audioFilePath, model: effectiveModel, onProgress: onProgress);
+            result = await _transcribeNativeAsr(audioFilePath,
+                model: effectiveModel, onProgress: onProgress);
             onProgress?.call('process', 'AI转写完成');
             break;
         }
       }
-      
+
       onProgress?.call('save', '保存转写结果');
       debugPrint('=== Transcription Success: ${result.length} chars ===');
       return result;
@@ -335,14 +372,16 @@ class ApiService {
         final responseStr = responseData.toString();
         debugPrint('Response Data Length: ${responseStr.length}');
         if (responseStr.isNotEmpty) {
-          debugPrint('Response Data: ${responseStr.length > 1500 ? responseStr.substring(0, 1500) + '...' : responseStr}');
+          debugPrint(
+              'Response Data: ${responseStr.length > 1500 ? '${responseStr.substring(0, 1500)}...' : responseStr}');
         }
       } else {
         debugPrint('Response Data: null');
       }
       debugPrint('Dio Error Type: ${e.type}');
       debugPrint('Dio Message: ${e.message}');
-      debugPrint('API Key starts with: ${_apiKey?.substring(0, 8) ?? 'null'}...');
+      debugPrint(
+          'API Key starts with: ${_apiKey?.substring(0, 8) ?? 'null'}...');
 
       if (statusCode == 400) {
         throw Exception('请求格式错误(400): $errorMsg');
@@ -382,23 +421,28 @@ class ApiService {
         // Qwen sync API (qwen3-asr-flash) has 10MB base64 limit via chat/completions
         // After base64 encoding, size increases ~33%, so use 5MB raw file limit (更保守)
         const qwenSyncLimit = 5 * 1024 * 1024;
-        debugPrint('Chunking check (Qwen): fileSize=${(fileSize/1024/1024).toStringAsFixed(1)}MB, max=5MB, needsChunk=${fileSize > qwenSyncLimit}');
+        debugPrint(
+            'Chunking check (Qwen): fileSize=${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB, max=5MB, needsChunk=${fileSize > qwenSyncLimit}');
         return fileSize > qwenSyncLimit;
       case AiProvider.openAI:
         // Whisper API has 25MB file limit
         const openAILimit = 20 * 1024 * 1024;
-        debugPrint('Chunking check (OpenAI): fileSize=${(fileSize/1024/1024).toStringAsFixed(1)}MB, max=20MB, needsChunk=${fileSize > openAILimit}');
+        debugPrint(
+            'Chunking check (OpenAI): fileSize=${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB, max=20MB, needsChunk=${fileSize > openAILimit}');
         return fileSize > openAILimit;
       case AiProvider.gemini:
         // Gemini has 20MB limit for free tier
         const geminiLimit = 16 * 1024 * 1024;
-        debugPrint('Chunking check (Gemini): fileSize=${(fileSize/1024/1024).toStringAsFixed(1)}MB, max=16MB, needsChunk=${fileSize > geminiLimit}');
+        debugPrint(
+            'Chunking check (Gemini): fileSize=${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB, max=16MB, needsChunk=${fileSize > geminiLimit}');
         return fileSize > geminiLimit;
       default:
         if (_currentConfig!.transcriptionLimit != null) {
-          final maxSizeBytes = _currentConfig!.transcriptionLimit!.maxFileSizeMB * 1024 * 1024;
+          final maxSizeBytes =
+              _currentConfig!.transcriptionLimit!.maxFileSizeMB * 1024 * 1024;
           final effectiveMaxSize = (maxSizeBytes * 0.7).toInt(); // 更保守的限制
-          debugPrint('Chunking check: fileSize=${(fileSize/1024/1024).toStringAsFixed(1)}MB, max=${(effectiveMaxSize/1024/1024).toStringAsFixed(1)}MB, needsChunk=${fileSize > effectiveMaxSize}');
+          debugPrint(
+              'Chunking check: fileSize=${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB, max=${(effectiveMaxSize / 1024 / 1024).toStringAsFixed(1)}MB, needsChunk=${fileSize > effectiveMaxSize}');
           return fileSize > effectiveMaxSize;
         }
         return false;
@@ -435,7 +479,8 @@ class ApiService {
     final results = <String>[];
 
     for (int i = 0; i < chunks.length; i++) {
-      final chunkMsg = '转写第 ${i + 1}/${chunks.length} 段 (${(chunks[i].length/1024).toStringAsFixed(0)}KB)...';
+      final chunkMsg =
+          '转写第 ${i + 1}/${chunks.length} 段 (${(chunks[i].length / 1024).toStringAsFixed(0)}KB)...';
       debugPrint(chunkMsg);
       onProgress?.call('upload', chunkMsg);
 
@@ -447,18 +492,22 @@ class ApiService {
         try {
           switch (_currentConfig!.transcriptionMethod) {
             case TranscriptionMethod.whisperApi:
-              chunkResult = await _transcribeWhisperChunk(chunks[i], mimeType, model: model);
+              chunkResult = await _transcribeWhisperChunk(chunks[i], mimeType,
+                  model: model);
               break;
             case TranscriptionMethod.audioUpload:
-              chunkResult = await _transcribeAudioUploadChunk(chunks[i], mimeType, model: model);
+              chunkResult = await _transcribeAudioUploadChunk(
+                  chunks[i], mimeType,
+                  model: model);
               break;
             case TranscriptionMethod.nativeAsr:
             case TranscriptionMethod.asyncAsr:
-              chunkResult = await _transcribeNativeAsrChunk(chunks[i], mimeType, model: model);
+              chunkResult = await _transcribeNativeAsrChunk(chunks[i], mimeType,
+                  model: model);
               break;
           }
 
-          if (chunkResult != null && chunkResult.isNotEmpty) {
+          if (chunkResult.isNotEmpty) {
             results.add(chunkResult);
             debugPrint('Chunk ${i + 1} done: ${chunkResult.length} chars');
             onProgress?.call('process', '第 ${i + 1}/${chunks.length} 段转写完成');
@@ -466,7 +515,8 @@ class ApiService {
         } catch (e) {
           retries++;
           debugPrint('Chunk ${i + 1} attempt $retries failed: $e');
-          onProgress?.call('upload', '第 ${i + 1} 段转写失败，重试 $retries/${maxRetries}...');
+          onProgress?.call(
+              'upload', '第 ${i + 1} 段转写失败，重试 $retries/$maxRetries...');
           if (retries <= maxRetries) {
             debugPrint('Retrying chunk ${i + 1} in 3 seconds...');
             await Future.delayed(const Duration(seconds: 3));
@@ -484,7 +534,8 @@ class ApiService {
     }
 
     final combinedResult = results.join('\n');
-    debugPrint('=== Chunked Transcription Done: ${combinedResult.length} chars from ${results.length} chunks ===');
+    debugPrint(
+        '=== Chunked Transcription Done: ${combinedResult.length} chars from ${results.length} chunks ===');
 
     if (combinedResult.isEmpty || combinedResult == '[转写失败: 第1段]') {
       throw Exception('所有分片转写均失败');
@@ -505,11 +556,142 @@ class ApiService {
     // 对于压缩格式（MP3、M4A等），不能简单按字节分片
     // 直接返回原文件，如果太大则会在转写时失败
     // 用户需要使用 WAV 格式或异步接口处理大文件
-    debugPrint('Non-WAV file detected ($mimeType), cannot split compressed audio');
+    debugPrint(
+        'Non-WAV file detected ($mimeType), cannot split compressed audio');
     return [audioBytes];
   }
 
-  Future<String> _transcribeWhisper(String audioFilePath, {required String model}) async {
+  /// 获取音频文件的分段信息（用于重新转写选择）
+  Future<List<AudioChunkInfo>> getAudioChunks(String audioFilePath) async {
+    final file = File(audioFilePath);
+    if (!await file.exists()) {
+      throw Exception('音频文件不存在: $audioFilePath');
+    }
+
+    final audioBytes = await file.readAsBytes();
+    final mimeType = _getMimeType(audioFilePath);
+
+    List<Uint8List> chunks;
+    if (audioFilePath.endsWith('.wav')) {
+      final totalDuration = _getWavDurationSeconds(audioBytes);
+      chunks = _splitWavFile(audioBytes);
+      return List.generate(chunks.length, (index) {
+        final startTime = index * _chunkDurationSeconds;
+        final endTime = (index + 1) * _chunkDurationSeconds;
+        final actualEndTime = endTime > totalDuration ? totalDuration : endTime;
+        return AudioChunkInfo(
+          index: index,
+          startTime: Duration(seconds: startTime),
+          endTime: Duration(seconds: actualEndTime),
+          size: chunks[index].length,
+        );
+      });
+    } else {
+      // 非WAV文件无法分片，返回整个文件作为一个段落
+      return [
+        AudioChunkInfo(
+          index: 0,
+          startTime: Duration.zero,
+          endTime: const Duration(seconds: 0), // 未知时长
+          size: audioBytes.length,
+        ),
+      ];
+    }
+  }
+
+  /// 重新转写指定的段落
+  Future<String> retranscribeChunks(
+    String audioFilePath, {
+    required List<int> chunkIndices,
+    String? model,
+    void Function(String step, String detail)? onProgress,
+  }) async {
+    if (!isConfigured) {
+      throw Exception('API未配置，请先在设置中配置API Key');
+    }
+
+    final effectiveModel = model ?? _currentConfig!.asrModel;
+    debugPrint(
+        'RetranscribeChunks: indices=$chunkIndices, model=$effectiveModel');
+
+    final file = File(audioFilePath);
+    if (!await file.exists()) {
+      throw Exception('音频文件不存在: $audioFilePath');
+    }
+
+    final audioBytes = await file.readAsBytes();
+    final mimeType = _getMimeType(audioFilePath);
+
+    List<Uint8List> allChunks;
+    if (audioFilePath.endsWith('.wav')) {
+      allChunks = _splitWavFile(audioBytes);
+    } else {
+      throw Exception('非WAV文件不支持段落选择转写');
+    }
+
+    if (allChunks.isEmpty) {
+      throw Exception('音频文件格式无效，无法分片');
+    }
+
+    final results = <String>[];
+    final totalChunks = chunkIndices.length;
+
+    for (int i = 0; i < chunkIndices.length; i++) {
+      final chunkIndex = chunkIndices[i];
+      if (chunkIndex < 0 || chunkIndex >= allChunks.length) {
+        debugPrint(
+            'Invalid chunk index: $chunkIndex, total: ${allChunks.length}');
+        continue;
+      }
+
+      final chunkMsg =
+          '转写第 ${chunkIndex + 1}/${allChunks.length} 段 (${i + 1}/$totalChunks 已选)...';
+      debugPrint(chunkMsg);
+      onProgress?.call('upload', chunkMsg);
+
+      try {
+        String? chunkResult;
+        switch (_currentConfig!.transcriptionMethod) {
+          case TranscriptionMethod.whisperApi:
+            chunkResult = await _transcribeWhisperChunk(
+                allChunks[chunkIndex], mimeType,
+                model: effectiveModel);
+            break;
+          case TranscriptionMethod.audioUpload:
+            chunkResult = await _transcribeAudioUploadChunk(
+                allChunks[chunkIndex], mimeType,
+                model: effectiveModel);
+            break;
+          case TranscriptionMethod.nativeAsr:
+          case TranscriptionMethod.asyncAsr:
+            chunkResult = await _transcribeNativeAsrChunk(
+                allChunks[chunkIndex], mimeType,
+                model: effectiveModel);
+            break;
+        }
+
+        if (chunkResult.isNotEmpty) {
+          results.add(chunkResult);
+          debugPrint(
+              'Chunk ${chunkIndex + 1} done: ${chunkResult.length} chars');
+          onProgress?.call('process', '第 ${chunkIndex + 1} 段转写完成');
+        }
+      } catch (e) {
+        debugPrint('Chunk ${chunkIndex + 1} failed: $e');
+        results.add('[转写失败: 第${chunkIndex + 1}段]');
+        onProgress?.call('process', '第 ${chunkIndex + 1} 段转写失败');
+      }
+
+      if (i < chunkIndices.length - 1) {
+        await Future.delayed(const Duration(seconds: 2));
+      }
+    }
+
+    return results.join('\n');
+  }
+
+  Future<String> _transcribeWhisper(String audioFilePath,
+      {required String model}) async {
     debugPrint('Using Whisper API with model: $model');
 
     final formData = FormData.fromMap({
@@ -527,18 +709,22 @@ class ApiService {
 
     final text = response.data['text'] ?? '';
     if (text.isEmpty) throw Exception('转写返回空结果');
-    await StorageService.incrementUsageStat(_currentConfig!.name, 'transcription', tokens: text.length);
+    await StorageService.incrementUsageStat(
+        _currentConfig!.name, 'transcription',
+        tokens: text.length);
     return text;
   }
 
-  Future<String> _transcribeAudioUpload(String audioFilePath, {required String model}) async {
+  Future<String> _transcribeAudioUpload(String audioFilePath,
+      {required String model}) async {
     debugPrint('Using Gemini Audio Upload with model: $model');
 
     final bytes = await File(audioFilePath).readAsBytes();
     final base64Audio = base64Encode(bytes);
     final mimeType = _getMimeType(audioFilePath);
 
-    debugPrint('Audio: mimeType=$mimeType, size=${(bytes.length / 1024 / 1024).toStringAsFixed(1)}MB');
+    debugPrint(
+        'Audio: mimeType=$mimeType, size=${(bytes.length / 1024 / 1024).toStringAsFixed(1)}MB');
 
     final response = await _dio.post(
       '/models/$model:generateContent',
@@ -547,17 +733,26 @@ class ApiService {
         'contents': [
           {
             'parts': [
-              {'text': 'Please transcribe the following audio file to text. Output only the transcribed text, without any additional explanation.'},
-              {'inline_data': {'mime_type': mimeType, 'data': base64Audio}}
+              {
+                'text':
+                    'Please transcribe the following audio file to text. Output only the transcribed text, without any additional explanation.'
+              },
+              {
+                'inline_data': {'mime_type': mimeType, 'data': base64Audio}
+              }
             ]
           }
         ]
       },
     );
 
-    final text = response.data['candidates']?[0]?['content']?['parts']?[0]?['text'] ?? '';
+    final text = response.data['candidates']?[0]?['content']?['parts']?[0]
+            ?['text'] ??
+        '';
     if (text.isEmpty) throw Exception('转写返回空结果');
-    await StorageService.incrementUsageStat(_currentConfig!.name, 'transcription', tokens: text.length);
+    await StorageService.incrementUsageStat(
+        _currentConfig!.name, 'transcription',
+        tokens: text.length);
     return text;
   }
 
@@ -572,7 +767,8 @@ class ApiService {
     final fileSize = await file.length();
     final mimeType = _getMimeType(audioFilePath);
 
-    debugPrint('Audio: mimeType=$mimeType, size=${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB');
+    debugPrint(
+        'Audio: mimeType=$mimeType, size=${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB');
 
     switch (_currentConfig!.provider) {
       case AiProvider.qwen:
@@ -584,28 +780,36 @@ class ApiService {
     }
   }
 
-  Future<String> _transcribeQwenAsr(String base64Audio, String mimeType, {required String model}) async {
+  Future<String> _transcribeQwenAsr(String base64Audio, String mimeType,
+      {required String model}) async {
     final audioBytes = base64Decode(base64Audio);
     return await _transcribeQwenAsrBytes(audioBytes, mimeType, model: model);
   }
 
-  Future<String> _transcribeQwenAsrBytes(Uint8List audioBytes, String mimeType, {required String model}) async {
+  Future<String> _transcribeQwenAsrBytes(Uint8List audioBytes, String mimeType,
+      {required String model}) async {
     final audioSizeMB = audioBytes.length / 1024 / 1024;
 
     // Use the provided model, or fall back to config's asrModel, then hardcoded default
-    final asrModel = model.isNotEmpty ? model : (_currentConfig?.asrModel.isNotEmpty == true ? _currentConfig!.asrModel : 'qwen3-asr-flash');
-    debugPrint('Qwen ASR: model=$asrModel, mimeType=$mimeType, size=${audioSizeMB.toStringAsFixed(1)}MB');
+    final asrModel = model.isNotEmpty
+        ? model
+        : (_currentConfig?.asrModel.isNotEmpty == true
+            ? _currentConfig!.asrModel
+            : 'qwen3-asr-flash');
+    debugPrint(
+        'Qwen ASR: model=$asrModel, mimeType=$mimeType, size=${audioSizeMB.toStringAsFixed(1)}MB');
 
-    // Qwen ASR uses /chat/completions with input_audio (Qwen native support)
+    // Qwen ASR uses OpenAI compatible mode with input_audio
+    // Reference: https://help.aliyun.com/zh/model-studio/qwen-asr-api-reference
     final base64Audio = base64Encode(audioBytes);
     final dataUri = 'data:$mimeType;base64,$base64Audio';
-    
+
     debugPrint('Qwen ASR: calling /chat/completions with input_audio');
-    
+
     final response = await _dio.post(
       '/chat/completions',
       data: {
-        'model': 'qwen3.6-flash',
+        'model': asrModel,
         'messages': [
           {
             'role': 'user',
@@ -623,18 +827,23 @@ class ApiService {
       },
     );
 
-    debugPrint('Qwen ASR response: ${response.data.toString().substring(0, response.data.toString().length > 800 ? 800 : response.data.toString().length)}...');
-    
+    debugPrint(
+        'Qwen ASR response: ${response.data.toString().substring(0, response.data.toString().length > 800 ? 800 : response.data.toString().length)}...');
+
     final text = response.data['choices']?[0]?['message']?['content'] ?? '';
     debugPrint('Qwen ASR result: ${text.length} chars');
     if (text.isEmpty) throw Exception('转写返回空结果');
-    await StorageService.incrementUsageStat(_currentConfig!.name, 'transcription', tokens: text.length);
+    await StorageService.incrementUsageStat(
+        _currentConfig!.name, 'transcription',
+        tokens: text.length);
     return text;
   }
 
-  Future<String> _transcribeWhisperChunk(Uint8List chunkBytes, String mimeType, {required String model}) async {
+  Future<String> _transcribeWhisperChunk(Uint8List chunkBytes, String mimeType,
+      {required String model}) async {
     final tempDir = Directory.systemTemp;
-    final tempFile = File(p.join(tempDir.path, 'chunk_${DateTime.now().millisecondsSinceEpoch}.wav'));
+    final tempFile = File(p.join(
+        tempDir.path, 'chunk_${DateTime.now().millisecondsSinceEpoch}.wav'));
     await tempFile.writeAsBytes(chunkBytes);
 
     try {
@@ -659,7 +868,9 @@ class ApiService {
     }
   }
 
-  Future<String> _transcribeAudioUploadChunk(Uint8List chunkBytes, String mimeType, {required String model}) async {
+  Future<String> _transcribeAudioUploadChunk(
+      Uint8List chunkBytes, String mimeType,
+      {required String model}) async {
     final base64Chunk = base64Encode(chunkBytes);
 
     final response = await _dio.post(
@@ -669,22 +880,31 @@ class ApiService {
         'contents': [
           {
             'parts': [
-              {'text': 'Please transcribe the following audio file to text. Output only the transcribed text.'},
-              {'inline_data': {'mime_type': mimeType, 'data': base64Chunk}}
+              {
+                'text':
+                    'Please transcribe the following audio file to text. Output only the transcribed text.'
+              },
+              {
+                'inline_data': {'mime_type': mimeType, 'data': base64Chunk}
+              }
             ]
           }
         ]
       },
     );
 
-    return response.data['candidates']?[0]?['content']?['parts']?[0]?['text'] ?? '';
+    return response.data['candidates']?[0]?['content']?['parts']?[0]?['text'] ??
+        '';
   }
 
-  Future<String> _transcribeNativeAsrChunk(Uint8List chunkBytes, String mimeType, {required String model}) async {
+  Future<String> _transcribeNativeAsrChunk(
+      Uint8List chunkBytes, String mimeType,
+      {required String model}) async {
     switch (_currentConfig!.provider) {
       case AiProvider.qwen:
         // Pass bytes directly, avoid double base64 encode/decode
-        return await _transcribeQwenAsrBytes(chunkBytes, mimeType, model: model);
+        return await _transcribeQwenAsrBytes(chunkBytes, mimeType,
+            model: model);
       default:
         throw Exception('${_currentConfig!.displayName} 不支持语音转写');
     }
@@ -697,11 +917,22 @@ class ApiService {
     try {
       switch (_currentConfig!.provider) {
         case AiProvider.claude:
-          return await _claudeChat(model: useModel, systemPrompt: 'Summarize the following content into a todo list. Each item should include: task description, priority (high/medium/low), and deadline (if mentioned).', userContent: text);
+          return await _claudeChat(
+              model: useModel,
+              systemPrompt:
+                  'Summarize the following content into a todo list. Each item should include: task description, priority (high/medium/low), and deadline (if mentioned).',
+              userContent: text);
         case AiProvider.gemini:
-          return await _geminiChat(model: useModel, prompt: 'Summarize the following content into a todo list. Each item should include: task description, priority (high/medium/low), and deadline (if mentioned).\n\nContent: $text');
+          return await _geminiChat(
+              model: useModel,
+              prompt:
+                  'Summarize the following content into a todo list. Each item should include: task description, priority (high/medium/low), and deadline (if mentioned).\n\nContent: $text');
         default:
-          return await _openAIStyleChat(model: useModel, systemPrompt: 'Summarize the following content into a todo list. Each item should include: task description, priority (high/medium/low), and deadline (if mentioned).', userContent: text);
+          return await _openAIStyleChat(
+              model: useModel,
+              systemPrompt:
+                  'Summarize the following content into a todo list. Each item should include: task description, priority (high/medium/low), and deadline (if mentioned).',
+              userContent: text);
       }
     } on DioException catch (e) {
       throw Exception('摘要失败: ${_extractDioError(e)}');
@@ -717,11 +948,24 @@ class ApiService {
     try {
       switch (_currentConfig!.provider) {
         case AiProvider.claude:
-          return await _claudeChat(model: useModel, systemPrompt: 'Generate a short title (max 20 characters) for the following content. Return only the title text.', userContent: text, maxTokens: 50);
+          return await _claudeChat(
+              model: useModel,
+              systemPrompt:
+                  'Generate a short title (max 20 characters) for the following content. Return only the title text.',
+              userContent: text,
+              maxTokens: 50);
         case AiProvider.gemini:
-          return await _geminiChat(model: useModel, prompt: 'Generate a short title (max 20 characters) for the following content. Return only the title text.\n\nContent: $text');
+          return await _geminiChat(
+              model: useModel,
+              prompt:
+                  'Generate a short title (max 20 characters) for the following content. Return only the title text.\n\nContent: $text');
         default:
-          return await _openAIStyleChat(model: useModel, systemPrompt: 'Generate a short title (max 20 characters) for the following content. Return only the title text.', userContent: text, maxTokens: 50);
+          return await _openAIStyleChat(
+              model: useModel,
+              systemPrompt:
+                  'Generate a short title (max 20 characters) for the following content. Return only the title text.',
+              userContent: text,
+              maxTokens: 50);
       }
     } on DioException catch (e) {
       throw Exception('标题生成失败: ${_extractDioError(e)}');
@@ -749,20 +993,36 @@ class ApiService {
     try {
       switch (_currentConfig!.provider) {
         case AiProvider.claude:
-          return await _claudeChat(model: useModel, systemPrompt: systemPrompt, userContent: prompt);
+          return await _claudeChat(
+              model: useModel, systemPrompt: systemPrompt, userContent: prompt);
         case AiProvider.gemini:
-          return await _geminiChatWithSystem(model: useModel, prompt: prompt, systemPrompt: systemPrompt);
+          return await _geminiChatWithSystem(
+              model: useModel, prompt: prompt, systemPrompt: systemPrompt);
         default:
-          return await _openAIStyleChat(model: useModel, systemPrompt: systemPrompt, userContent: prompt);
+          return await _openAIStyleChat(
+              model: useModel, systemPrompt: systemPrompt, userContent: prompt);
       }
     } on DioException catch (e) {
-      throw Exception('对话失败: ${_extractDioError(e)}');
+      final errorMsg = _extractDioError(e);
+      final statusCode = e.response?.statusCode;
+      debugPrint('Chat failed: status=$statusCode, error=$errorMsg');
+      debugPrint('Request URL: ${e.requestOptions.uri}');
+      debugPrint(
+          'Request data: ${e.requestOptions.data.toString().substring(0, e.requestOptions.data.toString().length > 200 ? 200 : e.requestOptions.data.toString().length)}...');
+      throw Exception('对话失败: $errorMsg');
     } catch (e) {
       throw Exception('对话失败: $e');
     }
   }
 
-  Future<String> _openAIStyleChat({required String model, required String systemPrompt, required String userContent, int maxTokens = 1000}) async {
+  Future<String> _openAIStyleChat(
+      {required String model,
+      required String systemPrompt,
+      required String userContent,
+      int maxTokens = 1000}) async {
+    debugPrint(
+        'Chat: model=$model, prompt=${userContent.substring(0, userContent.length > 50 ? 50 : userContent.length)}...');
+
     final response = await _dio.post('/chat/completions', data: {
       'model': model,
       'messages': [
@@ -772,53 +1032,371 @@ class ApiService {
       'temperature': 0.7,
       'max_tokens': maxTokens,
     });
+
+    debugPrint(
+        'Chat response: ${response.data.toString().substring(0, response.data.toString().length > 500 ? 500 : response.data.toString().length)}...');
+
     final content = response.data['choices'][0]['message']['content'] ?? '';
     final tokens = response.data['usage']?['total_tokens'] as int? ?? 0;
-    await StorageService.incrementUsageStat(_currentConfig!.name, 'chat', tokens: tokens);
+    await StorageService.incrementUsageStat(_currentConfig!.name, 'chat',
+        tokens: tokens);
     return content;
   }
 
-  Future<String> _claudeChat({required String model, required String systemPrompt, required String userContent, int maxTokens = 1000}) async {
+  Future<String> _claudeChat(
+      {required String model,
+      required String systemPrompt,
+      required String userContent,
+      int maxTokens = 1000}) async {
     final response = await _dio.post('/messages', data: {
       'model': model,
       'max_tokens': maxTokens,
       'system': systemPrompt,
-      'messages': [{'role': 'user', 'content': userContent}],
+      'messages': [
+        {'role': 'user', 'content': userContent}
+      ],
     });
     final content = response.data['content'][0]['text'] ?? '';
-    await StorageService.incrementUsageStat(_currentConfig!.name, 'chat', tokens: content.length);
+    await StorageService.incrementUsageStat(_currentConfig!.name, 'chat',
+        tokens: content.length);
     return content;
   }
 
-  Future<String> _geminiChat({required String model, required String prompt}) async {
-    return await _geminiChatWithSystem(model: model, prompt: prompt, systemPrompt: '');
+  Future<String> _geminiChat(
+      {required String model, required String prompt}) async {
+    return await _geminiChatWithSystem(
+        model: model, prompt: prompt, systemPrompt: '');
   }
 
-  Future<String> _geminiChatWithSystem({required String model, required String prompt, required String systemPrompt}) async {
+  Future<String> _geminiChatWithSystem(
+      {required String model,
+      required String prompt,
+      required String systemPrompt}) async {
     final contents = <Map<String, dynamic>>[];
 
     if (systemPrompt.isNotEmpty) {
-      contents.add({'role': 'user', 'parts': [{'text': systemPrompt}]});
-      contents.add({'role': 'model', 'parts': [{'text': 'Understood. I will follow these instructions.'}]});
+      contents.add({
+        'role': 'user',
+        'parts': [
+          {'text': systemPrompt}
+        ]
+      });
+      contents.add({
+        'role': 'model',
+        'parts': [
+          {'text': 'Understood. I will follow these instructions.'}
+        ]
+      });
     }
 
-    contents.add({'parts': [{'text': prompt}]});
+    contents.add({
+      'parts': [
+        {'text': prompt}
+      ]
+    });
 
-    final response = await _dio.post('/models/$model:generateContent', queryParameters: {'key': _apiKey}, data: {
+    final response =
+        await _dio.post('/models/$model:generateContent', queryParameters: {
+      'key': _apiKey
+    }, data: {
       'contents': contents,
     });
-    final content = response.data['candidates'][0]['content']['parts'][0]['text'] ?? '';
-    await StorageService.incrementUsageStat(_currentConfig!.name, 'chat', tokens: content.length);
+    final content =
+        response.data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+    await StorageService.incrementUsageStat(_currentConfig!.name, 'chat',
+        tokens: content.length);
+    return content;
+  }
+
+  // ==================== 图片识别（OCR via LLM Vision）====================
+
+  Future<String> recognizeImage(String imagePath,
+      {String? model, String? systemPrompt}) async {
+    if (!isConfigured) {
+      throw Exception('API未配置，请先在设置中配置API Key');
+    }
+
+    final file = File(imagePath);
+    if (!await file.exists()) {
+      throw Exception('图片文件不存在: $imagePath');
+    }
+
+    final bytes = await file.readAsBytes();
+    final base64Image = base64Encode(bytes);
+    final useModel = model ?? _currentConfig!.defaultModel;
+    final prompt = systemPrompt ??
+        '请识别这张图片中的所有文字内容。如果图片包含表格，请尽量保持表格结构。如果图片是文档，请按段落输出文字。只输出识别到的文字内容，不要添加任何解释。';
+
+    debugPrint('RecognizeImage: provider=${_currentConfig!.name}, model=$useModel');
+
+    try {
+      switch (_currentConfig!.provider) {
+        case AiProvider.gemini:
+          return await _geminiRecognizeImage(base64Image, prompt: prompt, model: useModel);
+        case AiProvider.claude:
+          return await _claudeRecognizeImage(base64Image, prompt: prompt, model: useModel);
+        default:
+          return await _openAIStyleRecognizeImage(base64Image, prompt: prompt, model: useModel);
+      }
+    } on DioException catch (e) {
+      final errorMsg = _extractDioError(e);
+      debugPrint('Image recognition failed: $errorMsg');
+      throw Exception('图片识别失败: $errorMsg');
+    } catch (e) {
+      throw Exception('图片识别失败: $e');
+    }
+  }
+
+  Future<String> _openAIStyleRecognizeImage(String base64Image,
+      {required String prompt, required String model}) async {
+    final response = await _dio.post('/chat/completions', data: {
+      'model': model,
+      'messages': [
+        {
+          'role': 'user',
+          'content': [
+            {'type': 'text', 'text': prompt},
+            {
+              'type': 'image_url',
+              'image_url': {
+                'url': 'data:image/jpeg;base64,$base64Image',
+              }
+            },
+          ],
+        },
+      ],
+      'max_tokens': 4000,
+    });
+
+    final content = response.data['choices'][0]['message']['content'] ?? '';
+    await StorageService.incrementUsageStat(_currentConfig!.name, 'vision',
+        tokens: content.length);
+    return content;
+  }
+
+  Future<String> _claudeRecognizeImage(String base64Image,
+      {required String prompt, required String model}) async {
+    final response = await _dio.post('/messages', data: {
+      'model': model,
+      'max_tokens': 4000,
+      'messages': [
+        {
+          'role': 'user',
+          'content': [
+            {'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/jpeg', 'data': base64Image}},
+            {'type': 'text', 'text': prompt},
+          ],
+        },
+      ],
+    });
+    final content = response.data['content'][0]['text'] ?? '';
+    await StorageService.incrementUsageStat(_currentConfig!.name, 'vision',
+        tokens: content.length);
+    return content;
+  }
+
+  Future<String> _geminiRecognizeImage(String base64Image,
+      {required String prompt, required String model}) async {
+    final response = await _dio.post(
+      '/models/$model:generateContent',
+      queryParameters: {'key': _apiKey},
+      data: {
+        'contents': [
+          {
+            'parts': [
+              {'text': prompt},
+              {
+                'inline_data': {
+                  'mime_type': 'image/jpeg',
+                  'data': base64Image,
+                }
+              },
+            ],
+          },
+        ],
+      },
+    );
+    final content =
+        response.data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+    await StorageService.incrementUsageStat(_currentConfig!.name, 'vision',
+        tokens: content.length);
     return content;
   }
 
   // ==================== 异步转写方法 ====================
 
+  Stream<String> chatCompletionStream(String prompt,
+      {String? model,
+      String systemPrompt = 'You are a helpful assistant.'}) async* {
+    if (!isConfigured) throw Exception('API not configured');
+    final useModel = model ?? _currentConfig!.defaultModel;
+
+    switch (_currentConfig!.provider) {
+      case AiProvider.claude:
+        yield* _claudeChatStream(
+            model: useModel, systemPrompt: systemPrompt, userContent: prompt);
+        break;
+      case AiProvider.gemini:
+        yield* _geminiChatStream(
+            model: useModel, prompt: prompt, systemPrompt: systemPrompt);
+        break;
+      default:
+        yield* _openAIStyleChatStream(
+            model: useModel, systemPrompt: systemPrompt, userContent: prompt);
+    }
+  }
+
+  Stream<String> _openAIStyleChatStream(
+      {required String model,
+      required String systemPrompt,
+      required String userContent,
+      int maxTokens = 4000}) async* {
+    final response = await _dio.post<ResponseBody>(
+      '/chat/completions',
+      data: {
+        'model': model,
+        'messages': [
+          {'role': 'system', 'content': systemPrompt},
+          {'role': 'user', 'content': userContent},
+        ],
+        'temperature': 0.7,
+        'max_tokens': maxTokens,
+        'stream': true,
+      },
+      options: Options(responseType: ResponseType.stream),
+    );
+
+    String fullContent = '';
+    await for (final chunk in response.data!.stream) {
+      final text = utf8.decode(chunk, allowMalformed: true);
+      final lines = text.split('\n');
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        final data = trimmed.substring(6);
+        if (data == '[DONE]') break;
+        try {
+          final json = jsonDecode(data) as Map<String, dynamic>;
+          final delta = json['choices']?[0]?['delta']?['content'] as String?;
+          if (delta != null) {
+            fullContent += delta;
+            yield delta;
+          }
+        } catch (_) {}
+      }
+    }
+    await StorageService.incrementUsageStat(_currentConfig!.name, 'chat',
+        tokens: fullContent.length);
+  }
+
+  Stream<String> _claudeChatStream(
+      {required String model,
+      required String systemPrompt,
+      required String userContent,
+      int maxTokens = 4000}) async* {
+    final response = await _dio.post<ResponseBody>(
+      '/messages',
+      data: {
+        'model': model,
+        'max_tokens': maxTokens,
+        'system': systemPrompt,
+        'messages': [
+          {'role': 'user', 'content': userContent}
+        ],
+        'stream': true,
+      },
+      options: Options(responseType: ResponseType.stream),
+    );
+
+    String fullContent = '';
+    await for (final chunk in response.data!.stream) {
+      final text = utf8.decode(chunk, allowMalformed: true);
+      final lines = text.split('\n');
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        final data = trimmed.substring(6);
+        try {
+          final json = jsonDecode(data) as Map<String, dynamic>;
+          final type = json['type'] as String?;
+          if (type == 'content_block_delta') {
+            final delta = json['delta']?['text'] as String?;
+            if (delta != null) {
+              fullContent += delta;
+              yield delta;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    await StorageService.incrementUsageStat(_currentConfig!.name, 'chat',
+        tokens: fullContent.length);
+  }
+
+  Stream<String> _geminiChatStream(
+      {required String model,
+      required String prompt,
+      required String systemPrompt}) async* {
+    final contents = <Map<String, dynamic>>[];
+    if (systemPrompt.isNotEmpty) {
+      contents.add({
+        'role': 'user',
+        'parts': [
+          {'text': systemPrompt}
+        ]
+      });
+      contents.add({
+        'role': 'model',
+        'parts': [
+          {'text': 'Understood. I will follow these instructions.'}
+        ]
+      });
+    }
+    contents.add({
+      'parts': [
+        {'text': prompt}
+      ]
+    });
+
+    final response = await _dio.post<ResponseBody>(
+      '/models/$model:streamGenerateContent?alt=sse&key=$_apiKey',
+      data: {'contents': contents},
+      options: Options(responseType: ResponseType.stream),
+    );
+
+    String fullContent = '';
+    await for (final chunk in response.data!.stream) {
+      final text = utf8.decode(chunk, allowMalformed: true);
+      final lines = text.split('\n');
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        final data = trimmed.substring(6);
+        try {
+          final json = jsonDecode(data) as Map<String, dynamic>;
+          final parts =
+              json['candidates']?[0]?['content']?['parts'] as List<dynamic>?;
+          if (parts != null) {
+            for (final part in parts) {
+              final text = part['text'] as String?;
+              if (text != null) {
+                fullContent += text;
+                yield text;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    await StorageService.incrementUsageStat(_currentConfig!.name, 'chat',
+        tokens: fullContent.length);
+  }
+
   /// 异步转写音频（适用于长音频 > 5分钟）
-  /// 
+  ///
   /// 使用 qwen3-asr-flash-filetrans 模型
   /// 支持最长12小时，最大2GB音频文件
-  /// 
+  ///
   /// 流程：
   /// 1. 上传音频文件获取 file_url
   /// 2. 提交异步转写任务
@@ -845,7 +1423,7 @@ class ApiService {
 
     final fileSize = await file.length();
     final fileSizeMB = fileSize / 1024 / 1024;
-    
+
     debugPrint('=== Async Transcription Start ===');
     debugPrint('Provider: ${_currentConfig!.name}');
     debugPrint('AudioFile: $audioFilePath');
@@ -894,7 +1472,8 @@ class ApiService {
     final fileBytes = await file.readAsBytes();
     final base64Data = base64Encode(fileBytes);
 
-    debugPrint('Uploading audio: $fileName, mimeType: $mimeType, size: ${fileBytes.length} bytes');
+    debugPrint(
+        'Uploading audio: $fileName, mimeType: $mimeType, size: ${fileBytes.length} bytes');
 
     // 调用 DashScope 文件上传接口
     final response = await _dio.post(
@@ -972,7 +1551,8 @@ class ApiService {
     Duration interval = const Duration(seconds: 5), // 每次间隔5秒
   }) async {
     for (int attempt = 0; attempt < maxRetries; attempt++) {
-      debugPrint('Polling task status: $taskId (attempt ${attempt + 1}/$maxRetries)');
+      debugPrint(
+          'Polling task status: $taskId (attempt ${attempt + 1}/$maxRetries)');
 
       final response = await _dio.get(
         'https://dashscope.aliyuncs.com/api/v1/tasks/$taskId',
@@ -987,8 +1567,10 @@ class ApiService {
         throw Exception('查询任务状态失败: ${response.statusCode}');
       }
 
-      final taskStatus = response.data['output']?['task_status'] as String? ?? 'UNKNOWN';
-      final result = response.data['output']?['results']?['transcription']?['text'] as String?;
+      final taskStatus =
+          response.data['output']?['task_status'] as String? ?? 'UNKNOWN';
+      final result = response.data['output']?['results']?['transcription']
+          ?['text'] as String?;
 
       debugPrint('Task status: $taskStatus');
 
@@ -1006,7 +1588,8 @@ class ApiService {
             throw Exception('转写成功但结果为空');
           }
         case 'FAILED':
-          final errorMessage = response.data['output']?['error_message'] as String? ?? '未知错误';
+          final errorMessage =
+              response.data['output']?['error_message'] as String? ?? '未知错误';
           throw Exception('转写任务失败: $errorMessage');
         case 'UNKNOWN':
           throw Exception('任务不存在或状态未知');

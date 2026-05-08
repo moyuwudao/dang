@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/empty_state_widget.dart';
 import '../../../data/models/record_model.dart';
 import '../providers/record_provider.dart';
+import '../../../routes/app_router.dart';
 
 class RecordList extends ConsumerWidget {
   const RecordList({super.key});
@@ -15,49 +17,37 @@ class RecordList extends ConsumerWidget {
     return recordsAsync.when(
       data: (records) {
         if (records.isEmpty) {
-          return _buildEmptyState(context);
+          return EmptyStateType.records(
+            onAdd: () => context.goNamed(AppRoute.recording.name),
+          );
         }
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: records.length,
-          itemBuilder: (context, index) {
-            final record = records[index];
-            return _RecordCard(record: record);
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(recordsProvider);
           },
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: records.length,
+            itemBuilder: (context, index) {
+              final record = records[index];
+              return _RecordCard(record: record);
+            },
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
-        child: Text('加载失败: $error'),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.mic_none_outlined,
-            size: 64,
-            color: AppColors.textTertiary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '还没有记录',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '点击右下角按钮开始录音',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textTertiary,
-                ),
-          ),
-        ],
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('加载失败: $error'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => ref.refresh(recordsProvider),
+              child: const Text('重试'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -72,8 +62,20 @@ class _RecordCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Dismissible(
       key: Key('record_${record.id}'),
-      direction: DismissDirection.endToStart,
+      direction: DismissDirection.horizontal,
       background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.share,
+          color: Colors.white,
+        ),
+      ),
+      secondaryBackground: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
@@ -86,7 +88,33 @@ class _RecordCard extends ConsumerWidget {
         ),
       ),
       onDismissed: (direction) {
-        ref.read(recordNotifierProvider.notifier).deleteRecord(record.id);
+        if (direction == DismissDirection.endToStart) {
+          ref.read(recordNotifierProvider.notifier).deleteRecord(record.id);
+        } else {
+          _handleShare(context, record);
+        }
+      },
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.endToStart) {
+          return await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('确认删除'),
+              content: const Text('确定要删除这条记录吗？'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('删除'),
+                ),
+              ],
+            ),
+          );
+        }
+        return true;
       },
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
@@ -103,11 +131,23 @@ class _RecordCard extends ConsumerWidget {
                     _buildTypeIcon(),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        _formatDate(record.createdAt),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textTertiary,
-                            ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _formatDate(record.createdAt),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textTertiary,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _buildInfoText(record),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textTertiary,
+                                ),
+                          ),
+                        ],
                       ),
                     ),
                     _buildStatusBadge(),
@@ -159,6 +199,10 @@ class _RecordCard extends ConsumerWidget {
         icon = Icons.camera_alt;
         color = AppColors.secondary;
         break;
+      case RecordType.text:
+        icon = Icons.text_fields;
+        color = AppColors.info;
+        break;
     }
 
     return Container(
@@ -172,6 +216,10 @@ class _RecordCard extends ConsumerWidget {
   }
 
   Widget _buildStatusBadge() {
+    if (record.transcriptionStatus == TranscriptionStatus.none) {
+      return const SizedBox.shrink();
+    }
+
     Color color;
     String text;
 
@@ -192,6 +240,8 @@ class _RecordCard extends ConsumerWidget {
         color = AppColors.error;
         text = '失败';
         break;
+      case TranscriptionStatus.none:
+        return const SizedBox.shrink();
     }
 
     return Container(
@@ -212,19 +262,37 @@ class _RecordCard extends ConsumerWidget {
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
+    return '${date.year}年${date.month}月${date.day}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
 
-    if (diff.inMinutes < 1) {
-      return '刚刚';
-    } else if (diff.inHours < 1) {
-      return '${diff.inMinutes}分钟前';
-    } else if (diff.inDays < 1) {
-      return '${diff.inHours}小时前';
-    } else if (diff.inDays < 7) {
-      return '${diff.inDays}天前';
-    } else {
-      return '${date.month}月${date.day}日';
+  String _buildInfoText(RecordModel record) {
+    final parts = <String>[];
+    
+    switch (record.type) {
+      case RecordType.audio:
+        parts.add('语音记录');
+        break;
+      case RecordType.ocr:
+        parts.add('OCR识别');
+        break;
+      case RecordType.text:
+        parts.add('文本记录');
+        break;
     }
+    
+    if (record.content != null && record.content!.isNotEmpty) {
+      parts.add('${record.content!.length}字');
+    }
+    
+    return parts.join(' · ');
+  }
+
+  void _handleShare(BuildContext context, RecordModel record) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('正在准备分享...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
   }
 }

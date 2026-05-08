@@ -78,5 +78,19 @@
   "helpAndFeedback": "帮助与反馈",
   "contactUs": "联系我们",
   "rateApp": "评价应用",
-  "shareApp": "分享应用"
+  "shareApp": "分享应用",
+  "textInput": "文本录入",
+  "textInputHint": "在此输入文本内容...",
+  "usageStatistics": "使用统计",
+  "usageStatsDetail": "使用详情",
+  "usageStatsClear": "清除统计",
+  "usageStatsClearConfirm": "确定要清除所有使用统计吗？此操作无法撤销。",
+  "usageStatsEmpty": "暂无使用数据",
+  "usageStatsEmptyHint": "使用AI功能后将显示统计数据",
+  "calls": "次调用",
+  "tokens": "个Token",
+  "lastUsed": "最后使用",
+  "features": "功能",
+  "cancel": "取消",
+  "clear": "清除"
 }

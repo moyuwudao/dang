@@ -315,5 +315,61 @@
   "shareApp": "Share App",
   "@shareApp": {
     "description": "Share app option"
+  },
+  "textInput": "Text Input",
+  "@textInput": {
+    "description": "Text input button"
+  },
+  "textInputHint": "Enter text content here...",
+  "@textInputHint": {
+    "description": "Text input hint"
+  },
+  "usageStatistics": "Usage Statistics",
+  "@usageStatistics": {
+    "description": "Usage statistics section title"
+  },
+  "usageStatsDetail": "Usage Details",
+  "@usageStatsDetail": {
+    "description": "Usage stats detail button"
+  },
+  "usageStatsClear": "Clear Statistics",
+  "@usageStatsClear": {
+    "description": "Clear usage stats button"
+  },
+  "usageStatsClearConfirm": "Are you sure you want to clear all usage statistics? This action cannot be undone.",
+  "@usageStatsClearConfirm": {
+    "description": "Clear usage stats confirmation"
+  },
+  "usageStatsEmpty": "No usage data yet",
+  "@usageStatsEmpty": {
+    "description": "No usage data message"
+  },
+  "usageStatsEmptyHint": "Use AI features to see statistics",
+  "@usageStatsEmptyHint": {
+    "description": "No usage data hint"
+  },
+  "calls": "calls",
+  "@calls": {
+    "description": "Calls count label"
+  },
+  "tokens": "tokens",
+  "@tokens": {
+    "description": "Tokens count label"
+  },
+  "lastUsed": "Last used",
+  "@lastUsed": {
+    "description": "Last used label"
+  },
+  "features": "Features",
+  "@features": {
+    "description": "Features label"
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  "clear": "Clear",
+  "@clear": {
+    "description": "Clear button"
   }
 }

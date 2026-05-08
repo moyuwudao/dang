@@ -33,6 +33,7 @@ class RecordRepository {
     String? audioPath,
     String? imagePath,
     List<String> tags = const [],
+    TranscriptionStatus? transcriptionStatus,
   }) async {
     final now = DateTime.now();
     final companion = RecordsCompanion(
@@ -43,7 +44,7 @@ class RecordRepository {
       createdAt: Value(now),
       updatedAt: Value(now),
       tags: Value(jsonEncode(tags)),
-      transcriptionStatus: const Value('pending'),
+      transcriptionStatus: Value(transcriptionStatus?.name ?? 'pending'),
       transcriptionError: const Value.absent(),
       isFavorite: const Value(false),
     );
@@ -70,6 +71,41 @@ class RecordRepository {
     await _database.updateFavorite(id, isFavorite);
   }
 
+  Future<void> addAiAnalysis(int id, AiAnalysisResult result) async {
+    final record = await _database.getRecordById(id);
+    if (record == null) return;
+
+    final results = _parseAiAnalysis(record.aiAnalysis ?? '');
+    
+    final existingIndex = results.indexWhere((r) => r.roleId == result.roleId);
+    if (existingIndex >= 0) {
+      results[existingIndex] = result;
+    } else {
+      results.add(result);
+    }
+
+    await _database.updateAiAnalysis(id, jsonEncode(results.map((r) => r.toJson()).toList()));
+  }
+
+  Future<void> removeAiAnalysis(int id, String roleId) async {
+    final record = await _database.getRecordById(id);
+    if (record == null) return;
+
+    final results = _parseAiAnalysis(record.aiAnalysis ?? '');
+    results.removeWhere((r) => r.roleId == roleId);
+
+    await _database.updateAiAnalysis(id, jsonEncode(results.map((r) => r.toJson()).toList()));
+  }
+
+  Future<void> updateSupplements(int id, List<SupplementItem> supplements) async {
+    final supplementsJson = supplements.map((s) => s.toJson()).toList();
+    await _database.updateSupplements(id, jsonEncode(supplementsJson));
+  }
+
+  Future<void> updateRecordType(int id, RecordType type) async {
+    await _database.updateRecordType(id, type.name);
+  }
+
   Future<void> deleteRecord(int id) async {
     await _database.deleteRecord(id);
   }
@@ -80,9 +116,38 @@ class RecordRepository {
         );
   }
 
+  Stream<List<RecordModel>> watchFavoriteRecords() {
+    return _database.watchFavoriteRecords().map(
+          (records) => records.map(_mapToModel).toList(),
+        );
+  }
+
+  Future<List<RecordModel>> getRecordsWithPagination(int offset, int limit) async {
+    final records = await _database.getRecordsWithPagination(offset, limit);
+    return records.map(_mapToModel).toList();
+  }
+
+  Future<int> getRecordCount() async {
+    return await _database.getRecordCount();
+  }
+
   Future<List<RecordModel>> searchRecords(String query) async {
     final records = await _database.searchRecords(query);
     return records.map(_mapToModel).toList();
+  }
+
+  Future<List<RecordModel>> searchRecordsWithTags(String query, List<String> tags) async {
+    final records = await _database.searchRecordsWithTags(query, tags);
+    return records.map(_mapToModel).toList();
+  }
+
+  Future<List<String>> getAllTags() async {
+    final records = await _database.getAllRecords();
+    final tags = <String>{};
+    for (final record in records) {
+      tags.addAll(_parseTags(record.tags));
+    }
+    return tags.toList()..sort();
   }
 
   RecordModel _mapToModel(Record record) {
@@ -100,11 +165,66 @@ class RecordRepository {
       tags: _parseTags(record.tags),
       transcriptionStatus: TranscriptionStatus.values.firstWhere(
         (e) => e.name == record.transcriptionStatus,
-        orElse: () => TranscriptionStatus.pending,
+        orElse: () => TranscriptionStatus.none,
       ),
       transcriptionError: record.transcriptionError,
       isFavorite: record.isFavorite,
+      aiAnalysisResults: _parseAiAnalysis(record.aiAnalysis ?? ''),
+      supplements: _parseSupplements(record.supplements),
     );
+  }
+
+  List<AiAnalysisResult> _parseAiAnalysis(String aiAnalysisString) {
+    if (aiAnalysisString.isEmpty) return [];
+    
+    try {
+      final dynamic decoded = jsonDecode(aiAnalysisString);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map<String, dynamic>>()
+            .map((item) => AiAnalysisResult.fromJson(item))
+            .toList();
+      }
+      // 兼容旧格式（单个字符串）
+      if (aiAnalysisString.isNotEmpty && 
+          !aiAnalysisString.startsWith('[') && 
+          !aiAnalysisString.startsWith('{')) {
+        return [AiAnalysisResult(
+          roleId: 'default',
+          roleName: '默认分析',
+          content: aiAnalysisString,
+          createdAt: DateTime.now(),
+        )];
+      }
+    } catch (e) {
+      // 解析失败，尝试兼容旧格式
+      if (aiAnalysisString.isNotEmpty && 
+          !aiAnalysisString.startsWith('[') && 
+          !aiAnalysisString.startsWith('{')) {
+        return [AiAnalysisResult(
+          roleId: 'default',
+          roleName: '默认分析',
+          content: aiAnalysisString,
+          createdAt: DateTime.now(),
+        )];
+      }
+    }
+    return [];
+  }
+
+  List<SupplementItem> _parseSupplements(String supplementsString) {
+    try {
+      final dynamic decoded = jsonDecode(supplementsString);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map<String, dynamic>>()
+            .map((item) => SupplementItem.fromJson(item))
+            .toList();
+      }
+    } catch (e) {
+      // 如果解析失败，返回空列表
+    }
+    return [];
   }
 
   List<String> _parseTags(String tagsString) {

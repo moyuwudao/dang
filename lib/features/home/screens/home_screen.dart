@@ -1,19 +1,75 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/models/ai_model_config.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/tag_selector.dart';
 import '../../../data/models/record_model.dart';
+import '../../../data/repositories/record_repository.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../records/providers/record_provider.dart';
 import '../../records/widgets/record_list.dart';
 import '../../settings/providers/settings_provider.dart';
+import '../widgets/enhanced_search_delegate.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  static const _widgetChannel = MethodChannel('com.changji.app/widget');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkWidgetLaunchAction();
+    });
+    _widgetChannel.setMethodCallHandler(_handleMethodCall);
+  }
+
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
+    if (call.method == 'widgetAction') {
+      final String? action = call.arguments as String?;
+      if (action != null && mounted) {
+        _navigateByAction(action);
+      }
+    }
+  }
+
+  void _navigateByAction(String action) {
+    debugPrint('Widget launch action: $action');
+    switch (action) {
+      case 'start_recording':
+        context.push('/recording');
+        break;
+      case 'start_camera':
+        context.push('/ocr');
+        break;
+      case 'start_quick_note':
+        context.push('/quick-note');
+        break;
+    }
+  }
+
+  Future<void> _checkWidgetLaunchAction() async {
+    try {
+      final String? action =
+          await _widgetChannel.invokeMethod('getLaunchAction');
+      if (action != null && mounted) {
+        _navigateByAction(action);
+      }
+    } catch (e) {
+      debugPrint('Failed to get widget launch action: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final configuredProviderAsync = ref.watch(configuredProviderProvider);
 
@@ -27,9 +83,13 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () {
               showSearch(
                 context: context,
-                delegate: RecordSearchDelegate(),
+                delegate: EnhancedRecordSearchDelegate(),
               );
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.star_outlined),
+            onPressed: () => context.push('/favorites'),
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -40,23 +100,48 @@ class HomeScreen extends ConsumerWidget {
       body: const RecordList(),
       floatingActionButton: configuredProviderAsync.when(
         data: (configuredProvider) {
-          final canRecord = AiModelConfig.canUseFeature(AppFeature.recording, configuredProvider);
-          final canOcr = AiModelConfig.canUseFeature(AppFeature.ocr, configuredProvider);
+          final canRecord = AiModelConfig.canUseFeature(
+              AppFeature.recording, configuredProvider);
+          final canOcr =
+              AiModelConfig.canUseFeature(AppFeature.ocr, configuredProvider);
 
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               FloatingActionButton.small(
+                heroTag: 'weeklyReport',
+                onPressed: () => context.push('/weekly-report'),
+                backgroundColor: AppColors.success,
+                child: const Icon(Icons.summarize),
+              ),
+              const SizedBox(height: 8),
+              FloatingActionButton.small(
+                heroTag: 'mindmap',
+                onPressed: () => context.push('/mindmap'),
+                backgroundColor: AppColors.purple,
+                child: const Icon(Icons.map_outlined),
+              ),
+              const SizedBox(height: 8),
+              FloatingActionButton.small(
+                heroTag: 'text',
+                onPressed: () => _showTextInputDialog(context, ref),
+                backgroundColor: AppColors.info,
+                child: const Icon(Icons.text_fields),
+              ),
+              const SizedBox(height: 8),
+              FloatingActionButton.small(
                 heroTag: 'ocr',
                 onPressed: canOcr ? () => context.push('/ocr') : null,
-                backgroundColor: canOcr ? AppColors.secondary : AppColors.textTertiary,
+                backgroundColor:
+                    canOcr ? AppColors.secondary : AppColors.textTertiary,
                 child: const Icon(Icons.camera_alt_outlined),
               ),
               const SizedBox(height: 8),
               FloatingActionButton(
                 heroTag: 'record',
                 onPressed: canRecord ? () => context.push('/recording') : null,
-                backgroundColor: canRecord ? AppColors.primary : AppColors.textTertiary,
+                backgroundColor:
+                    canRecord ? AppColors.primary : AppColors.textTertiary,
                 child: const Icon(Icons.mic),
               ),
             ],
@@ -65,6 +150,13 @@ class HomeScreen extends ConsumerWidget {
         loading: () => const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            FloatingActionButton.small(
+              heroTag: 'text',
+              onPressed: null,
+              backgroundColor: AppColors.textTertiary,
+              child: Icon(Icons.text_fields),
+            ),
+            SizedBox(height: 8),
             FloatingActionButton.small(
               heroTag: 'ocr',
               onPressed: null,
@@ -84,6 +176,13 @@ class HomeScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             FloatingActionButton.small(
+              heroTag: 'text',
+              onPressed: null,
+              backgroundColor: AppColors.textTertiary,
+              child: Icon(Icons.text_fields),
+            ),
+            SizedBox(height: 8),
+            FloatingActionButton.small(
               heroTag: 'ocr',
               onPressed: null,
               backgroundColor: AppColors.textTertiary,
@@ -100,6 +199,108 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showTextInputDialog(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController();
+    final List<String> tags = [];
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text(l10n.textInput),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    maxLines: 6,
+                    decoration: InputDecoration(
+                      hintText: l10n.textInputHint,
+                      border: const OutlineInputBorder(),
+                    ),
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 16),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '添加标签（可选）',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 180,
+                    child: SingleChildScrollView(
+                      child: TagSelector(
+                        selectedTags: tags,
+                        onTagsChanged: (newTags) {
+                          setState(() {
+                            tags.clear();
+                            tags.addAll(newTags);
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(l10n.cancelButton),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(l10n.saveButton),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == true && controller.text.trim().isNotEmpty) {
+      try {
+        final recordRepository = ref.read(recordRepositoryProvider);
+        await recordRepository.createRecord(
+          type: RecordType.audio,
+          content: controller.text.trim(),
+          tags: List<String>.from(tags),
+          transcriptionStatus: TranscriptionStatus.none,
+        );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('保存成功'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('保存失败: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+
+    controller.dispose();
   }
 }
 
@@ -152,7 +353,7 @@ class RecordSearchDelegate extends SearchDelegate {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.search_off_outlined,
                       size: 64,
                       color: AppColors.textTertiary,
@@ -264,6 +465,10 @@ class _SearchRecordCard extends StatelessWidget {
         icon = Icons.camera_alt;
         color = AppColors.secondary;
         break;
+      case RecordType.text:
+        icon = Icons.text_fields;
+        color = AppColors.info;
+        break;
     }
 
     return Container(
@@ -297,6 +502,14 @@ class _SearchRecordCard extends StatelessWidget {
         color = AppColors.error;
         text = '失败';
         break;
+      case TranscriptionStatus.none:
+        color = AppColors.textTertiary;
+        text = '';
+        break;
+    }
+
+    if (record.transcriptionStatus == TranscriptionStatus.none) {
+      return const SizedBox.shrink();
     }
 
     return Container(

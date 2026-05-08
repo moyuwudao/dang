@@ -1,0 +1,224 @@
+import 'ai_model_config.dart';
+
+enum ApiFunctionType {
+  text,
+  voice,
+  image,
+}
+
+class ApiConfigEntry {
+  final String id;
+  final String name;
+  final AiProvider provider;
+  final String apiKey;
+  final String? baseUrl;
+  final String model;
+  final bool isCustomProvider;
+  final String? customProviderName;
+  final List<ApiFunctionType> functions;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const ApiConfigEntry({
+    required this.id,
+    required this.name,
+    required this.provider,
+    required this.apiKey,
+    this.baseUrl,
+    required this.model,
+    this.isCustomProvider = false,
+    this.customProviderName,
+    this.functions = const [ApiFunctionType.text],
+    this.isActive = true,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  ApiConfigEntry copyWith({
+    String? id,
+    String? name,
+    AiProvider? provider,
+    String? apiKey,
+    String? baseUrl,
+    String? model,
+    bool? isCustomProvider,
+    String? customProviderName,
+    List<ApiFunctionType>? functions,
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return ApiConfigEntry(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      provider: provider ?? this.provider,
+      apiKey: apiKey ?? this.apiKey,
+      baseUrl: baseUrl ?? this.baseUrl,
+      model: model ?? this.model,
+      isCustomProvider: isCustomProvider ?? this.isCustomProvider,
+      customProviderName: customProviderName ?? this.customProviderName,
+      functions: functions ?? this.functions,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'provider': provider.name,
+      'apiKey': apiKey,
+      'baseUrl': baseUrl,
+      'model': model,
+      'isCustomProvider': isCustomProvider,
+      'customProviderName': customProviderName,
+      'functions': functions.map((f) => f.name).toList(),
+      'isActive': isActive,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory ApiConfigEntry.fromJson(Map<String, dynamic> json) {
+    return ApiConfigEntry(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      provider: AiProvider.values.firstWhere(
+        (p) => p.name == json['provider'],
+        orElse: () => AiProvider.openAI,
+      ),
+      apiKey: json['apiKey'] ?? '',
+      baseUrl: json['baseUrl'],
+      model: json['model'] ?? '',
+      isCustomProvider: json['isCustomProvider'] ?? false,
+      customProviderName: json['customProviderName'],
+      functions: (json['functions'] as List<dynamic>?)
+              ?.map((f) => ApiFunctionType.values.firstWhere(
+                    (ft) => ft.name == f,
+                    orElse: () => ApiFunctionType.text,
+                  ))
+              .toList() ??
+          [ApiFunctionType.text],
+      isActive: json['isActive'] ?? true,
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+    );
+  }
+
+  String get displayName {
+    if (isCustomProvider && customProviderName != null) {
+      return '$customProviderName ($name)';
+    }
+    return '${AiModelConfig.getConfig(provider).displayName} ($name)';
+  }
+
+  bool get supportsText => functions.contains(ApiFunctionType.text);
+  bool get supportsVoice => functions.contains(ApiFunctionType.voice);
+  bool get supportsImage => functions.contains(ApiFunctionType.image);
+}
+
+class ApiFunctionAssignment {
+  final ApiFunctionType functionType;
+  final String? configId;
+
+  const ApiFunctionAssignment({
+    required this.functionType,
+    this.configId,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'functionType': functionType.name,
+      'configId': configId,
+    };
+  }
+
+  factory ApiFunctionAssignment.fromJson(Map<String, dynamic> json) {
+    return ApiFunctionAssignment(
+      functionType: ApiFunctionType.values.firstWhere(
+        (f) => f.name == json['functionType'],
+        orElse: () => ApiFunctionType.text,
+      ),
+      configId: json['configId'],
+    );
+  }
+}
+
+class MultiApiConfig {
+  final List<ApiConfigEntry> configs;
+  final List<ApiFunctionAssignment> functionAssignments;
+  final String? defaultConfigId;
+
+  const MultiApiConfig({
+    this.configs = const [],
+    this.functionAssignments = const [],
+    this.defaultConfigId,
+  });
+
+  MultiApiConfig copyWith({
+    List<ApiConfigEntry>? configs,
+    List<ApiFunctionAssignment>? functionAssignments,
+    String? defaultConfigId,
+  }) {
+    return MultiApiConfig(
+      configs: configs ?? this.configs,
+      functionAssignments: functionAssignments ?? this.functionAssignments,
+      defaultConfigId: defaultConfigId ?? this.defaultConfigId,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'configs': configs.map((c) => c.toJson()).toList(),
+      'functionAssignments': functionAssignments.map((a) => a.toJson()).toList(),
+      'defaultConfigId': defaultConfigId,
+    };
+  }
+
+  factory MultiApiConfig.fromJson(Map<String, dynamic> json) {
+    return MultiApiConfig(
+      configs: (json['configs'] as List<dynamic>?)
+              ?.map((c) => ApiConfigEntry.fromJson(c as Map<String, dynamic>))
+              .toList() ??
+          [],
+      functionAssignments: (json['functionAssignments'] as List<dynamic>?)
+              ?.map((a) => ApiFunctionAssignment.fromJson(a as Map<String, dynamic>))
+              .toList() ??
+          [],
+      defaultConfigId: json['defaultConfigId'],
+    );
+  }
+
+  ApiConfigEntry? getConfigForFunction(ApiFunctionType function) {
+    final assignment = functionAssignments.firstWhere(
+      (a) => a.functionType == function,
+      orElse: () => const ApiFunctionAssignment(
+        functionType: ApiFunctionType.text,
+        configId: null,
+      ),
+    );
+    if (assignment.configId == null) return null;
+    return configs.firstWhere(
+      (c) => c.id == assignment.configId && c.isActive,
+      orElse: () => configs.firstWhere(
+        (c) => c.isActive,
+        orElse: () => throw Exception('No active config found'),
+      ),
+    );
+  }
+
+  ApiConfigEntry? getConfigById(String id) {
+    return configs.firstWhere(
+      (c) => c.id == id,
+      orElse: () => null as ApiConfigEntry,
+    );
+  }
+
+  List<ApiConfigEntry> get activeConfigs =>
+      configs.where((c) => c.isActive).toList();
+
+  bool get hasAnyConfig => configs.any((c) => c.isActive);
+}

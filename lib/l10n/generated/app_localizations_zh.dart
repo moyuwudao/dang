@@ -244,4 +244,46 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get shareApp => '分享应用';
+
+  @override
+  String get textInput => '文本录入';
+
+  @override
+  String get textInputHint => '在此输入文本内容...';
+
+  @override
+  String get usageStatistics => '使用统计';
+
+  @override
+  String get usageStatsDetail => '使用详情';
+
+  @override
+  String get usageStatsClear => '清除统计';
+
+  @override
+  String get usageStatsClearConfirm => '确定要清除所有使用统计吗？此操作无法撤销。';
+
+  @override
+  String get usageStatsEmpty => '暂无使用数据';
+
+  @override
+  String get usageStatsEmptyHint => '使用AI功能后将显示统计数据';
+
+  @override
+  String get calls => '次调用';
+
+  @override
+  String get tokens => '个Token';
+
+  @override
+  String get lastUsed => '最后使用';
+
+  @override
+  String get features => '功能';
+
+  @override
+  String get cancel => '取消';
+
+  @override
+  String get clear => '清除';
 }

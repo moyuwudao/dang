@@ -10,6 +10,7 @@ class OCRNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> saveOCRRecord({
     required String imagePath,
     required String content,
+    List<String> tags = const [],
   }) async {
     state = const AsyncValue.loading();
     try {
@@ -17,6 +18,8 @@ class OCRNotifier extends StateNotifier<AsyncValue<void>> {
         type: RecordType.ocr,
         imagePath: imagePath,
         content: content,
+        tags: tags,
+        transcriptionStatus: TranscriptionStatus.none,
       );
       state = const AsyncValue.data(null);
     } catch (e, stack) {

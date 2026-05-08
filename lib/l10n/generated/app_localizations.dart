@@ -571,6 +571,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Share App'**
   String get shareApp;
+
+  /// Text input button
+  ///
+  /// In en, this message translates to:
+  /// **'Text Input'**
+  String get textInput;
+
+  /// Text input hint
+  ///
+  /// In en, this message translates to:
+  /// **'Enter text content here...'**
+  String get textInputHint;
+
+  /// Usage statistics section title
+  ///
+  /// In en, this message translates to:
+  /// **'Usage Statistics'**
+  String get usageStatistics;
+
+  /// Usage stats detail button
+  ///
+  /// In en, this message translates to:
+  /// **'Usage Details'**
+  String get usageStatsDetail;
+
+  /// Clear usage stats button
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Statistics'**
+  String get usageStatsClear;
+
+  /// Clear usage stats confirmation
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to clear all usage statistics? This action cannot be undone.'**
+  String get usageStatsClearConfirm;
+
+  /// No usage data message
+  ///
+  /// In en, this message translates to:
+  /// **'No usage data yet'**
+  String get usageStatsEmpty;
+
+  /// No usage data hint
+  ///
+  /// In en, this message translates to:
+  /// **'Use AI features to see statistics'**
+  String get usageStatsEmptyHint;
+
+  /// Calls count label
+  ///
+  /// In en, this message translates to:
+  /// **'calls'**
+  String get calls;
+
+  /// Tokens count label
+  ///
+  /// In en, this message translates to:
+  /// **'tokens'**
+  String get tokens;
+
+  /// Last used label
+  ///
+  /// In en, this message translates to:
+  /// **'Last used'**
+  String get lastUsed;
+
+  /// Features label
+  ///
+  /// In en, this message translates to:
+  /// **'Features'**
+  String get features;
+
+  /// Cancel button
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// Clear button
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get clear;
 }
 
 class _AppLocalizationsDelegate

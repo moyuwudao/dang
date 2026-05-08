@@ -5,6 +5,10 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../data/models/record_model.dart';
 
+final autoAnalysisConfigProvider = FutureProvider<AutoAnalysisConfig>((ref) async {
+  return await StorageService.getAutoAnalysisConfig();
+});
+
 final apiConfigProvider = FutureProvider<ApiConfigModel?>((ref) async {
   return await StorageService.getApiConfig();
 });

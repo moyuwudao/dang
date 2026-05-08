@@ -1,40 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/models/ai_model_config.dart';
 import 'core/services/api_service.dart';
 import 'core/services/storage_service.dart';
+import 'core/services/transcription_queue_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/settings/providers/settings_provider.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'routes/app_router.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize API service before app starts
-  await _initializeApiService();
-  
+
   runApp(
     const ProviderScope(
       child: ChangjiApp(),
     ),
   );
-}
-
-Future<void> _initializeApiService() async {
-  try {
-    final config = await StorageService.getApiConfig();
-    if (config != null) {
-      final providerConfig = AiModelConfig.getConfigByName(config.provider);
-      if (providerConfig != null) {
-        // We can't use ref here, so we'll initialize lazily
-        debugPrint('API config found: ${config.provider}, will initialize on first use');
-      }
-    }
-  } catch (e) {
-    debugPrint('API service pre-initialization failed: $e');
-  }
 }
 
 class ChangjiApp extends ConsumerStatefulWidget {
@@ -63,12 +47,15 @@ class _ChangjiAppState extends ConsumerState<ChangjiApp> {
             config: providerConfig,
             customBaseUrl: config.baseUrl,
           );
-          debugPrint('API service initialized: ${apiService.configInfo}');
         }
       }
     } catch (e) {
       debugPrint('API service initialization failed: $e');
     }
+    
+    // 启动后台转写队列
+    ref.read(transcriptionQueueProvider).start();
+    debugPrint('Transcription queue started');
   }
 
   @override

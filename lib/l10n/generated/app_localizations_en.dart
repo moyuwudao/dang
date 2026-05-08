@@ -249,4 +249,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shareApp => 'Share App';
+
+  @override
+  String get textInput => 'Text Input';
+
+  @override
+  String get textInputHint => 'Enter text content here...';
+
+  @override
+  String get usageStatistics => 'Usage Statistics';
+
+  @override
+  String get usageStatsDetail => 'Usage Details';
+
+  @override
+  String get usageStatsClear => 'Clear Statistics';
+
+  @override
+  String get usageStatsClearConfirm =>
+      'Are you sure you want to clear all usage statistics? This action cannot be undone.';
+
+  @override
+  String get usageStatsEmpty => 'No usage data yet';
+
+  @override
+  String get usageStatsEmptyHint => 'Use AI features to see statistics';
+
+  @override
+  String get calls => 'calls';
+
+  @override
+  String get tokens => 'tokens';
+
+  @override
+  String get lastUsed => 'Last used';
+
+  @override
+  String get features => 'Features';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get clear => 'Clear';
 }

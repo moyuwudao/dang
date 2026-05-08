@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/recording_service.dart';
 import '../../../core/services/transcription_service.dart';
+import '../../../core/services/transcription_queue_service.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
 
@@ -15,6 +16,7 @@ final recordingStateProvider = StateNotifierProvider<RecordingStateNotifier, Rec
     ref.watch(recordingServiceProvider),
     ref.watch(recordRepositoryProvider),
     ref.watch(transcriptionServiceProvider),
+    ref.watch(transcriptionQueueProvider),
   );
 });
 
@@ -25,6 +27,8 @@ class RecordingState {
   final List<double> amplitudes;
   final String? currentRecordingPath;
   final String? error;
+  final bool isTranscribing;
+  final String? transcriptionProgress;
 
   const RecordingState({
     this.isRecording = false,
@@ -33,6 +37,8 @@ class RecordingState {
     this.amplitudes = const [],
     this.currentRecordingPath,
     this.error,
+    this.isTranscribing = false,
+    this.transcriptionProgress,
   });
 
   RecordingState copyWith({
@@ -42,6 +48,8 @@ class RecordingState {
     List<double>? amplitudes,
     String? currentRecordingPath,
     String? error,
+    bool? isTranscribing,
+    String? transcriptionProgress,
   }) {
     return RecordingState(
       isRecording: isRecording ?? this.isRecording,
@@ -50,6 +58,8 @@ class RecordingState {
       amplitudes: amplitudes ?? this.amplitudes,
       currentRecordingPath: currentRecordingPath ?? this.currentRecordingPath,
       error: error ?? this.error,
+      isTranscribing: isTranscribing ?? this.isTranscribing,
+      transcriptionProgress: transcriptionProgress ?? this.transcriptionProgress,
     );
   }
 }
@@ -58,6 +68,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
   final RecordingService _recordingService;
   final RecordRepository _recordRepository;
   final TranscriptionService _transcriptionService;
+  final TranscriptionQueueService _transcriptionQueue;
   
   StreamSubscription? _amplitudeSubscription;
   StreamSubscription? _durationSubscription;
@@ -66,6 +77,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
     this._recordingService,
     this._recordRepository,
     this._transcriptionService,
+    this._transcriptionQueue,
   ) : super(const RecordingState());
 
   Future<void> startRecording() async {
@@ -85,6 +97,8 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
         amplitudes: const [],
         currentRecordingPath: path,
         error: null,
+        isTranscribing: false,
+        transcriptionProgress: null,
       );
 
       // 监听振幅
@@ -101,7 +115,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
     }
   }
 
-  Future<void> stopRecording() async {
+  Future<void> stopRecording({List<String> tags = const []}) async {
     try {
       _amplitudeSubscription?.cancel();
       _durationSubscription?.cancel();
@@ -113,28 +127,32 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
           isRecording: false,
           isPaused: false,
           currentRecordingPath: null,
+          isTranscribing: false,
+          transcriptionProgress: '录音已保存',
         );
 
-        // 保存记录到数据库
+        // 保存记录到数据库（状态为pending，等待后台转写）
         final recordId = await _recordRepository.createRecord(
           type: RecordType.audio,
           audioPath: path,
+          tags: tags,
         );
 
-        // 自动开始转写
-        try {
-          await _transcriptionService.transcribeRecord(recordId);
-        } catch (transcriptionError) {
-          // 转写失败不影响录音保存，但更新状态显示错误
-          debugPrint('Transcription failed: $transcriptionError');
-          state = state.copyWith(
-            error: '转写失败: $transcriptionError',
-          );
-        }
+        debugPrint('Record saved with ID: $recordId, tags: $tags, added to transcription queue');
+
+        // 添加到后台转写队列
+        _transcriptionQueue.addToQueue(recordId);
+        
+        // 状态更新为等待转写
+        state = state.copyWith(
+          isTranscribing: false,
+          transcriptionProgress: '等待转写中...',
+        );
       }
     } catch (e) {
       state = state.copyWith(
         isRecording: false,
+        isTranscribing: false,
         error: '停止录音失败: $e',
       );
     }

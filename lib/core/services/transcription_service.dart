@@ -124,7 +124,51 @@ class TranscriptionService {
     String? model,
     void Function(String step, String detail)? onProgress,
   }) async {
+    await _recordRepository.updateRecordContent(recordId, '');
     await transcribeRecord(recordId, model: model, onProgress: onProgress);
+  }
+
+  Future<List<AudioChunkInfo>> getAudioChunks(int recordId) async {
+    final record = await _recordRepository.getRecordById(recordId);
+    if (record == null) {
+      throw Exception('记录不存在');
+    }
+    if (record.audioPath == null) {
+      throw Exception('音频文件不存在');
+    }
+    return await _apiService.getAudioChunks(record.audioPath!);
+  }
+
+  Future<String> retranscribeChunks(
+    int recordId, {
+    required List<int> chunkIndices,
+    String? model,
+    void Function(String step, String detail)? onProgress,
+  }) async {
+    await _ensureApiConfigured();
+
+    final record = await _recordRepository.getRecordById(recordId);
+    if (record == null) {
+      throw Exception('记录不存在');
+    }
+    if (record.audioPath == null) {
+      throw Exception('音频文件不存在');
+    }
+
+    String useModel;
+    if (model != null && model.isNotEmpty) {
+      useModel = model;
+    } else {
+      final providerConfig = _apiService.currentConfig;
+      useModel = providerConfig != null ? _getTranscriptionModel(providerConfig) : await _getConfiguredModel();
+    }
+
+    return await _apiService.retranscribeChunks(
+      record.audioPath!,
+      chunkIndices: chunkIndices,
+      model: useModel,
+      onProgress: onProgress,
+    );
   }
 
   Future<void> retryAllFailed() async {
@@ -171,5 +215,65 @@ class TranscriptionService {
     }
 
     return await _apiService.chatCompletion(fullPrompt);
+  }
+
+  /// 转写补充内容中的音频或图片
+  Future<SupplementItem> transcribeSupplement(SupplementItem supplement) async {
+    await _ensureApiConfigured();
+
+    if (supplement.type == 'text') {
+      // 文本类型无需转写
+      return supplement;
+    }
+
+    if (supplement.type == 'audio') {
+      // 转写音频补充
+      debugPrint('Transcribing supplement audio: ${supplement.content}');
+      final providerConfig = _apiService.currentConfig;
+      final useModel = providerConfig != null ? _getTranscriptionModel(providerConfig) : await _getConfiguredModel();
+
+      final text = await _apiService.transcribeAudio(
+        supplement.content,
+        model: useModel,
+      );
+
+      debugPrint('Supplement audio transcribed: ${text.length} chars');
+      return supplement.copyWith(transcribedContent: text);
+    }
+
+    if (supplement.type == 'image') {
+      // TODO: 实现图片OCR
+      debugPrint('OCR for supplement image not yet implemented');
+      return supplement;
+    }
+
+    return supplement;
+  }
+
+  /// 转写记录中所有未转写的补充内容
+  Future<List<SupplementItem>> transcribeAllSupplements(int recordId) async {
+    final record = await _recordRepository.getRecordById(recordId);
+    if (record == null) {
+      throw Exception('记录不存在');
+    }
+
+    final updatedSupplements = <SupplementItem>[];
+    for (final supplement in record.supplements) {
+      if (supplement.type != 'text' && (supplement.transcribedContent == null || supplement.transcribedContent!.isEmpty)) {
+        try {
+          final transcribed = await transcribeSupplement(supplement);
+          updatedSupplements.add(transcribed);
+        } catch (e) {
+          debugPrint('Failed to transcribe supplement ${supplement.id}: $e');
+          updatedSupplements.add(supplement);
+        }
+      } else {
+        updatedSupplements.add(supplement);
+      }
+    }
+
+    // 保存更新后的补充内容
+    await _recordRepository.updateSupplements(recordId, updatedSupplements);
+    return updatedSupplements;
   }
 }
