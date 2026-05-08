@@ -25,10 +25,12 @@ import '../features/settings/screens/backup_management_screen.dart';
 import '../features/settings/screens/recycle_bin_screen.dart';
 import '../features/mindmap/screens/mindmap_screen.dart';
 import '../features/reports/screens/weekly_report_screen.dart';
+import '../features/workbench/screens/workbench_screen.dart';
 
 enum AppRoute {
   splash,
   home,
+  workbench,
   recording,
   recordDetail,
   favorites,
@@ -140,6 +142,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/',
         name: AppRoute.home.name,
         pageBuilder: (context, state) => _fadeTransitionPage(const HomeScreen(), state),
+      ),
+      GoRoute(
+        path: '/workbench',
+        name: AppRoute.workbench.name,
+        pageBuilder: (context, state) => _slideLeftTransitionPage(const WorkbenchScreen(), state),
       ),
       GoRoute(
         path: '/recording',

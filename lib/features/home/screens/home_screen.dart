@@ -88,8 +88,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.star_outlined),
-            onPressed: () => context.push('/favorites'),
+            icon: const Icon(Icons.dashboard_outlined),
+            onPressed: () => context.push('/workbench'),
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
