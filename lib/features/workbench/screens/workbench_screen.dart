@@ -278,3 +278,205 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                   color: AppColors.textTertiary,
                 )
               else
+                Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textTertiary.withOpacity(0.5),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.widgets_outlined,
+            size: 64,
+            color: AppColors.textTertiary.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '暂无工具',
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '请在设置中添加工具',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWorkbenchSettings(BuildContext context) {
+    final workbenchState = ref.read(workbenchProvider);
+    final layoutMode = workbenchState.layoutConfig.layoutMode;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  '工作台设置',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: const Icon(Icons.view_module_outlined, color: AppColors.primary),
+                  title: const Text('布局方式'),
+                  subtitle: Text(layoutMode == ToolLayoutMode.grid ? '卡片式' : '列表式'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.grid_view,
+                          color: layoutMode == ToolLayoutMode.grid
+                              ? AppColors.primary
+                              : AppColors.textTertiary,
+                        ),
+                        onPressed: () {
+                          ref.read(workbenchProvider.notifier).setLayoutMode(ToolLayoutMode.grid);
+                          Navigator.pop(context);
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.view_list,
+                          color: layoutMode == ToolLayoutMode.list
+                              ? AppColors.primary
+                              : AppColors.textTertiary,
+                        ),
+                        onPressed: () {
+                          ref.read(workbenchProvider.notifier).setLayoutMode(ToolLayoutMode.list);
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.reorder, color: AppColors.secondary),
+                  title: const Text('排序工具'),
+                  subtitle: const Text('拖拽调整工具顺序'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ref.read(workbenchProvider.notifier).setEditMode(true);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.visibility_outlined, color: AppColors.info),
+                  title: const Text('显示/隐藏工具'),
+                  subtitle: const Text('自定义显示哪些工具'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showToolVisibilityDialog(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.restore, color: AppColors.warning),
+                  title: const Text('恢复默认'),
+                  subtitle: const Text('重置为初始布局'),
+                  onTap: () {
+                    ref.read(workbenchProvider.notifier).resetToDefault();
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('已恢复默认设置'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showToolVisibilityDialog(BuildContext context) {
+    final workbenchState = ref.read(workbenchProvider);
+    final allTools = workbenchState.tools;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('显示/隐藏工具'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: allTools.length,
+              itemBuilder: (context, index) {
+                final tool = allTools[index];
+                final isVisible = workbenchState.layoutConfig.toolVisibility[tool.id] ?? true;
+
+                return StatefulBuilder(
+                  builder: (context, setState) {
+                    return CheckboxListTile(
+                      title: Row(
+                        children: [
+                          Icon(tool.icon, color: tool.color, size: 20),
+                          const SizedBox(width: 8),
+                          Text(tool.name),
+                        ],
+                      ),
+                      value: isVisible,
+                      onChanged: (value) {
+                        ref.read(workbenchProvider.notifier).toggleToolVisibility(tool.id);
+                        setState(() {});
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('完成'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
