@@ -424,7 +424,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
               else
                 Icon(
                   Icons.chevron_right,
-                  color: AppColors.textTertiary.withValues(alpha: 0.5),
+                  color: AppColors.textTertiary.withOpacity(0.5),
                 ),
             ],
           ),
@@ -441,7 +441,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
           Icon(
             Icons.widgets_outlined,
             size: 64,
-            color: AppColors.textTertiary.withValues(alpha: 0.5),
+            color: AppColors.textTertiary.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -490,7 +490,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  '工具台设置',
+                  '工作台设置',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -498,11 +498,9 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 ),
                 const SizedBox(height: 20),
                 ListTile(
-                  leading: const Icon(Icons.view_module_outlined,
-                      color: AppColors.primary),
+                  leading: const Icon(Icons.view_module_outlined, color: AppColors.primary),
                   title: const Text('布局方式'),
-                  subtitle:
-                      Text(layoutMode == ToolLayoutMode.grid ? '卡片式' : '列表式'),
+                  subtitle: Text(layoutMode == ToolLayoutMode.grid ? '卡片式' : '列表式'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -514,9 +512,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                               : AppColors.textTertiary,
                         ),
                         onPressed: () {
-                          ref
-                              .read(workbenchProvider.notifier)
-                              .setLayoutMode(ToolLayoutMode.grid);
+                          ref.read(workbenchProvider.notifier).setLayoutMode(ToolLayoutMode.grid);
                           Navigator.pop(context);
                         },
                       ),
@@ -528,9 +524,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                               : AppColors.textTertiary,
                         ),
                         onPressed: () {
-                          ref
-                              .read(workbenchProvider.notifier)
-                              .setLayoutMode(ToolLayoutMode.list);
+                          ref.read(workbenchProvider.notifier).setLayoutMode(ToolLayoutMode.list);
                           Navigator.pop(context);
                         },
                       ),
@@ -538,14 +532,23 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.visibility_outlined,
-                      color: AppColors.info),
-                  title: const Text('工具展示设置'),
-                  subtitle: const Text('设置工具显示、隐藏和首页快捷入口'),
+                  leading: const Icon(Icons.reorder, color: AppColors.secondary),
+                  title: const Text('排序工具'),
+                  subtitle: const Text('拖拽调整工具顺序'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pop(context);
-                    context.push('/workbench/tool-display-settings');
+                    ref.read(workbenchProvider.notifier).setEditMode(true);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.visibility_outlined, color: AppColors.info),
+                  title: const Text('显示/隐藏工具'),
+                  subtitle: const Text('自定义显示哪些工具'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showToolVisibilityDialog(context);
                   },
                 ),
                 ListTile(
@@ -566,6 +569,56 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showToolVisibilityDialog(BuildContext context) {
+    final workbenchState = ref.read(workbenchProvider);
+    final allTools = workbenchState.tools;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('显示/隐藏工具'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: allTools.length,
+              itemBuilder: (context, index) {
+                final tool = allTools[index];
+                final isVisible = workbenchState.layoutConfig.toolVisibility[tool.id] ?? true;
+
+                return StatefulBuilder(
+                  builder: (context, setState) {
+                    return CheckboxListTile(
+                      title: Row(
+                        children: [
+                          Icon(tool.icon, color: tool.color, size: 20),
+                          const SizedBox(width: 8),
+                          Text(tool.name),
+                        ],
+                      ),
+                      value: isVisible,
+                      onChanged: (value) {
+                        ref.read(workbenchProvider.notifier).toggleToolVisibility(tool.id);
+                        setState(() {});
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('完成'),
+            ),
+          ],
         );
       },
     );

@@ -25,6 +25,8 @@ import '../features/settings/screens/backup_management_screen.dart';
 import '../features/settings/screens/tool_ai_config_screen.dart';
 import '../features/statistics/screens/api_analysis_screen.dart';
 import '../features/settings/screens/recycle_bin_screen.dart';
+import '../features/mindmap/screens/mindmap_screen.dart';
+import '../features/reports/screens/weekly_report_screen.dart';
 import '../features/workbench/screens/workbench_screen.dart';
 import '../features/workbench/screens/tool_display_settings_screen.dart';
 import '../features/workbench/screens/tool_data_confirm_screen.dart';
@@ -187,6 +189,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/workbench/tool-display-settings',
         pageBuilder: (context, state) =>
             _slideLeftTransitionPage(const ToolDisplaySettingsScreen(), state),
+      ),
+      GoRoute(
+        path: '/workbench',
+        name: AppRoute.workbench.name,
+        pageBuilder: (context, state) => _slideLeftTransitionPage(const WorkbenchScreen(), state),
       ),
       GoRoute(
         path: '/recording',
