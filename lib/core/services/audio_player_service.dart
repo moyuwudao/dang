@@ -6,6 +6,8 @@ class AudioPlayerService {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final StreamController<AudioPlayerState> _stateController = StreamController<AudioPlayerState>.broadcast();
 
+  StreamSubscription<PlayerState>? _playerStateSub;
+
   Stream<AudioPlayerState> get playerStateStream => _stateController.stream;
   AudioPlayer get audioPlayer => _audioPlayer;
 
@@ -56,7 +58,8 @@ class AudioPlayerService {
   }
 
   void _listenToPlayerState() {
-    _audioPlayer.playerStateStream.listen((playerState) {
+    _playerStateSub?.cancel();
+    _playerStateSub = _audioPlayer.playerStateStream.listen((playerState) {
       final isPlaying = playerState.playing;
       final processingState = playerState.processingState;
 
@@ -77,6 +80,7 @@ class AudioPlayerService {
   }
 
   Future<void> dispose() async {
+    _playerStateSub?.cancel();
     await _audioPlayer.dispose();
     await _stateController.close();
   }

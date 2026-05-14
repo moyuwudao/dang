@@ -11,7 +11,8 @@ class MultiApiConfigScreen extends ConsumerStatefulWidget {
   const MultiApiConfigScreen({super.key});
 
   @override
-  ConsumerState<MultiApiConfigScreen> createState() => _MultiApiConfigScreenState();
+  ConsumerState<MultiApiConfigScreen> createState() =>
+      _MultiApiConfigScreenState();
 }
 
 class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
@@ -36,7 +37,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
     await StorageService.saveMultiApiConfig(_config);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('配置已保存'), backgroundColor: AppColors.success),
+        const SnackBar(
+            content: Text('配置已保存'), backgroundColor: AppColors.success),
       );
     }
   }
@@ -87,7 +89,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            Text(
+            const Text(
               '为不同功能选择使用的API配置',
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
@@ -102,14 +104,21 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
             _buildFunctionAssignmentTile(
               icon: Icons.mic,
               title: '语音转写',
-              subtitle: '录音转文字',
+              subtitle: '录音后转文字',
               functionType: ApiFunctionType.voice,
+            ),
+            const Divider(),
+            _buildFunctionAssignmentTile(
+              icon: Icons.record_voice_over,
+              title: '语音实时转写',
+              subtitle: '录音时实时转文字',
+              functionType: ApiFunctionType.voiceRealtime,
             ),
             const Divider(),
             _buildFunctionAssignmentTile(
               icon: Icons.image,
               title: '图像识别',
-              subtitle: '图片内容识别（预留）',
+              subtitle: '图片内容识别（OCR）',
               functionType: ApiFunctionType.image,
             ),
           ],
@@ -241,7 +250,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                           config.isCustomProvider
                               ? config.customProviderName ?? '自定义'
                               : providerConfig.displayName,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
                           ),
@@ -272,6 +281,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                   final labels = {
                     ApiFunctionType.text: '文本',
                     ApiFunctionType.voice: '语音',
+                    ApiFunctionType.voiceRealtime: '实时语音',
                     ApiFunctionType.image: '图像',
                   };
                   return Chip(
@@ -287,11 +297,13 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
               const SizedBox(height: 8),
               Text(
                 '模型: ${config.model}',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary),
               ),
               Text(
                 'Key: ${config.apiKey.substring(0, config.apiKey.length > 8 ? 8 : config.apiKey.length)}...',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 8),
               Row(
@@ -465,17 +477,23 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
   void _showConfigEditorDialog({ApiConfigEntry? existingConfig}) {
     final isEditing = existingConfig != null;
-    final nameController = TextEditingController(text: existingConfig?.name ?? '');
-    final apiKeyController = TextEditingController(text: existingConfig?.apiKey ?? '');
-    final baseUrlController = TextEditingController(text: existingConfig?.baseUrl ?? '');
-    final customModelController = TextEditingController(text: existingConfig?.model ?? '');
+    final nameController =
+        TextEditingController(text: existingConfig?.name ?? '');
+    final apiKeyController =
+        TextEditingController(text: existingConfig?.apiKey ?? '');
+    final appIdController =
+        TextEditingController(text: existingConfig?.appId ?? '');
+    final baseUrlController =
+        TextEditingController(text: existingConfig?.baseUrl ?? '');
+    final customModelController =
+        TextEditingController(text: existingConfig?.model ?? '');
     final customProviderNameController = TextEditingController(
       text: existingConfig?.customProviderName ?? '',
     );
 
     AiProvider selectedProvider = existingConfig?.provider ?? AiProvider.openAI;
     bool isCustomProvider = existingConfig?.isCustomProvider ?? false;
-    Set<ApiFunctionType> selectedFunctions = Set.from(
+    final Set<ApiFunctionType> selectedFunctions = Set.from(
       existingConfig?.functions ?? [ApiFunctionType.text],
     );
 
@@ -502,7 +520,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                   const SizedBox(height: 16),
 
                   // Provider selection
-                  const Text('选择提供商', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Text('选择提供商',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -510,7 +529,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                     children: [
                       ...AiModelConfig.allProviders.map((p) => ChoiceChip(
                             label: Text(p.displayName),
-                            selected: selectedProvider == p.provider && !isCustomProvider,
+                            selected: selectedProvider == p.provider &&
+                                !isCustomProvider,
                             onSelected: (selected) {
                               if (selected) {
                                 setDialogState(() {
@@ -550,7 +570,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                   const SizedBox(height: 16),
 
                   // Functions
-                  const Text('支持的功能', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Text('支持的功能',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -558,6 +579,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                       final labels = {
                         ApiFunctionType.text: '文本分析',
                         ApiFunctionType.voice: '语音转写',
+                        ApiFunctionType.voiceRealtime: '语音实时转写',
                         ApiFunctionType.image: '图像识别',
                       };
                       return FilterChip(
@@ -590,7 +612,20 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  if (isCustomProvider || selectedProvider == AiProvider.custom) ...[
+                  // 显示 AppID 输入框（如果提供商需要）
+                  if (providerConfig.requiresAppId) ...[
+                    TextField(
+                      controller: appIdController,
+                      decoration: InputDecoration(
+                        labelText: 'App ID',
+                        hintText: providerConfig.appIdDescription ?? '输入App ID',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  if (isCustomProvider ||
+                      selectedProvider == AiProvider.custom) ...[
                     TextField(
                       controller: baseUrlController,
                       decoration: const InputDecoration(
@@ -616,7 +651,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                 TextButton(
                   onPressed: () async {
                     final newConfigs = _config.configs
-                        .where((c) => c.id != existingConfig!.id)
+                        .where((c) => c.id != existingConfig.id)
                         .toList();
                     final updatedConfig = _config.copyWith(configs: newConfigs);
 
@@ -665,11 +700,14 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
                   final newConfig = ApiConfigEntry(
                     id: isEditing
-                        ? existingConfig!.id
+                        ? existingConfig.id
                         : 'config_${DateTime.now().millisecondsSinceEpoch}',
                     name: name,
                     provider: selectedProvider,
                     apiKey: apiKey,
+                    appId: appIdController.text.trim().isEmpty
+                        ? null
+                        : appIdController.text.trim(),
                     baseUrl: baseUrlController.text.trim().isEmpty
                         ? null
                         : baseUrlController.text.trim(),
@@ -680,14 +718,15 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                         : null,
                     functions: selectedFunctions.toList(),
                     isActive: true,
-                    createdAt: isEditing ? existingConfig!.createdAt : DateTime.now(),
+                    createdAt:
+                        isEditing ? existingConfig.createdAt : DateTime.now(),
                     updatedAt: DateTime.now(),
                   );
 
                   final newConfigs = List<ApiConfigEntry>.from(_config.configs);
                   if (isEditing) {
                     final index = newConfigs.indexWhere(
-                      (c) => c.id == existingConfig!.id,
+                      (c) => c.id == existingConfig.id,
                     );
                     if (index >= 0) {
                       newConfigs[index] = newConfig;

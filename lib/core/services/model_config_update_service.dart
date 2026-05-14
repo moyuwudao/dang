@@ -107,12 +107,21 @@ class ModelConfigUpdateService extends ChangeNotifier {
       defaultModel: item['defaultModel'] as String,
       availableModels: (item['availableModels'] as List).cast<String>(),
       supportsTranscription: item['supportsTranscription'] as bool? ?? false,
+      supportsRealtimeTranscription: item['supportsRealtimeTranscription'] as bool? ?? false,
       supportsChat: item['supportsChat'] as bool? ?? true,
+      supportsTextAnalysis: item['supportsTextAnalysis'] as bool? ?? true,
+      supportsOCR: item['supportsOCR'] as bool? ?? false,
+      visionModel: item['visionModel'] as String? ?? '',
       apiKeyPrefix: item['apiKeyPrefix'] as String?,
       description: item['description'] as String,
       transcriptionMethod: _parseTranscriptionMethod(item['transcriptionMethod']),
+      realtimeTranscriptionMethod: item['realtimeTranscriptionMethod'] != null
+          ? _parseTranscriptionMethod(item['realtimeTranscriptionMethod'])
+          : null,
       asrModel: item['asrModel'] as String? ?? '',
       asrDescription: item['asrDescription'] as String? ?? '',
+      realtimeAsrModel: item['realtimeAsrModel'] as String? ?? '',
+      realtimeAsrDescription: item['realtimeAsrDescription'] as String? ?? '',
       limitationNote: item['limitationNote'] as String? ?? '',
       pricingNote: item['pricingNote'] as String? ?? '',
     );
@@ -151,12 +160,19 @@ class ModelConfigUpdateService extends ChangeNotifier {
       'defaultModel': config.defaultModel,
       'availableModels': config.availableModels,
       'supportsTranscription': config.supportsTranscription,
+      'supportsRealtimeTranscription': config.supportsRealtimeTranscription,
       'supportsChat': config.supportsChat,
+      'supportsTextAnalysis': config.supportsTextAnalysis,
+      'supportsOCR': config.supportsOCR,
+      'visionModel': config.visionModel,
       'apiKeyPrefix': config.apiKeyPrefix,
       'description': config.description,
       'transcriptionMethod': config.transcriptionMethod.name,
+      'realtimeTranscriptionMethod': config.realtimeTranscriptionMethod?.name,
       'asrModel': config.asrModel,
       'asrDescription': config.asrDescription,
+      'realtimeAsrModel': config.realtimeAsrModel,
+      'realtimeAsrDescription': config.realtimeAsrDescription,
       'limitationNote': config.limitationNote,
       'pricingNote': config.pricingNote,
     };
@@ -191,5 +207,17 @@ class ModelConfigUpdateService extends ChangeNotifier {
 
   List<AiModelConfig> get transcriptionProviders => _cachedConfigs
       .where((p) => p.supportsTranscription)
+      .toList();
+
+  List<AiModelConfig> get realtimeTranscriptionProviders => _cachedConfigs
+      .where((p) => p.supportsRealtimeTranscription)
+      .toList();
+
+  List<AiModelConfig> get textAnalysisProviders => _cachedConfigs
+      .where((p) => p.supportsTextAnalysis)
+      .toList();
+
+  List<AiModelConfig> get ocrProviders => _cachedConfigs
+      .where((p) => p.supportsOCR)
       .toList();
 }

@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 
-final promptTemplateServiceProvider = Provider((ref) => PromptTemplateService(ref));
+final promptTemplateServiceProvider =
+    Provider((ref) => PromptTemplateService(ref));
 
 class PromptTemplate {
   final String id;
@@ -107,7 +108,8 @@ class PromptTemplateService {
       if (jsonStr != null) {
         final List<dynamic> jsonList = jsonDecode(jsonStr);
         for (final item in jsonList) {
-          final template = PromptTemplate.fromJson(item as Map<String, dynamic>);
+          final template =
+              PromptTemplate.fromJson(item as Map<String, dynamic>);
           if (!_templates.any((t) => t.id == template.id)) {
             _templates.add(template);
           }
@@ -227,6 +229,7 @@ class PromptTemplateService {
     final response = await apiService.chatCompletionWithSystem(
       prompt,
       systemPrompt: prompt,
+      toolId: 'prompt_template',
     );
 
     return response;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,12 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
   bool _isLoading = false;
+  int? _fileSize;
+  bool _isDragging = false;
+
+  StreamSubscription<Duration?>? _durationSub;
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<PlayerState>? _playerStateSub;
 
   @override
   void initState() {
@@ -52,9 +59,12 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
         _isLoading = true;
       });
 
+      final stat = await file.stat();
+      _fileSize = stat.size;
+
       await _audioPlayer.setFilePath(widget.audioPath);
-      
-      _audioPlayer.durationStream.listen((duration) {
+
+      _durationSub = _audioPlayer.durationStream.listen((duration) {
         if (mounted && duration != null) {
           setState(() {
             _duration = duration;
@@ -62,15 +72,15 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
         }
       });
 
-      _audioPlayer.positionStream.listen((position) {
-        if (mounted) {
+      _positionSub = _audioPlayer.positionStream.listen((position) {
+        if (mounted && !_isDragging) {
           setState(() {
             _position = position;
           });
         }
       });
 
-      _audioPlayer.playerStateStream.listen((state) {
+      _playerStateSub = _audioPlayer.playerStateStream.listen((state) {
         if (mounted) {
           setState(() {
             _isPlaying = state.playing;
@@ -154,6 +164,9 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
 
   @override
   void dispose() {
+    _durationSub?.cancel();
+    _positionSub?.cancel();
+    _playerStateSub?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -191,113 +204,122 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
       );
     }
 
-    return FutureBuilder<FileStat>(
-      future: File(widget.audioPath).stat(),
-      builder: (context, snapshot) {
-        final fileSize = snapshot.data?.size ?? 0;
-        
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final fileSize = _fileSize ?? 0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.audio_file, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '音频播放',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    if (fileSize > 0)
-                      Text(
-                        _formatFileSize(fileSize),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                  ],
+                const Icon(Icons.audio_file, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '音频播放',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                
-                // Progress bar
-                Row(
-                  children: [
-                    Text(
-                      _formatDuration(_position),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTapUp: (details) {
-                          final box = context.findRenderObject() as RenderBox;
-                          final localPosition = box.globalToLocal(details.globalPosition);
-                          final width = box.size.width;
-                          final ratio = (localPosition.dx / width).clamp(0.0, 1.0);
-                          final position = Duration(
-                            milliseconds: (ratio * _duration.inMilliseconds).toInt(),
+                if (fileSize > 0)
+                  Text(
+                    _formatFileSize(fileSize),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Progress bar
+            Row(
+              children: [
+                Text(
+                  _formatDuration(_position),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTapUp: (details) {
+                      final box = context.findRenderObject() as RenderBox;
+                      final localPosition =
+                          box.globalToLocal(details.globalPosition);
+                      final width = box.size.width;
+                      final ratio = (localPosition.dx / width).clamp(0.0, 1.0);
+                      final position = Duration(
+                        milliseconds:
+                            (ratio * _duration.inMilliseconds).toInt(),
+                      );
+                      _seek(position);
+                    },
+                    child: Slider(
+                      value: _duration.inMilliseconds > 0
+                          ? (_position.inMilliseconds /
+                                  _duration.inMilliseconds)
+                              .clamp(0.0, 1.0)
+                          : 0,
+                      onChangeStart: (_) {
+                        setState(() {
+                          _isDragging = true;
+                        });
+                      },
+                      onChanged: (value) {
+                        setState(() {
+                          _position = Duration(
+                            milliseconds:
+                                (value * _duration.inMilliseconds).toInt(),
                           );
-                          _seek(position);
-                        },
-                        child: Slider(
-                          value: _duration.inMilliseconds > 0
-                              ? (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0)
-                              : 0,
-                          onChanged: (value) {
-                            setState(() {
-                              _position = Duration(
-                                milliseconds: (value * _duration.inMilliseconds).toInt(),
-                              );
-                            });
-                          },
-                          onChangeEnd: (value) {
-                            final position = Duration(
-                              milliseconds: (value * _duration.inMilliseconds).toInt(),
-                            );
-                            _seek(position);
-                          },
-                        ),
-                      ),
+                        });
+                      },
+                      onChangeEnd: (value) {
+                        setState(() {
+                          _isDragging = false;
+                        });
+                        final position = Duration(
+                          milliseconds:
+                              (value * _duration.inMilliseconds).toInt(),
+                        );
+                        _seek(position);
+                      },
                     ),
-                    Text(
-                      _formatDuration(_duration),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+                  ),
                 ),
-                
-                const SizedBox(height: 8),
-                
-                // Controls
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _togglePlay,
-                        icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                        label: Text(_isPlaying ? '暂停' : '播放'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _shareAudio,
-                        icon: const Icon(Icons.share),
-                        label: const Text('分享'),
-                      ),
-                    ),
-                  ],
+                Text(
+                  _formatDuration(_duration),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
             ),
-          ),
-        );
-      },
+
+            const SizedBox(height: 8),
+
+            // Controls
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _togglePlay,
+                    icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                    label: Text(_isPlaying ? '暂停' : '播放'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _shareAudio,
+                    icon: const Icon(Icons.share),
+                    label: const Text('分享'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -17,7 +17,7 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
   final _apiKeyController = TextEditingController();
   final _baseUrlController = TextEditingController();
   final _customModelController = TextEditingController();
-  
+
   AiProvider _selectedProvider = AiProvider.openAI;
   String _selectedModel = '';
   bool _isTesting = false;
@@ -38,11 +38,13 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
         setState(() {
           _apiKeyController.text = config.apiKey;
           _baseUrlController.text = config.baseUrl ?? '';
-          
+
           final providerConfig = AiModelConfig.getConfigByName(config.provider);
           if (providerConfig != null) {
             _selectedProvider = providerConfig.provider;
-            _selectedModel = config.model.isEmpty ? providerConfig.defaultModel : config.model;
+            _selectedModel = config.model.isEmpty
+                ? providerConfig.defaultModel
+                : config.model;
           } else {
             _selectedProvider = AiProvider.openAI;
             _selectedModel = AiModelConfig.openAI.defaultModel;
@@ -65,7 +67,8 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
     }
   }
 
-  AiModelConfig get _currentConfig => AiModelConfig.getConfig(_selectedProvider);
+  AiModelConfig get _currentConfig =>
+      AiModelConfig.getConfig(_selectedProvider);
 
   Future<void> _testApiKey() async {
     if (!_formKey.currentState!.validate()) return;
@@ -75,12 +78,15 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
     });
 
     try {
-      final result = await ref.read(settingsNotifierProvider.notifier).testApiKey(
-            apiKey: _apiKeyController.text,
-            provider: _selectedProvider,
-            baseUrl: _baseUrlController.text.isEmpty ? null : _baseUrlController.text,
-            model: _effectiveModel,
-          );
+      final result =
+          await ref.read(settingsNotifierProvider.notifier).testApiKey(
+                apiKey: _apiKeyController.text,
+                provider: _selectedProvider,
+                baseUrl: _baseUrlController.text.isEmpty
+                    ? null
+                    : _baseUrlController.text,
+                model: _effectiveModel,
+              );
 
       if (mounted) {
         if (result) {
@@ -123,17 +129,20 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
     });
 
     try {
-      final success = await ref.read(settingsNotifierProvider.notifier).saveApiConfig(
-            apiKey: _apiKeyController.text,
-            provider: _currentConfig.name,
-            baseUrl: _baseUrlController.text.isEmpty ? null : _baseUrlController.text,
-            model: _effectiveModel,
-          );
+      final success =
+          await ref.read(settingsNotifierProvider.notifier).saveApiConfig(
+                apiKey: _apiKeyController.text,
+                provider: _currentConfig.name,
+                baseUrl: _baseUrlController.text.isEmpty
+                    ? null
+                    : _baseUrlController.text,
+                model: _effectiveModel,
+              );
 
       if (mounted) {
         if (success) {
           ref.invalidate(apiConfigProvider);
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('配置保存成功'),
@@ -198,7 +207,8 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
               child: SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
               ),
             )
           else
@@ -217,29 +227,26 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
             children: [
               _buildSectionTitle(context, 'International'),
               const SizedBox(height: 8),
-              ...AiModelConfig.internationalProviders.map((p) => _buildProviderTile(p)),
-              
+              ...AiModelConfig.internationalProviders
+                  .map((p) => _buildProviderTile(p)),
               const SizedBox(height: 24),
               _buildSectionTitle(context, 'Domestic (China)'),
               const SizedBox(height: 8),
-              ...AiModelConfig.domesticProviders.map((p) => _buildProviderTile(p)),
-              
+              ...AiModelConfig.domesticProviders
+                  .map((p) => _buildProviderTile(p)),
               const SizedBox(height: 24),
               _buildProviderTile(AiModelConfig.custom),
-              
               const SizedBox(height: 24),
-
               _buildProviderDetailCard(context, config),
               const SizedBox(height: 24),
-
               TextFormField(
                 controller: _apiKeyController,
                 obscureText: !_isKeyVisible,
                 decoration: InputDecoration(
                   labelText: l10n.openaiApiKey,
-                  hintText: config.apiKeyPrefix != null 
-                    ? '${config.apiKeyPrefix}...' 
-                    : 'Enter your API key',
+                  hintText: config.apiKeyPrefix != null
+                      ? '${config.apiKeyPrefix}...'
+                      : 'Enter your API key',
                   suffixIcon: IconButton(
                     icon: Icon(
                       _isKeyVisible ? Icons.visibility_off : Icons.visibility,
@@ -255,14 +262,14 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter API Key';
                   }
-                  if (config.apiKeyPrefix != null && !value.startsWith(config.apiKeyPrefix!)) {
+                  if (config.apiKeyPrefix != null &&
+                      !value.startsWith(config.apiKeyPrefix!)) {
                     return 'API Key should start with ${config.apiKeyPrefix}';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
-
               if (_selectedProvider == AiProvider.custom) ...[
                 TextFormField(
                   controller: _baseUrlController,
@@ -271,7 +278,7 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                     hintText: 'https://api.example.com/v1',
                   ),
                   validator: (value) {
-                    if (_selectedProvider == AiProvider.custom && 
+                    if (_selectedProvider == AiProvider.custom &&
                         (value == null || value.isEmpty)) {
                       return 'Please enter custom base URL';
                     }
@@ -280,15 +287,18 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                 ),
                 const SizedBox(height: 16),
               ],
-
               if (config.availableModels.isNotEmpty && !_useCustomModel) ...[
                 DropdownButtonFormField<String>(
-                  value: _selectedModel.isEmpty ? config.defaultModel : _selectedModel,
+                  initialValue: _selectedModel.isEmpty
+                      ? config.defaultModel
+                      : _selectedModel,
                   decoration: const InputDecoration(
                     labelText: 'Chat Model',
                   ),
                   items: config.availableModels.map((model) {
-                    final detail = config.modelDetails.where((d) => d.name == model).firstOrNull;
+                    final detail = config.modelDetails
+                        .where((d) => d.name == model)
+                        .firstOrNull;
                     return DropdownMenuItem(
                       value: model,
                       child: Row(
@@ -297,16 +307,21 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                           if (detail != null) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: detail.recommended ? AppColors.success.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                                color: detail.recommended
+                                    ? AppColors.success.withOpacity(0.1)
+                                    : Colors.grey.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 detail.description,
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: detail.recommended ? AppColors.success : Colors.grey,
+                                  color: detail.recommended
+                                      ? AppColors.success
+                                      : Colors.grey,
                                 ),
                               ),
                             ),
@@ -323,7 +338,6 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
-
               if (_useCustomModel) ...[
                 TextFormField(
                   controller: _customModelController,
@@ -340,7 +354,6 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
-
               Row(
                 children: [
                   Checkbox(
@@ -354,11 +367,12 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                       });
                     },
                   ),
-                  const Expanded(child: Text('Use custom model name', style: TextStyle(fontSize: 13))),
+                  const Expanded(
+                      child: Text('Use custom model name',
+                          style: TextStyle(fontSize: 13))),
                 ],
               ),
               const SizedBox(height: 24),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -401,11 +415,13 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppColors.primary.withOpacity(0.05),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
             ),
             child: Row(
               children: [
-                Icon(_getProviderIcon(config.provider), color: AppColors.primary, size: 24),
+                Icon(_getProviderIcon(config.provider),
+                    color: AppColors.primary, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -413,10 +429,11 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                     children: [
                       Text(
                         config.displayName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -431,28 +448,46 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
               ],
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildCapabilityRow(
-                  Icons.mic,
-                  'Voice Transcription',
-                  config.supportsTranscription,
-                  subtitle: config.supportsTranscription 
-                    ? 'ASR Model: ${config.asrModel}\n${config.asrDescription}'
-                    : 'Not supported',
+                  Icons.text_fields,
+                  'Text Analysis',
+                  config.supportsTextAnalysis,
+                  subtitle: config.supportsTextAnalysis
+                      ? 'Chat, Summary, Title Generation'
+                      : 'Not supported',
                 ),
                 const SizedBox(height: 12),
                 _buildCapabilityRow(
-                  Icons.chat_bubble_outline,
-                  'Chat / Summary / Title',
-                  config.supportsChat,
-                  subtitle: config.supportsChat ? 'Uses your selected chat model' : null,
+                  Icons.mic,
+                  'Speech Transcription',
+                  config.supportsTranscription,
+                  subtitle: config.supportsTranscription
+                      ? 'ASR Model: ${config.asrModel}\n${config.asrDescription}'
+                      : 'Not supported',
                 ),
-
+                const SizedBox(height: 12),
+                _buildCapabilityRow(
+                  Icons.record_voice_over,
+                  'Realtime Speech Transcription',
+                  config.supportsRealtimeTranscription,
+                  subtitle: config.supportsRealtimeTranscription
+                      ? 'Realtime ASR: ${config.realtimeAsrModel}\n${config.realtimeAsrDescription}'
+                      : 'Not supported',
+                ),
+                const SizedBox(height: 12),
+                _buildCapabilityRow(
+                  Icons.image_search,
+                  'Image Recognition (OCR)',
+                  config.supportsOCR,
+                  subtitle: config.supportsOCR
+                      ? 'Vision Model: ${config.visionModel}'
+                      : 'Not supported',
+                ),
                 if (config.transcriptionLimit != null) ...[
                   const SizedBox(height: 16),
                   const Divider(height: 1),
@@ -479,12 +514,14 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.info_outline, size: 14, color: Colors.blue),
+                          const Icon(Icons.info_outline,
+                              size: 14, color: Colors.blue),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               config.transcriptionLimit!.note,
-                              style: const TextStyle(fontSize: 11, color: Colors.blue),
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.blue),
                             ),
                           ),
                         ],
@@ -492,7 +529,6 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                     ),
                   ],
                 ],
-
                 if (config.limitationNote.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   const Divider(height: 1),
@@ -506,19 +542,20 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.warning_amber, size: 14, color: Colors.orange),
+                        const Icon(Icons.warning_amber,
+                            size: 14, color: Colors.orange),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             config.limitationNote,
-                            style: const TextStyle(fontSize: 11, color: Colors.orange),
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.orange),
                           ),
                         ),
                       ],
                     ),
                   ),
                 ],
-
                 if (config.pricingNote.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   _buildInfoRow(
@@ -527,7 +564,6 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                     config.pricingNote,
                   ),
                 ],
-
                 if (config.modelDetails.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   const Divider(height: 1),
@@ -540,7 +576,8 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                         ),
                   ),
                   const SizedBox(height: 8),
-                  ...config.modelDetails.map((detail) => _buildModelDetailRow(detail)),
+                  ...config.modelDetails
+                      .map((detail) => _buildModelDetailRow(detail)),
                 ],
               ],
             ),
@@ -550,11 +587,14 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
     );
   }
 
-  Widget _buildCapabilityRow(IconData icon, String label, bool isSupported, {String? subtitle}) {
+  Widget _buildCapabilityRow(IconData icon, String label, bool isSupported,
+      {String? subtitle}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: isSupported ? AppColors.success : AppColors.textTertiary),
+        Icon(icon,
+            size: 18,
+            color: isSupported ? AppColors.success : AppColors.textTertiary),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -567,14 +607,19 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: isSupported ? AppColors.textPrimary : AppColors.textTertiary,
+                      color: isSupported
+                          ? AppColors.textPrimary
+                          : AppColors.textTertiary,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(
-                      color: isSupported ? AppColors.success.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                      color: isSupported
+                          ? AppColors.success.withOpacity(0.1)
+                          : Colors.grey.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -582,7 +627,9 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: isSupported ? AppColors.success : AppColors.textTertiary,
+                        color: isSupported
+                            ? AppColors.success
+                            : AppColors.textTertiary,
                       ),
                     ),
                   ),
@@ -592,7 +639,8 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textTertiary),
                 ),
               ],
             ],
@@ -610,7 +658,10 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+          style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary),
         ),
         Expanded(
           child: Text(
@@ -635,21 +686,29 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                   detail.name,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: detail.recommended ? FontWeight.bold : FontWeight.normal,
-                    color: detail.recommended ? AppColors.primary : AppColors.textPrimary,
+                    fontWeight: detail.recommended
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: detail.recommended
+                        ? AppColors.primary
+                        : AppColors.textPrimary,
                   ),
                 ),
                 if (detail.recommended) ...[
                   const SizedBox(width: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(3),
                     ),
                     child: const Text(
                       'Rec',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary),
                     ),
                   ),
                 ],
@@ -659,7 +718,8 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
           Expanded(
             child: Text(
               detail.description,
-              style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+              style:
+                  const TextStyle(fontSize: 11, color: AppColors.textTertiary),
             ),
           ),
           if (detail.contextWindow.isNotEmpty)
@@ -671,7 +731,8 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
               ),
               child: Text(
                 detail.contextWindow,
-                style: const TextStyle(fontSize: 9, color: AppColors.textTertiary),
+                style:
+                    const TextStyle(fontSize: 9, color: AppColors.textTertiary),
               ),
             ),
         ],
@@ -691,7 +752,7 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
 
   Widget _buildProviderTile(AiModelConfig providerConfig) {
     final isSelected = _selectedProvider == providerConfig.provider;
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: isSelected ? AppColors.primary.withOpacity(0.1) : null,
@@ -709,35 +770,76 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
         ),
         subtitle: Row(
           children: [
+            if (providerConfig.supportsTextAnalysis) ...[
+              const Icon(Icons.text_fields,
+                  size: 12, color: AppColors.textTertiary),
+              const SizedBox(width: 2),
+              Text(
+                'Text',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.textTertiary),
+              ),
+              const SizedBox(width: 8),
+            ],
             if (providerConfig.supportsTranscription) ...[
               const Icon(Icons.mic, size: 12, color: AppColors.success),
               const SizedBox(width: 2),
               Text(
                 'ASR',
-                style: TextStyle(fontSize: 11, color: isSelected ? AppColors.primary : AppColors.success),
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? AppColors.primary : AppColors.success),
               ),
               const SizedBox(width: 8),
             ],
-            const Icon(Icons.chat_bubble_outline, size: 12, color: AppColors.textTertiary),
-            const SizedBox(width: 2),
-            Text(
-              'Chat',
-              style: TextStyle(fontSize: 11, color: isSelected ? AppColors.primary : AppColors.textTertiary),
-            ),
+            if (providerConfig.supportsRealtimeTranscription) ...[
+              const Icon(Icons.record_voice_over,
+                  size: 12, color: AppColors.success),
+              const SizedBox(width: 2),
+              Text(
+                'Realtime',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? AppColors.primary : AppColors.success),
+              ),
+              const SizedBox(width: 8),
+            ],
+            if (providerConfig.supportsOCR) ...[
+              const Icon(Icons.image_search,
+                  size: 12, color: AppColors.success),
+              const SizedBox(width: 2),
+              Text(
+                'OCR',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? AppColors.primary : AppColors.success),
+              ),
+              const SizedBox(width: 8),
+            ],
             if (providerConfig.transcriptionLimit != null) ...[
               const SizedBox(width: 8),
-              Icon(Icons.timer_outlined, size: 12, color: isSelected ? AppColors.primary : AppColors.textTertiary),
+              Icon(Icons.timer_outlined,
+                  size: 12,
+                  color:
+                      isSelected ? AppColors.primary : AppColors.textTertiary),
               const SizedBox(width: 2),
               Text(
                 providerConfig.transcriptionLimit!.durationLabel,
-                style: TextStyle(fontSize: 11, color: isSelected ? AppColors.primary : AppColors.textTertiary),
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.textTertiary),
               ),
             ],
           ],
         ),
-        trailing: isSelected 
-          ? const Icon(Icons.check_circle, color: AppColors.primary)
-          : null,
+        trailing: isSelected
+            ? const Icon(Icons.check_circle, color: AppColors.primary)
+            : null,
         onTap: () {
           setState(() {
             _selectedProvider = providerConfig.provider;

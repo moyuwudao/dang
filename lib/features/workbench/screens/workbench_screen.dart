@@ -19,11 +19,13 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
     final isEditMode = workbenchState.isEditMode;
     final layoutMode = workbenchState.layoutConfig.layoutMode;
     final tools = workbenchState.visibleTools;
+    final selectedCategory = workbenchState.selectedCategory;
+    final recentTools = workbenchState.recentTools;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('工作台'),
+        title: const Text('工具台'),
         centerTitle: true,
         actions: [
           if (isEditMode)
@@ -36,80 +38,175 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 style: TextStyle(color: Colors.white),
               ),
             )
-          else
+          else ...[
+            IconButton(
+              icon: const Icon(Icons.folder_open_outlined),
+              tooltip: '工具台输出',
+              onPressed: () => context.push('/tool-outputs'),
+            ),
             IconButton(
               icon: const Icon(Icons.settings_outlined),
               onPressed: () => _showWorkbenchSettings(context),
             ),
+          ],
         ],
       ),
       body: workbenchState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _buildCategoryFilter(),
+                _buildCategoryFilter(selectedCategory),
                 Expanded(
                   child: isEditMode
                       ? _buildReorderableView(tools, layoutMode)
-                      : _buildToolView(tools, layoutMode),
+                      : _buildMainContent(tools, recentTools, layoutMode),
                 ),
               ],
             ),
     );
   }
 
-  Widget _buildCategoryFilter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
+  Widget _buildMainContent(List<WorkbenchTool> tools,
+      List<WorkbenchTool> recentTools, ToolLayoutMode layoutMode) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (recentTools.isNotEmpty) ...[
+          _buildRecentToolsSection(recentTools),
+          const SizedBox(height: 20),
+        ],
+        if (tools.isEmpty)
+          _buildEmptyState()
+        else if (layoutMode == ToolLayoutMode.grid)
+          _buildGridView(tools)
+        else
+          _buildListView(tools),
+      ],
+    );
+  }
+
+  Widget _buildRecentToolsSection(List<WorkbenchTool> recentTools) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
           children: [
-            _buildCategoryChip('全部', null),
-            const SizedBox(width: 8),
-            _buildCategoryChip('效率', ToolCategory.productivity),
-            const SizedBox(width: 8),
-            _buildCategoryChip('分析', ToolCategory.analysis),
-            const SizedBox(width: 8),
-            _buildCategoryChip('AI', ToolCategory.ai),
-            const SizedBox(width: 8),
-            _buildCategoryChip('管理', ToolCategory.management),
+            Icon(Icons.history, size: 16, color: AppColors.textSecondary),
+            SizedBox(width: 6),
+            Text(
+              '最近使用',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 90,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: recentTools.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final tool = recentTools[index];
+              return _buildRecentToolChip(tool);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentToolChip(WorkbenchTool tool) {
+    return InkWell(
+      onTap: () {
+        ref.read(workbenchProvider.notifier).openTool(tool.id);
+        context.push(tool.route);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 120,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: tool.color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: tool.color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(tool.icon, color: tool.color, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              tool.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: tool.color,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCategoryChip(String label, ToolCategory? category) {
-    return Consumer(
-      builder: (context, ref, child) {
-        return ActionChip(
-          label: Text(label),
-          onPressed: () {},
-          backgroundColor: AppColors.surface,
-          side: const BorderSide(color: AppColors.divider),
-          labelStyle: const TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary,
-          ),
-        );
-      },
+  Widget _buildCategoryFilter(ToolCategory? selectedCategory) {
+    final categories = [
+      (null, '全部'),
+      (ToolCategory.productivity, '效率'),
+      (ToolCategory.analysis, '分析'),
+      (ToolCategory.management, '管理'),
+      (ToolCategory.ai, 'AI'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: categories.map((item) {
+            final category = item.$1;
+            final label = item.$2;
+            final isSelected = selectedCategory == category;
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: Text(label),
+                selected: isSelected,
+                onSelected: (_) {
+                  ref.read(workbenchProvider.notifier).setSelectedCategory(
+                        isSelected ? null : category,
+                      );
+                },
+                backgroundColor: AppColors.surface,
+                selectedColor: AppColors.primary.withValues(alpha: 0.1),
+                checkmarkColor: AppColors.primary,
+                side: BorderSide(
+                  color: isSelected ? AppColors.primary : AppColors.divider,
+                ),
+                labelStyle: TextStyle(
+                  fontSize: 13,
+                  color:
+                      isSelected ? AppColors.primary : AppColors.textSecondary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 
-  Widget _buildToolView(List<WorkbenchTool> tools, ToolLayoutMode layoutMode) {
-    if (tools.isEmpty) {
-      return _buildEmptyState();
-    }
-
-    if (layoutMode == ToolLayoutMode.grid) {
-      return _buildGridView(tools);
-    } else {
-      return _buildListView(tools);
-    }
-  }
-
-  Widget _buildReorderableView(List<WorkbenchTool> tools, ToolLayoutMode layoutMode) {
+  Widget _buildReorderableView(
+      List<WorkbenchTool> tools, ToolLayoutMode layoutMode) {
     return ReorderableListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: tools.length,
@@ -142,13 +239,14 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
 
   Widget _buildGridView(List<WorkbenchTool> tools) {
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         childAspectRatio: 1.15,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: tools.length,
       itemBuilder: (context, index) {
         final tool = tools[index];
@@ -159,7 +257,8 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
 
   Widget _buildListView(List<WorkbenchTool> tools) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: tools.length,
       itemBuilder: (context, index) {
         final tool = tools[index];
@@ -176,24 +275,33 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () => context.push(tool.route),
+        onTap: () {
+          ref.read(workbenchProvider.notifier).openTool(tool.id);
+          context.push(tool.route);
+        },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: tool.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  tool.icon,
-                  color: tool.color,
-                  size: 28,
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: tool.color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      tool.icon,
+                      color: tool.color,
+                      size: 28,
+                    ),
+                  ),
+                  const Spacer(),
+                  _buildCategoryBadge(tool.category),
+                ],
               ),
               const Spacer(),
               Text(
@@ -223,12 +331,42 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
     );
   }
 
+  Widget _buildCategoryBadge(ToolCategory category) {
+    final labels = {
+      ToolCategory.productivity: ('效率', AppColors.primary),
+      ToolCategory.analysis: ('分析', const Color(0xFF06B6D4)),
+      ToolCategory.management: ('管理', const Color(0xFFF59E0B)),
+      ToolCategory.ai: ('AI', const Color(0xFF8B5CF6)),
+    };
+    final (label, color) = labels[category]!;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   Widget _buildListToolCard(WorkbenchTool tool, {bool showDragHandle = false}) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: showDragHandle ? null : () => context.push(tool.route),
+        onTap: showDragHandle
+            ? null
+            : () {
+                ref.read(workbenchProvider.notifier).openTool(tool.id);
+                context.push(tool.route);
+              },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -237,7 +375,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: tool.color.withOpacity(0.1),
+                  color: tool.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -251,13 +389,19 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      tool.name,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          tool.name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildCategoryBadge(tool.category),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -280,7 +424,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
               else
                 Icon(
                   Icons.chevron_right,
-                  color: AppColors.textTertiary.withOpacity(0.5),
+                  color: AppColors.textTertiary.withValues(alpha: 0.5),
                 ),
             ],
           ),
@@ -297,7 +441,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
           Icon(
             Icons.widgets_outlined,
             size: 64,
-            color: AppColors.textTertiary.withOpacity(0.5),
+            color: AppColors.textTertiary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -346,7 +490,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  '工作台设置',
+                  '工具台设置',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -354,9 +498,11 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 ),
                 const SizedBox(height: 20),
                 ListTile(
-                  leading: const Icon(Icons.view_module_outlined, color: AppColors.primary),
+                  leading: const Icon(Icons.view_module_outlined,
+                      color: AppColors.primary),
                   title: const Text('布局方式'),
-                  subtitle: Text(layoutMode == ToolLayoutMode.grid ? '卡片式' : '列表式'),
+                  subtitle:
+                      Text(layoutMode == ToolLayoutMode.grid ? '卡片式' : '列表式'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -368,7 +514,9 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                               : AppColors.textTertiary,
                         ),
                         onPressed: () {
-                          ref.read(workbenchProvider.notifier).setLayoutMode(ToolLayoutMode.grid);
+                          ref
+                              .read(workbenchProvider.notifier)
+                              .setLayoutMode(ToolLayoutMode.grid);
                           Navigator.pop(context);
                         },
                       ),
@@ -380,7 +528,9 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                               : AppColors.textTertiary,
                         ),
                         onPressed: () {
-                          ref.read(workbenchProvider.notifier).setLayoutMode(ToolLayoutMode.list);
+                          ref
+                              .read(workbenchProvider.notifier)
+                              .setLayoutMode(ToolLayoutMode.list);
                           Navigator.pop(context);
                         },
                       ),
@@ -388,23 +538,14 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.reorder, color: AppColors.secondary),
-                  title: const Text('排序工具'),
-                  subtitle: const Text('拖拽调整工具顺序'),
+                  leading: const Icon(Icons.visibility_outlined,
+                      color: AppColors.info),
+                  title: const Text('工具展示设置'),
+                  subtitle: const Text('设置工具显示、隐藏和首页快捷入口'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pop(context);
-                    ref.read(workbenchProvider.notifier).setEditMode(true);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.visibility_outlined, color: AppColors.info),
-                  title: const Text('显示/隐藏工具'),
-                  subtitle: const Text('自定义显示哪些工具'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showToolVisibilityDialog(context);
+                    context.push('/workbench/tool-display-settings');
                   },
                 ),
                 ListTile(
@@ -425,56 +566,6 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
               ],
             ),
           ),
-        );
-      },
-    );
-  }
-
-  void _showToolVisibilityDialog(BuildContext context) {
-    final workbenchState = ref.read(workbenchProvider);
-    final allTools = workbenchState.tools;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('显示/隐藏工具'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: allTools.length,
-              itemBuilder: (context, index) {
-                final tool = allTools[index];
-                final isVisible = workbenchState.layoutConfig.toolVisibility[tool.id] ?? true;
-
-                return StatefulBuilder(
-                  builder: (context, setState) {
-                    return CheckboxListTile(
-                      title: Row(
-                        children: [
-                          Icon(tool.icon, color: tool.color, size: 20),
-                          const SizedBox(width: 8),
-                          Text(tool.name),
-                        ],
-                      ),
-                      value: isVisible,
-                      onChanged: (value) {
-                        ref.read(workbenchProvider.notifier).toggleToolVisibility(tool.id);
-                        setState(() {});
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('完成'),
-            ),
-          ],
         );
       },
     );

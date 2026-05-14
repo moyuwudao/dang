@@ -3,6 +3,7 @@ import 'ai_model_config.dart';
 enum ApiFunctionType {
   text,
   voice,
+  voiceRealtime,
   image,
 }
 
@@ -11,6 +12,7 @@ class ApiConfigEntry {
   final String name;
   final AiProvider provider;
   final String apiKey;
+  final String? appId;
   final String? baseUrl;
   final String model;
   final bool isCustomProvider;
@@ -25,6 +27,7 @@ class ApiConfigEntry {
     required this.name,
     required this.provider,
     required this.apiKey,
+    this.appId,
     this.baseUrl,
     required this.model,
     this.isCustomProvider = false,
@@ -40,6 +43,7 @@ class ApiConfigEntry {
     String? name,
     AiProvider? provider,
     String? apiKey,
+    String? appId,
     String? baseUrl,
     String? model,
     bool? isCustomProvider,
@@ -54,6 +58,7 @@ class ApiConfigEntry {
       name: name ?? this.name,
       provider: provider ?? this.provider,
       apiKey: apiKey ?? this.apiKey,
+      appId: appId ?? this.appId,
       baseUrl: baseUrl ?? this.baseUrl,
       model: model ?? this.model,
       isCustomProvider: isCustomProvider ?? this.isCustomProvider,
@@ -71,6 +76,7 @@ class ApiConfigEntry {
       'name': name,
       'provider': provider.name,
       'apiKey': apiKey,
+      'appId': appId,
       'baseUrl': baseUrl,
       'model': model,
       'isCustomProvider': isCustomProvider,
@@ -91,6 +97,7 @@ class ApiConfigEntry {
         orElse: () => AiProvider.openAI,
       ),
       apiKey: json['apiKey'] ?? '',
+      appId: json['appId'],
       baseUrl: json['baseUrl'],
       model: json['model'] ?? '',
       isCustomProvider: json['isCustomProvider'] ?? false,
@@ -117,6 +124,7 @@ class ApiConfigEntry {
 
   bool get supportsText => functions.contains(ApiFunctionType.text);
   bool get supportsVoice => functions.contains(ApiFunctionType.voice);
+  bool get supportsVoiceRealtime => functions.contains(ApiFunctionType.voiceRealtime);
   bool get supportsImage => functions.contains(ApiFunctionType.image);
 }
 
@@ -211,10 +219,13 @@ class MultiApiConfig {
   }
 
   ApiConfigEntry? getConfigById(String id) {
-    return configs.firstWhere(
-      (c) => c.id == id,
-      orElse: () => null as ApiConfigEntry,
-    );
+    try {
+      return configs.firstWhere(
+        (c) => c.id == id,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   List<ApiConfigEntry> get activeConfigs =>

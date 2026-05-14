@@ -21,6 +21,7 @@ class Records extends Table {
   BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
   TextColumn get aiAnalysis => text().nullable()();
   TextColumn get supplements => text().withDefault(const Constant('[]'))();
+  BoolColumn get isRealtime => boolean().withDefault(const Constant(false))();
 }
 
 class ApiConfigs extends Table {
@@ -33,14 +34,31 @@ class ApiConfigs extends Table {
   DateTimeColumn get updatedAt => dateTime()();
 }
 
-@DriftDatabase(tables: [Records, ApiConfigs])
+class ToolOutputs extends Table {
+  TextColumn get id => text()(); // UUID
+  TextColumn get toolId => text()(); // 工具ID
+  TextColumn get title => text()(); // 标题
+  TextColumn get content => text()(); // 输出内容
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get tags => text().withDefault(const Constant('[]'))();
+  TextColumn get sourceRecordIds =>
+      text().withDefault(const Constant('[]'))(); // 关联的记录ID列表
+  TextColumn get templateId => text().nullable()(); // 使用的模板ID
+  IntColumn get usageCount =>
+      integer().withDefault(const Constant(0))(); // 使用次数
+  BoolColumn get isFavorite =>
+      boolean().withDefault(const Constant(false))(); // 是否收藏
+}
+
+@DriftDatabase(tables: [Records, ApiConfigs, ToolOutputs])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase._withExecutor(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -57,6 +75,15 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from <= 2) {
           await _createFtsTable();
+        }
+        if (from <= 3) {
+          await m.createTable(toolOutputs);
+        }
+        if (from <= 4) {
+          await m.addColumn(toolOutputs, toolOutputs.isFavorite);
+        }
+        if (from <= 5) {
+          await m.addColumn(records, records.isRealtime);
         }
       },
       beforeOpen: (details) async {
@@ -84,6 +111,15 @@ class AppDatabase extends _$AppDatabase {
 
   // 记录相关操作
   Future<List<Record>> getAllRecords() => select(records).get();
+
+  Future<List<Record>> getRecordsByTags(List<String> tags) async {
+    if (tags.isEmpty) return [];
+    final query = select(records);
+    for (final tag in tags) {
+      query.where((r) => r.tags.like('%$tag%'));
+    }
+    return query.get();
+  }
 
   Future<Record?> getRecordById(int id) {
     return (select(records)..where((r) => r.id.equals(id))).getSingleOrNull();
@@ -201,7 +237,8 @@ class AppDatabase extends _$AppDatabase {
     return result.map((row) => records.map(row.data)).toList();
   }
 
-  Future<List<Record>> searchRecordsWithTags(String query, List<String> tags) async {
+  Future<List<Record>> searchRecordsWithTags(
+      String query, List<String> tags) async {
     final queryBuilder = select(records);
 
     if (query.isNotEmpty) {
@@ -243,6 +280,62 @@ class AppDatabase extends _$AppDatabase {
 
   Future<bool> updateApiConfig(ApiConfigsCompanion config) =>
       update(apiConfigs).replace(config);
+
+  // 工具输出相关操作
+  Future<List<ToolOutput>> getAllToolOutputs() =>
+      (select(toolOutputs)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          .get();
+
+  Future<List<ToolOutput>> getToolOutputsByToolId(String toolId) =>
+      (select(toolOutputs)
+            ..where((t) => t.toolId.equals(toolId))
+            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          .get();
+
+  Future<ToolOutput?> getToolOutputById(String id) =>
+      (select(toolOutputs)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  Future<int> insertToolOutput(ToolOutputsCompanion output) =>
+      into(toolOutputs).insert(output);
+
+  Future<bool> updateToolOutput(ToolOutputsCompanion output) =>
+      update(toolOutputs).replace(output);
+
+  Future<int> updateToolOutputUsageCount(String id) {
+    return (update(toolOutputs)..where((t) => t.id.equals(id))).write(
+      ToolOutputsCompanion(
+        usageCount: const Value.absent(),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<int> updateToolOutputFavorite(String id, bool isFavorite) {
+    return (update(toolOutputs)..where((t) => t.id.equals(id))).write(
+      ToolOutputsCompanion(
+        isFavorite: Value(isFavorite),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<int> deleteToolOutput(String id) =>
+      (delete(toolOutputs)..where((t) => t.id.equals(id))).go();
+
+  Future<List<ToolOutput>> searchToolOutputs(String query) async {
+    return (select(toolOutputs)
+          ..where((t) => t.title.like('%$query%') | t.content.like('%$query%'))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+  }
+
+  Future<int> getToolOutputCount() async {
+    final count = await (selectOnly(toolOutputs)
+          ..addColumns([toolOutputs.id.count()]))
+        .map((row) => row.read(toolOutputs.id.count()))
+        .getSingle();
+    return count ?? 0;
+  }
 
   // 数据库备份与恢复
   Future<String> backupDatabase(String backupPath) async {

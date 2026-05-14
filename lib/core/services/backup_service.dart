@@ -66,7 +66,7 @@ class BackupInfo {
   final String version;
   final BackupOptions options;
 
-  const BackupInfo({
+  BackupInfo({
     required this.id,
     required this.name,
     required this.createdAt,

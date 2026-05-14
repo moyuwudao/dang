@@ -1,60 +1,170 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/empty_state_widget.dart';
 import '../../../data/models/record_model.dart';
+import '../../../data/models/tool_output_model.dart';
+import '../../../data/repositories/tool_output_repository.dart';
 import '../providers/record_provider.dart';
 
-class FavoriteRecordsScreen extends ConsumerWidget {
+class FavoriteRecordsScreen extends ConsumerStatefulWidget {
   const FavoriteRecordsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FavoriteRecordsScreen> createState() => _FavoriteRecordsScreenState();
+}
+
+class _FavoriteRecordsScreenState extends ConsumerState<FavoriteRecordsScreen> {
+  List<ToolOutputModel> _favoriteToolOutputs = [];
+  bool _isLoadingToolOutputs = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavoriteToolOutputs();
+  }
+
+  Future<void> _loadFavoriteToolOutputs() async {
+    setState(() => _isLoadingToolOutputs = true);
+    try {
+      final repository = ref.read(toolOutputRepositoryProvider);
+      final allOutputs = await repository.getAllToolOutputs();
+      _favoriteToolOutputs = allOutputs.where((o) => o.isFavorite).toList();
+    } catch (e) {
+      _favoriteToolOutputs = [];
+    }
+    setState(() => _isLoadingToolOutputs = false);
+  }
+
+  Future<void> _toggleToolOutputFavorite(String id, bool current) async {
+    final repository = ref.read(toolOutputRepositoryProvider);
+    await repository.updateFavorite(id, !current);
+    await _loadFavoriteToolOutputs();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final favoriteRecordsAsync = ref.watch(favoriteRecordsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('收藏记录'),
-      ),
-      body: favoriteRecordsAsync.when(
-        data: (records) {
-          if (records.isEmpty) {
-            return EmptyStateWidget(
-              icon: Icons.star_border,
-              title: '暂无收藏',
-              description: '点击记录中的星星图标收藏记录',
-              onAction: () => context.pop(),
-              actionText: '返回',
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(favoriteRecordsProvider);
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: records.length,
-              itemBuilder: (context, index) {
-                final record = records[index];
-                return _FavoriteRecordCard(record: record);
-              },
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('加载失败: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.refresh(favoriteRecordsProvider),
-                child: const Text('重试'),
-              ),
-            ],
+        title: const Text('收藏'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadFavoriteToolOutputs,
           ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(favoriteRecordsProvider);
+          await _loadFavoriteToolOutputs();
+        },
+        child: CustomScrollView(
+          slivers: [
+            // 记录收藏部分
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.bookmark, color: AppColors.primary, size: 18),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '记录收藏',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            favoriteRecordsAsync.when(
+              data: (records) {
+                if (records.isEmpty) {
+                  return const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        '暂无收藏记录',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ),
+                  );
+                }
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final record = records[index];
+                      return _FavoriteRecordCard(record: record);
+                    },
+                    childCount: records.length,
+                  ),
+                );
+              },
+              loading: () => const SliverToBoxAdapter(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, stack) => SliverToBoxAdapter(
+                child: Center(child: Text('加载失败: $error')),
+              ),
+            ),
+
+            // 工具输出收藏部分
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.output, color: AppColors.secondary, size: 18),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '工具输出收藏',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_isLoadingToolOutputs)
+              const SliverToBoxAdapter(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_favoriteToolOutputs.isEmpty)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    '暂无收藏的工具输出',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final output = _favoriteToolOutputs[index];
+                    return _FavoriteToolOutputCard(
+                      output: output,
+                      onUnfavorite: () => _toggleToolOutputFavorite(output.id, output.isFavorite),
+                    );
+                  },
+                  childCount: _favoriteToolOutputs.length,
+                ),
+              ),
+
+            const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
+          ],
         ),
       ),
     );
@@ -69,7 +179,7 @@ class _FavoriteRecordCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
         onTap: () => context.push('/record/${record.id}'),
         borderRadius: BorderRadius.circular(12),
@@ -104,9 +214,9 @@ class _FavoriteRecordCard extends ConsumerWidget {
                   ),
                   _buildStatusBadge(),
                   const SizedBox(width: 8),
-                  Icon(
+                  const Icon(
                     Icons.star,
-                    color: AppColors.warning,
+                    color: Colors.amber,
                   ),
                 ],
               ),
@@ -132,7 +242,8 @@ class _FavoriteRecordCard extends ConsumerWidget {
                         color: AppColors.primary,
                       ),
                     );
-                  }).toList(),
+ 
+                 }).toList(),
                 ),
               ],
             ],
@@ -241,5 +352,220 @@ class _FavoriteRecordCard extends ConsumerWidget {
     }
 
     return parts.join(' · ');
+  }
+}
+
+class _FavoriteToolOutputCard extends StatelessWidget {
+  final ToolOutputModel output;
+  final VoidCallback onUnfavorite;
+
+  const _FavoriteToolOutputCard({
+    required this.output,
+    required this.onUnfavorite,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: InkWell(
+        onTap: () => _showDetail(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.output,
+                      size: 16,
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      output.title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.star, color: Colors.amber),
+                    onPressed: onUnfavorite,
+                    tooltip: '取消收藏',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                output.content.length > 120
+                    ? '${output.content.substring(0, 120)}...'
+                    : output.content,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[700],
+                  height: 1.5,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (output.tags.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: output.tags.map((tag) {
+                    return Chip(
+                      label: Text(tag),
+                      backgroundColor: AppColors.primary.withOpacity(0.1),
+                      side: BorderSide.none,
+                      padding: EdgeInsets.zero,
+                      labelStyle: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.primary,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDetail(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              output.title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.share_outlined),
+                            onPressed: () {
+                              Share.share(
+                                '${output.title}\n\n${output.content}\n\n来自畅记 App',
+                                subject: output.title,
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.copy_outlined),
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: output.content),
+                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('已复制到剪贴板')),
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${output.createdAt.year}/${output.createdAt.month.toString().padLeft(2, '0')}/${output.createdAt.day.toString().padLeft(2, '0')} ${output.createdAt.hour.toString().padLeft(2, '0')}:${output.createdAt.minute.toString().padLeft(2, '0')}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (output.tags.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Wrap(
+                      spacing: 8,
+                      children: output.tags.map((tag) {
+                        return Chip(
+                          label: Text(tag),
+                          backgroundColor: AppColors.primary.withOpacity(0.1),
+                          labelStyle: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                          ),
+                          padding: EdgeInsets.zero,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                const Divider(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(16),
+                    child: SelectableText(
+                      output.content,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.8,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }

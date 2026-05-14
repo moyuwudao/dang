@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 class MindMapPlan {
   final String id;
   final String name;

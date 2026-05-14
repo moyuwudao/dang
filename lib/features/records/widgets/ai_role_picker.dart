@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/ai_role.dart';
 import '../../../core/services/prompt_template_service.dart';
 import '../../../core/services/role_service.dart';
+import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../workbench/tools/tool_configs.dart';
 
-enum RolePickerTab { system, custom, template }
+enum RolePickerTab { system, custom, template, tool }
 
 class AiRolePicker extends ConsumerStatefulWidget {
   final Function(AiRole role) onRoleSelected;
@@ -27,13 +30,15 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
   List<AiRole> _systemRoles = [];
   List<AiRole> _customRoles = [];
   List<PromptTemplate> _templates = [];
+  List<ToolConfig> _tools = [];
+  List<String> _recentToolIds = [];
   bool _isLoading = true;
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadData();
   }
 
@@ -51,14 +56,32 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
     final customRoles = await RoleService.getCustomRoles();
     final templates = templateService.getAllTemplates();
 
+    final tools = toolConfigs.values.toList();
+    final recentToolIds = await _getRecentToolIds();
+
     if (mounted) {
       setState(() {
         _systemRoles = systemRoles;
         _customRoles = customRoles;
         _templates = templates;
+        _tools = tools;
+        _recentToolIds = recentToolIds;
         _isLoading = false;
       });
     }
+  }
+
+  Future<List<String>> _getRecentToolIds() async {
+    final layoutConfigJson = await StorageService.getString('workbench_layout');
+    if (layoutConfigJson != null) {
+      try {
+        final config = Map<String, dynamic>.from(jsonDecode(layoutConfigJson));
+        final recentIds =
+            (config['recentToolIds'] as List<dynamic>?)?.cast<String>() ?? [];
+        return recentIds.take(5).toList();
+      } catch (_) {}
+    }
+    return [];
   }
 
   @override
@@ -84,6 +107,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
                       _buildSystemRolesTab(),
                       _buildCustomRolesTab(),
                       _buildTemplatesTab(),
+                      _buildToolsTab(),
                     ],
                   ),
           ),
@@ -105,15 +129,15 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
           ),
         ),
         const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              const Text(
+              Text(
                 '选择AI分析角色',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              const Spacer(),
+              Spacer(),
               // 管理按钮已移除
             ],
           ),
@@ -153,43 +177,26 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
   Widget _buildTabBar() {
     return Container(
       color: Colors.grey[50],
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: TabBar(
         controller: _tabController,
-        labelColor: Colors.black,
-        unselectedLabelColor: Colors.black87,
+        labelColor: AppColors.primary,
+        unselectedLabelColor: AppColors.textSecondary,
         indicatorColor: AppColors.primary,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black87),
-        tabs: [
+        indicatorWeight: 2,
+        indicatorSize: TabBarIndicatorSize.label,
+        tabs: const [
           Tab(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.verified, size: 16, color: Colors.black),
-                const SizedBox(width: 4),
-                Text('系统(${_systemRoles.length})', style: const TextStyle(color: Colors.black)),
-              ],
-            ),
+            icon: Icon(Icons.verified, size: 20),
           ),
           Tab(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.person_outline, size: 16, color: Colors.black),
-                const SizedBox(width: 4),
-                Text('自定义(${_customRoles.length})', style: const TextStyle(color: Colors.black)),
-              ],
-            ),
+            icon: Icon(Icons.person_outline, size: 20),
           ),
           Tab(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_stories, size: 16, color: Colors.black),
-                const SizedBox(width: 4),
-                Text('模板库(${_templates.length})', style: const TextStyle(color: Colors.black)),
-              ],
-            ),
+            icon: Icon(Icons.auto_stories, size: 20),
+          ),
+          Tab(
+            icon: Icon(Icons.build, size: 20),
           ),
         ],
       ),
@@ -269,11 +276,11 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
       children: [
         // Frequently used section at the top
         if (frequentlyUsed.isNotEmpty && _searchQuery.isEmpty) ...[
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.star, color: Colors.amber, size: 16),
-              const SizedBox(width: 6),
-              const Text(
+              Icon(Icons.star, color: Colors.amber, size: 16),
+              SizedBox(width: 6),
+              Text(
                 '常用模板',
                 style: TextStyle(
                   fontSize: 14,
@@ -284,7 +291,9 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
             ],
           ),
           const SizedBox(height: 8),
-          ...frequentlyUsed.take(5).map((template) => _buildTemplateTile(template)),
+          ...frequentlyUsed
+              .take(5)
+              .map((template) => _buildTemplateTile(template)),
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),
@@ -307,7 +316,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
             templates: categoryTemplates,
             onTemplateSelected: (template) => _selectTemplate(template),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -344,6 +353,226 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
     return labels[category] ?? category;
   }
 
+  Map<String, String> _getToolCategoryLabel(String category) {
+    const labels = {
+      'frequently_used': {'label': '常用工具', 'icon': '⭐'},
+      'productivity': {'label': '效率工具', 'icon': '⚡'},
+      'analysis': {'label': '分析工具', 'icon': '📊'},
+      'management': {'label': '管理工具', 'icon': '📋'},
+      'ai': {'label': 'AI工具', 'icon': '🤖'},
+    };
+    return labels[category] ?? {'label': category, 'icon': '📦'};
+  }
+
+  Widget _buildToolsTab() {
+    final filteredTools = _tools
+        .where((t) =>
+            t.title.toLowerCase().contains(_searchQuery) ||
+            t.id.toLowerCase().contains(_searchQuery))
+        .toList();
+
+    final recentTools = _recentToolIds
+        .map((id) => _tools.firstWhere((t) => t.id == id,
+            orElse: () => throw StateError('Tool not found')))
+        .where((tool) => filteredTools.any((t) => t.id == tool.id))
+        .toList();
+
+    if (filteredTools.isEmpty) {
+      return _buildEmptyState('暂无匹配的工具');
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (_searchQuery.isEmpty && recentTools.isNotEmpty) ...[
+          const Row(
+            children: [
+              Icon(Icons.star, color: Colors.amber, size: 16),
+              SizedBox(width: 6),
+              Text(
+                '常用工具',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...recentTools.take(5).map((tool) => _buildToolTile(tool)),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 8),
+        ],
+        ..._getToolCategories().entries.map((entry) {
+          final category = entry.key;
+          final categoryTools = filteredTools
+              .where((t) => _getToolCategory(t.id) == category)
+              .toList();
+
+          if (categoryTools.isEmpty) return const SizedBox.shrink();
+
+          return _ExpandableToolCategorySection(
+            categoryLabel: _getToolCategoryLabel(category)['label']!,
+            categoryIcon: _getToolCategoryLabel(category)['icon']!,
+            toolCount: categoryTools.length,
+            tools: categoryTools,
+            onToolSelected: (tool) => _selectTool(tool),
+          );
+        }),
+      ],
+    );
+  }
+
+  Map<String, List<ToolConfig>> _getToolCategories() {
+    return {
+      'productivity': _tools
+          .where((t) => [
+                'mindmap',
+                'weekly_report',
+                'smart_todo',
+                'meeting_minutes',
+                'email_draft',
+                'multi_platform_copy',
+                'voice_diary',
+                'quick_translate',
+              ].contains(t.id))
+          .toList(),
+      'analysis': _tools
+          .where((t) => [
+                'time_audit',
+                'project_review',
+                'swot_analysis',
+                'customer_profile',
+                'trend_insight',
+                'competitor_radar',
+              ].contains(t.id))
+          .toList(),
+      'management': _tools
+          .where((t) => [
+                'project_board',
+                'lightweight_crm',
+                'invoice_recognition',
+                'contract_summary',
+                'quotation',
+                'knowledge_card',
+              ].contains(t.id))
+          .toList(),
+      'ai': _tools
+          .where((t) => [
+                'ai_advisor',
+                'creative_diverge',
+                'knowledge_qa',
+                'decision_matrix',
+                'writing_workshop',
+                'daily_three_questions',
+              ].contains(t.id))
+          .toList(),
+    };
+  }
+
+  String _getToolCategory(String toolId) {
+    if ([
+      'mindmap',
+      'weekly_report',
+      'smart_todo',
+      'meeting_minutes',
+      'email_draft',
+      'multi_platform_copy',
+      'voice_diary',
+      'quick_translate',
+    ].contains(toolId)) {
+      return 'productivity';
+    }
+    if ([
+      'time_audit',
+      'project_review',
+      'swot_analysis',
+      'customer_profile',
+      'trend_insight',
+      'competitor_radar',
+    ].contains(toolId)) {
+      return 'analysis';
+    }
+    if ([
+      'project_board',
+      'lightweight_crm',
+      'invoice_recognition',
+      'contract_summary',
+      'quotation',
+      'knowledge_card',
+    ].contains(toolId)) {
+      return 'management';
+    }
+    return 'ai';
+  }
+
+  Widget _buildToolTile(ToolConfig tool) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: InkWell(
+        onTap: () => _selectTool(tool),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              const Icon(Icons.build, color: AppColors.info, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tool.title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      tool.emptyStateText,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right,
+                  color: AppColors.textTertiary, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _selectTool(ToolConfig tool) {
+    final role = AiRole(
+      id: 'tool_${tool.id}',
+      name: tool.title,
+      description: tool.emptyStateText,
+      systemPrompt: tool.systemPrompt,
+      isBuiltIn: true,
+      createdAt: DateTime.now(),
+    );
+    if (mounted) {
+      Navigator.pop(context);
+      widget.onRoleSelected(role);
+    }
+  }
+
   Widget _buildRoleTile(AiRole role, IconData icon, Color color) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -378,7 +607,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
                     const SizedBox(height: 2),
                     Text(
                       role.description,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
@@ -388,7 +617,8 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textTertiary, size: 20),
+              const Icon(Icons.chevron_right,
+                  color: AppColors.textTertiary, size: 20),
             ],
           ),
         ),
@@ -443,7 +673,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
                     const SizedBox(height: 2),
                     Text(
                       template.description,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
@@ -453,7 +683,8 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textTertiary, size: 20),
+              const Icon(Icons.chevron_right,
+                  color: AppColors.textTertiary, size: 20),
             ],
           ),
         ),
@@ -563,14 +794,15 @@ class _ExpandableCategorySectionState
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '${widget.templateCount}个方案',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.primary,
                         fontWeight: FontWeight.w500,
@@ -591,10 +823,12 @@ class _ExpandableCategorySectionState
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Column(
-                children: widget.templates.map((template) => _TemplateItem(
-                  template: template,
-                  onTap: () => widget.onTemplateSelected(template),
-                )).toList(),
+                children: widget.templates
+                    .map((template) => _TemplateItem(
+                          template: template,
+                          onTap: () => widget.onTemplateSelected(template),
+                        ))
+                    .toList(),
               ),
             ),
         ],
@@ -638,7 +872,7 @@ class _TemplateItem extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     template.description,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                     ),
@@ -648,7 +882,165 @@ class _TemplateItem extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textTertiary, size: 18),
+            const Icon(Icons.chevron_right,
+                color: AppColors.textTertiary, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ========== 工具分类可展开组件 ==========
+class _ExpandableToolCategorySection extends StatefulWidget {
+  final String categoryLabel;
+  final String categoryIcon;
+  final int toolCount;
+  final List<ToolConfig> tools;
+  final ValueChanged<ToolConfig> onToolSelected;
+
+  const _ExpandableToolCategorySection({
+    required this.categoryLabel,
+    required this.categoryIcon,
+    required this.toolCount,
+    required this.tools,
+    required this.onToolSelected,
+  });
+
+  @override
+  State<_ExpandableToolCategorySection> createState() =>
+      _ExpandableToolCategorySectionState();
+}
+
+class _ExpandableToolCategorySectionState
+    extends State<_ExpandableToolCategorySection> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.vertical(
+              top: const Radius.circular(12),
+              bottom: Radius.circular(_isExpanded ? 0 : 12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Text(widget.categoryIcon,
+                      style: const TextStyle(fontSize: 16)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.categoryLabel,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${widget.toolCount}个工具',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AnimatedRotation(
+                    turns: _isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.keyboard_arrow_down, size: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                children: widget.tools
+                    .map((tool) => _ToolItem(
+                          tool: tool,
+                          onTap: () => widget.onToolSelected(tool),
+                        ))
+                    .toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolItem extends StatelessWidget {
+  final ToolConfig tool;
+  final VoidCallback onTap;
+
+  const _ToolItem({
+    required this.tool,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        child: Row(
+          children: [
+            const Icon(Icons.build, color: AppColors.info, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tool.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    tool.emptyStateText,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                color: AppColors.textTertiary, size: 18),
           ],
         ),
       ),

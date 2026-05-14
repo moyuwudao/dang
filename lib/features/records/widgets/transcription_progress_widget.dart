@@ -17,7 +17,7 @@ class TranscriptionProgressWidget extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.sync, color: AppColors.primary, size: 20),
+                const Icon(Icons.sync, color: AppColors.primary, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -26,14 +26,16 @@ class TranscriptionProgressWidget extends StatelessWidget {
                   ),
                 ),
                 if (progress.isCompleted)
-                  Icon(Icons.check_circle, color: AppColors.success, size: 20)
+                  const Icon(Icons.check_circle,
+                      color: AppColors.success, size: 20)
                 else if (progress.error != null)
-                  Icon(Icons.error, color: AppColors.error, size: 20)
+                  const Icon(Icons.error, color: AppColors.error, size: 20)
                 else
-                  SizedBox(
+                  const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: AppColors.primary),
                   ),
               ],
             ),
@@ -59,19 +61,22 @@ class TranscriptionProgressWidget extends StatelessWidget {
             // Current action
             if (progress.currentAction != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                    const Icon(Icons.info_outline,
+                        size: 16, color: AppColors.primary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         progress.currentAction!,
-                        style: TextStyle(color: AppColors.primary, fontSize: 13),
+                        style: const TextStyle(
+                            color: AppColors.primary, fontSize: 13),
                       ),
                     ),
                   ],
@@ -83,19 +88,22 @@ class TranscriptionProgressWidget extends StatelessWidget {
             // Error message
             if (progress.error != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.error.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline, size: 16, color: AppColors.error),
+                    const Icon(Icons.error_outline,
+                        size: 16, color: AppColors.error),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         progress.error!,
-                        style: TextStyle(color: AppColors.error, fontSize: 13),
+                        style: const TextStyle(
+                            color: AppColors.error, fontSize: 13),
                       ),
                     ),
                   ],
@@ -147,14 +155,16 @@ class TranscriptionProgressWidget extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 color: color,
-                fontWeight: step.status == TranscriptionStepStatus.running ? FontWeight.w500 : FontWeight.normal,
+                fontWeight: step.status == TranscriptionStepStatus.running
+                    ? FontWeight.w500
+                    : FontWeight.normal,
               ),
             ),
           ),
           if (step.detail != null)
             Text(
               step.detail!,
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
         ],
       ),

@@ -4,12 +4,14 @@ import '../../../core/models/ai_role.dart';
 import '../../../core/services/prompt_template_service.dart';
 import '../../../core/services/role_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/expandable_text_field.dart';
 
 class RoleManagementScreen extends ConsumerStatefulWidget {
   const RoleManagementScreen({super.key});
 
   @override
-  ConsumerState<RoleManagementScreen> createState() => _RoleManagementScreenState();
+  ConsumerState<RoleManagementScreen> createState() =>
+      _RoleManagementScreenState();
 }
 
 class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
@@ -121,7 +123,8 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
       itemCount: categories.length,
       itemBuilder: (context, index) {
         final category = categories[index];
-        final categoryTemplates = _templates.where((t) => t.category == category).toList();
+        final categoryTemplates =
+            _templates.where((t) => t.category == category).toList();
 
         if (categoryTemplates.isEmpty) return const SizedBox.shrink();
 
@@ -138,7 +141,8 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
               ),
             ),
             const SizedBox(height: 8),
-            ...categoryTemplates.map((template) => _buildTemplateCard(template)),
+            ...categoryTemplates
+                .map((template) => _buildTemplateCard(template)),
           ],
         );
       },
@@ -160,7 +164,8 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
     return labels[category] ?? category;
   }
 
-  Widget _buildRoleCard(AiRole role, {required bool canEdit, required bool canDelete}) {
+  Widget _buildRoleCard(AiRole role,
+      {required bool canEdit, required bool canDelete}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
@@ -175,7 +180,8 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
                 children: [
                   Icon(
                     role.isBuiltIn ? Icons.verified : Icons.person_outline,
-                    color: role.isBuiltIn ? AppColors.success : AppColors.primary,
+                    color:
+                        role.isBuiltIn ? AppColors.success : AppColors.primary,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -192,7 +198,8 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
                     ),
                   if (canDelete)
                     IconButton(
-                      icon: const Icon(Icons.delete, size: 18, color: AppColors.error),
+                      icon: const Icon(Icons.delete,
+                          size: 18, color: AppColors.error),
                       onPressed: () => _showDeleteConfirm(role),
                     ),
                 ],
@@ -224,7 +231,8 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
             children: [
               Row(
                 children: [
-                  const Icon(Icons.auto_stories, color: AppColors.info, size: 20),
+                  const Icon(Icons.auto_stories,
+                      color: AppColors.info, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -234,14 +242,15 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
                   ),
                   if (template.useCount > 0)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         '使用${template.useCount}次',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.primary,
                         ),
@@ -275,7 +284,8 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
           Text(
             subtitle,
             style: TextStyle(color: Colors.grey[400], fontSize: 12),
-          ), ],
+          ),
+        ],
       ),
     );
   }
@@ -490,22 +500,20 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
+              ExpandableTextField(
                 controller: descController,
-                decoration: const InputDecoration(
-                  labelText: '角色描述',
-                  hintText: '简要说明这个角色的用途',
-                ),
+                labelText: '角色描述',
+                hintText: '简要说明这个角色的用途',
+                minLines: 2,
+                maxLines: 3,
               ),
               const SizedBox(height: 12),
-              TextField(
+              ExpandableTextField(
                 controller: promptController,
+                labelText: '系统提示词（Prompt）',
+                hintText: '输入系统提示词，定义AI的角色和行为...',
+                minLines: 5,
                 maxLines: 8,
-                decoration: const InputDecoration(
-                  labelText: '系统提示词（Prompt）',
-                  hintText: '输入系统提示词，定义AI的角色和行为...',
-                  alignLabelWithHint: true,
-                ),
               ),
             ],
           ),

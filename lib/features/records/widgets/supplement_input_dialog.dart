@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/expandable_text_field.dart';
 import '../../../data/models/record_model.dart';
 import '../../recording/providers/recording_provider.dart';
 
@@ -161,14 +162,11 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
   Widget _buildInputArea() {
     switch (_selectedType) {
       case SupplementType.text:
-        return TextField(
+        return ExpandableTextField(
           controller: _textController,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: '在此补充你的想法...',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
+          hintText: '在此补充你的想法...',
+          minLines: 4,
+          maxLines: 6,
         );
       case SupplementType.audio:
         return Column(

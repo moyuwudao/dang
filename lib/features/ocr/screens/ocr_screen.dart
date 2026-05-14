@@ -155,13 +155,18 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 图片预览
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.file(
-              _selectedImage!,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  _selectedImage!,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  cacheWidth: (constraints.maxWidth * 2).toInt(),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
 
@@ -203,27 +208,27 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
             const SizedBox(height: 16),
 
             // 标签选择
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.label, color: AppColors.primary),
-                const SizedBox(width: 8),
                 Text(
-                  '添加标签（可选）',
+                  '标签',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                 ),
+                const SizedBox(height: 8),
+                TagSelector(
+                  selectedTags: _tags,
+                  onTagsChanged: (tags) {
+                    setState(() {
+                      _tags.clear();
+                      _tags.addAll(tags);
+                    });
+                  },
+                ),
               ],
-            ),
-            const SizedBox(height: 8),
-            TagSelector(
-              selectedTags: _tags,
-              onTagsChanged: (tags) {
-                setState(() {
-                  _tags.clear();
-                  _tags.addAll(tags);
-                });
-              },
             ),
             const SizedBox(height: 24),
 

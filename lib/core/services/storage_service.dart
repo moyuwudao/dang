@@ -23,6 +23,16 @@ class StorageService {
   static Future<SharedPreferences> get _prefs async =>
       await SharedPreferences.getInstance();
 
+  static Future<String?> getString(String key) async {
+    final prefs = await _prefs;
+    return prefs.getString(key);
+  }
+
+  static Future<void> setString(String key, String value) async {
+    final prefs = await _prefs;
+    await prefs.setString(key, value);
+  }
+
   // API配置 - 简化版本，不使用加密
   static Future<void> saveApiConfig(ApiConfigModel config) async {
     try {
@@ -118,6 +128,7 @@ class StorageService {
                 functions: const [
                   ApiFunctionType.text,
                   ApiFunctionType.voice,
+                  ApiFunctionType.voiceRealtime,
                   ApiFunctionType.image,
                 ],
                 isActive: true,
@@ -130,6 +141,8 @@ class StorageService {
                   functionType: ApiFunctionType.text, configId: null),
               ApiFunctionAssignment(
                   functionType: ApiFunctionType.voice, configId: null),
+              ApiFunctionAssignment(
+                  functionType: ApiFunctionType.voiceRealtime, configId: null),
               ApiFunctionAssignment(
                   functionType: ApiFunctionType.image, configId: null),
             ],

@@ -99,23 +99,25 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
 
     try {
       final config = AiModelConfig.getConfig(_selectedProvider);
-      final result = await ref.read(settingsNotifierProvider.notifier).testApiKey(
-            apiKey: _apiKeyController.text,
-            provider: _selectedProvider,
-            baseUrl: null,
-            model: config.defaultModel,
-          );
+      final result =
+          await ref.read(settingsNotifierProvider.notifier).testApiKey(
+                apiKey: _apiKeyController.text,
+                provider: _selectedProvider,
+                baseUrl: null,
+                model: config.defaultModel,
+              );
 
       if (result) {
         setState(() => _testPassed = true);
 
         setState(() => _isSaving = true);
-        final saveResult = await ref.read(settingsNotifierProvider.notifier).saveApiConfig(
-              apiKey: _apiKeyController.text,
-              provider: config.name,
-              baseUrl: null,
-              model: config.defaultModel,
-            );
+        final saveResult =
+            await ref.read(settingsNotifierProvider.notifier).saveApiConfig(
+                  apiKey: _apiKeyController.text,
+                  provider: config.name,
+                  baseUrl: null,
+                  model: config.defaultModel,
+                );
 
         if (mounted) {
           if (saveResult) {
@@ -199,7 +201,8 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
           if (widget.isFromSettings || _currentStep > 0)
             IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: _currentStep > 0 ? _prevStep : () => Navigator.pop(context),
+              onPressed:
+                  _currentStep > 0 ? _prevStep : () => Navigator.pop(context),
             )
           else
             const SizedBox(width: 48),
@@ -226,7 +229,9 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
               height: 4,
               margin: EdgeInsets.only(right: index < 2 ? 8 : 0),
               decoration: BoxDecoration(
-                color: isActive ? AppColors.primary : AppColors.primary.withOpacity(0.15),
+                color: isActive
+                    ? AppColors.primary
+                    : AppColors.primary.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: isCurrent
@@ -313,13 +318,16 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: (isSelected ? AppColors.primary : AppColors.primary.withOpacity(0.1))
+                  color: (isSelected
+                          ? AppColors.primary
+                          : AppColors.primary.withOpacity(0.1))
                       .withOpacity(isSelected ? 0.15 : 1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   scenario['icon'] as IconData,
-                  color: isSelected ? AppColors.primary : AppColors.textTertiary,
+                  color:
+                      isSelected ? AppColors.primary : AppColors.textTertiary,
                   size: 24,
                 ),
               ),
@@ -339,7 +347,7 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
                     const SizedBox(height: 2),
                     Text(
                       scenario['desc'] as String,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.textTertiary,
                       ),
@@ -348,7 +356,8 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
                 ),
               ),
               if (isSelected)
-                const Icon(Icons.check_circle, color: AppColors.primary, size: 24),
+                const Icon(Icons.check_circle,
+                    color: AppColors.primary, size: 24),
             ],
           ),
         ),
@@ -357,7 +366,8 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
   }
 
   Widget _buildStep2Provider(ThemeData theme) {
-    final recommendations = _providerRecommendations[_selectedScenario] ?? [AiProvider.deepSeek];
+    final recommendations =
+        _providerRecommendations[_selectedScenario] ?? [AiProvider.deepSeek];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -398,9 +408,14 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
     );
   }
 
-  Widget _buildProviderRecommendCard(AiModelConfig config, int rank, bool isSelected) {
+  Widget _buildProviderRecommendCard(
+      AiModelConfig config, int rank, bool isSelected) {
     final rankLabels = ['推荐', '备选', '备选'];
-    final rankColors = [AppColors.success, AppColors.info, AppColors.textTertiary];
+    final rankColors = [
+      AppColors.success,
+      AppColors.info,
+      AppColors.textTertiary
+    ];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -438,7 +453,8 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: rankColors[rank].withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
@@ -456,13 +472,15 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
                     ),
                   ),
                   if (isSelected)
-                    const Icon(Icons.check_circle, color: AppColors.primary, size: 24),
+                    const Icon(Icons.check_circle,
+                        color: AppColors.primary, size: 24),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
                 config.description,
-                style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textTertiary),
               ),
               const SizedBox(height: 8),
               Row(
@@ -471,9 +489,11 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
                     _buildCapabilityTag(Icons.mic, '转写', AppColors.success),
                     const SizedBox(width: 8),
                   ],
-                  _buildCapabilityTag(Icons.chat_bubble_outline, 'AI分析', AppColors.info),
+                  _buildCapabilityTag(
+                      Icons.chat_bubble_outline, 'AI分析', AppColors.info),
                   const SizedBox(width: 8),
-                  _buildCapabilityTag(Icons.payments_outlined, config.pricingNote, AppColors.textTertiary),
+                  _buildCapabilityTag(Icons.payments_outlined,
+                      config.pricingNote, AppColors.textTertiary),
                 ],
               ),
             ],
@@ -532,11 +552,12 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(_getProviderIcon(config.provider), color: AppColors.primary, size: 20),
+                    Icon(_getProviderIcon(config.provider),
+                        color: AppColors.primary, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       config.displayName,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         color: AppColors.primary,
                       ),
@@ -546,12 +567,14 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
                 const SizedBox(height: 8),
                 Text(
                   '模型: ${config.defaultModel}',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary),
                 ),
                 if (config.supportsTranscription)
                   Text(
                     '转写模型: ${config.asrModel}',
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary),
                   ),
               ],
             ),
@@ -570,8 +593,11 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: Icon(_isKeyVisible ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _isKeyVisible = !_isKeyVisible),
+                    icon: Icon(_isKeyVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () =>
+                        setState(() => _isKeyVisible = !_isKeyVisible),
                   ),
                 ],
               ),
@@ -590,11 +616,11 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
               color: Colors.green.withOpacity(0.05),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(
+            child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.security, size: 16, color: AppColors.success),
-                const SizedBox(width: 8),
+                Icon(Icons.security, size: 16, color: AppColors.success),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '你的API Key仅存储在本地设备，加密保存，不会上传到任何第三方服务器。',

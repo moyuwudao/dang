@@ -793,14 +793,19 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
             padding: const EdgeInsets.all(16),
             child: Text('原始图片', style: Theme.of(context).textTheme.titleMedium),
           ),
-          ClipRRect(
-            borderRadius:
-                const BorderRadius.vertical(bottom: Radius.circular(12)),
-            child: Image.file(
-              File(widget.record.imagePath!),
-              fit: BoxFit.cover,
-              width: double.infinity,
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(12)),
+                child: Image.file(
+                  File(widget.record.imagePath!),
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  cacheWidth: (constraints.maxWidth * 2).toInt(),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -824,7 +829,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  '${record.tags.length}个',
+                  '(${record.tags.length})',
                   style: TextStyle(
                     fontSize: 11,
                     color: AppColors.primary,
@@ -832,16 +837,13 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                 ),
               ),
             const Spacer(),
-            SizedBox(
-              width: 140,
-              child: TagSelector(
-                selectedTags: record.tags,
-                onTagsChanged: (newTags) {
-                  ref
-                      .read(recordNotifierProvider.notifier)
-                      .updateTags(record.id, newTags);
-                },
-              ),
+            TagSelector(
+              selectedTags: record.tags,
+              onTagsChanged: (newTags) {
+                ref
+                    .read(recordNotifierProvider.notifier)
+                    .updateTags(record.id, newTags);
+              },
             ),
           ],
         ),
@@ -1091,13 +1093,20 @@ class _RelatedRecordsSection extends ConsumerStatefulWidget {
 class _RelatedRecordsSectionState
     extends ConsumerState<_RelatedRecordsSection> {
   bool _isExpanded = false;
+  late Future<List<RecordModel>> _relatedRecordsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _relatedRecordsFuture = _findRelatedRecords(ref);
+  }
 
   @override
   Widget build(BuildContext context) {
     if (widget.record.tags.isEmpty) return const SizedBox.shrink();
 
     return FutureBuilder<List<RecordModel>>(
-      future: _findRelatedRecords(ref),
+      future: _relatedRecordsFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const SizedBox.shrink();
@@ -1255,12 +1264,14 @@ class _RelatedRecordsSectionState
 
   Future<List<RecordModel>> _findRelatedRecords(WidgetRef ref) async {
     final repository = ref.read(recordRepositoryProvider);
-    final allRecords = await repository.getAllRecords();
     final hiddenIds = await StorageServiceHiddenRecords.getHiddenRelatedRecords(
         widget.record.id);
 
+    final candidateRecords =
+        await repository.getRecordsByTags(widget.record.tags);
+
     final scored = <RecordModel, int>{};
-    for (final other in allRecords) {
+    for (final other in candidateRecords) {
       if (other.id == widget.record.id) continue;
       if (hiddenIds.contains(other.id)) continue;
       final commonTags =

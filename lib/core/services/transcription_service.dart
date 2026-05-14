@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/record_model.dart';
 import '../../data/repositories/record_repository.dart';
 import '../models/ai_model_config.dart';
+import '../models/api_config.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
 
@@ -40,6 +41,46 @@ class TranscriptionService {
       customBaseUrl: config.baseUrl,
     );
     debugPrint('API configured from storage: ${_apiService.configInfo}');
+  }
+
+  /// 为指定功能类型配置API（支持多API配置）
+  Future<void> _ensureApiConfiguredForFunction(ApiFunctionType functionType) async {
+    // 先检查是否已配置
+    if (_apiService.isConfigured) {
+      // 检查当前配置是否支持该功能
+      final currentConfig = _apiService.currentConfig;
+      if (currentConfig != null) {
+        final supportsFunction = switch (functionType) {
+          ApiFunctionType.text => currentConfig.supportsTextAnalysis,
+          ApiFunctionType.voice => currentConfig.supportsTranscription,
+          ApiFunctionType.voiceRealtime => currentConfig.supportsRealtimeTranscription,
+          ApiFunctionType.image => currentConfig.supportsOCR,
+        };
+        if (supportsFunction) return;
+      }
+    }
+
+    debugPrint('Loading API config for function: $functionType');
+
+    // 尝试从多API配置中查找
+    final multiConfig = await StorageService.getMultiApiConfig();
+    if (multiConfig.hasAnyConfig) {
+      final functionConfig = multiConfig.getConfigForFunction(functionType);
+      if (functionConfig != null) {
+        final providerConfig = AiModelConfig.getConfig(functionConfig.provider);
+        _apiService.configure(
+          apiKey: functionConfig.apiKey,
+          config: providerConfig,
+          customBaseUrl: functionConfig.baseUrl,
+          appId: functionConfig.appId,
+        );
+        debugPrint('API configured from multi-config for $functionType: ${_apiService.configInfo}');
+        return;
+      }
+    }
+
+    // 回退到单一配置
+    await _ensureApiConfigured();
   }
 
   Future<String> _getConfiguredModel() async {
@@ -84,10 +125,13 @@ class TranscriptionService {
         useModel = model;
       } else {
         final providerConfig = _apiService.currentConfig;
-        useModel = providerConfig != null ? _getTranscriptionModel(providerConfig) : await _getConfiguredModel();
+        useModel = providerConfig != null
+            ? _getTranscriptionModel(providerConfig)
+            : await _getConfiguredModel();
       }
 
-      debugPrint('Starting transcription: recordId=$recordId, model=$useModel, audioPath=${record.audioPath}');
+      debugPrint(
+          'Starting transcription: recordId=$recordId, model=$useModel, audioPath=${record.audioPath}');
 
       final text = await _apiService.transcribeAudio(
         record.audioPath!,
@@ -160,7 +204,9 @@ class TranscriptionService {
       useModel = model;
     } else {
       final providerConfig = _apiService.currentConfig;
-      useModel = providerConfig != null ? _getTranscriptionModel(providerConfig) : await _getConfiguredModel();
+      useModel = providerConfig != null
+          ? _getTranscriptionModel(providerConfig)
+          : await _getConfiguredModel();
     }
 
     return await _apiService.retranscribeChunks(
@@ -200,7 +246,112 @@ class TranscriptionService {
         .toList();
   }
 
-  Future<String> analyzeText(String text, {String? prompt, String? systemPrompt}) async {
+  // ==================== 实时语音转写 ====================
+
+  /// 开始实时语音转写
+  ///
+  /// 返回一个 Stream，每次收到增量转写结果时会 emit 一个 [RealtimeTranscriptionResult]
+  ///
+  /// 使用方式：
+  /// ```dart
+  /// final stream = transcriptionService.startRealtimeTranscription(
+  ///   audioStream: microphoneStream,
+  /// );
+  /// await for (final result in stream) {
+  ///   if (result.isFinal) {
+  ///     print('最终文本: ${result.text}');
+  ///   } else {
+  ///     print('临时文本: ${result.text}');
+  ///   }
+  /// }
+  /// ```
+  Stream<RealtimeTranscriptionResult> startRealtimeTranscription({
+    required Stream<List<int>> audioStream,
+    void Function(String status, String detail)? onStatusChange,
+    String? language,
+  }) async* {
+    await _ensureApiConfiguredForFunction(ApiFunctionType.voiceRealtime);
+
+    debugPrint('Starting realtime transcription...');
+
+    yield* _apiService.transcribeRealtime(
+      audioStream: audioStream,
+      onStatusChange: onStatusChange,
+      language: language,
+    );
+  }
+
+  /// 实时转写并保存到记录
+  ///
+  /// 适用于边录音边转写的场景
+  Stream<RealtimeTranscriptionResult> startRealtimeTranscriptionForRecord({
+    required int recordId,
+    required Stream<List<int>> audioStream,
+    void Function(String status, String detail)? onStatusChange,
+    String? language,
+  }) async* {
+    await _ensureApiConfiguredForFunction(ApiFunctionType.voiceRealtime);
+
+    // 初始化记录状态为处理中
+    await _recordRepository.updateTranscriptionStatus(
+      recordId,
+      TranscriptionStatus.processing,
+    );
+
+    final buffer = StringBuffer();
+
+    try {
+      await for (final result in _apiService.transcribeRealtime(
+        audioStream: audioStream,
+        onStatusChange: onStatusChange,
+        language: language,
+      )) {
+        yield result;
+
+        // 累积最终文本到缓冲区
+        if (result.isFinal) {
+          buffer.write(result.text);
+          buffer.write(' ');
+
+          // 实时保存到数据库（可选，根据性能需求决定）
+          await _recordRepository.updateRecordContent(
+            recordId,
+            buffer.toString().trim(),
+          );
+        }
+      }
+
+      // 转写完成，更新状态
+      final finalText = buffer.toString().trim();
+      if (finalText.isNotEmpty) {
+        await _recordRepository.updateRecordContent(recordId, finalText);
+        await _recordRepository.updateTranscriptionStatus(
+          recordId,
+          TranscriptionStatus.success,
+        );
+        debugPrint('Realtime transcription saved: ${finalText.length} chars');
+      } else {
+        await _recordRepository.updateTranscriptionStatus(
+          recordId,
+          TranscriptionStatus.failed,
+          error: '实时转写结果为空',
+        );
+      }
+    } catch (e) {
+      debugPrint('Realtime transcription failed: $e');
+      await _recordRepository.updateTranscriptionStatus(
+        recordId,
+        TranscriptionStatus.failed,
+        error: e.toString(),
+      );
+      rethrow;
+    }
+  }
+
+  // ==================== 文本分析 ====================
+
+  Future<String> analyzeText(String text,
+      {String? prompt, String? systemPrompt}) async {
     await _ensureApiConfigured();
 
     final analysisPrompt = prompt ?? '请分析以下文本，提取关键信息、行动项和要点总结。';
@@ -211,10 +362,12 @@ class TranscriptionService {
       return await _apiService.chatCompletionWithSystem(
         fullPrompt,
         systemPrompt: systemPrompt,
+        toolId: 'transcription',
       );
     }
 
-    return await _apiService.chatCompletion(fullPrompt);
+    return await _apiService.chatCompletion(fullPrompt,
+        toolId: 'transcription');
   }
 
   /// 转写补充内容中的音频或图片
@@ -230,7 +383,9 @@ class TranscriptionService {
       // 转写音频补充
       debugPrint('Transcribing supplement audio: ${supplement.content}');
       final providerConfig = _apiService.currentConfig;
-      final useModel = providerConfig != null ? _getTranscriptionModel(providerConfig) : await _getConfiguredModel();
+      final useModel = providerConfig != null
+          ? _getTranscriptionModel(providerConfig)
+          : await _getConfiguredModel();
 
       final text = await _apiService.transcribeAudio(
         supplement.content,
@@ -242,9 +397,11 @@ class TranscriptionService {
     }
 
     if (supplement.type == 'image') {
-      // TODO: 实现图片OCR
-      debugPrint('OCR for supplement image not yet implemented');
-      return supplement;
+      // 使用 AI 多模态模型进行图片 OCR
+      debugPrint('OCR for supplement image: ${supplement.content}');
+      final text = await _apiService.recognizeImage(supplement.content);
+      debugPrint('Supplement image OCR result: ${text.length} chars');
+      return supplement.copyWith(transcribedContent: text);
     }
 
     return supplement;
@@ -259,7 +416,9 @@ class TranscriptionService {
 
     final updatedSupplements = <SupplementItem>[];
     for (final supplement in record.supplements) {
-      if (supplement.type != 'text' && (supplement.transcribedContent == null || supplement.transcribedContent!.isEmpty)) {
+      if (supplement.type != 'text' &&
+          (supplement.transcribedContent == null ||
+              supplement.transcribedContent!.isEmpty)) {
         try {
           final transcribed = await transcribeSupplement(supplement);
           updatedSupplements.add(transcribed);

@@ -7,10 +7,6 @@ import '../../../core/widgets/stats_charts.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
 
-final statsServiceProvider = ChangeNotifierProvider<StatsService>((ref) {
-  return StatsService();
-});
-
 final realTimeStatsProvider = FutureProvider<UsageStats>((ref) async {
   final repository = ref.watch(recordRepositoryProvider);
   final records = await repository.getAllRecords();
@@ -33,7 +29,8 @@ final realTimeStatsProvider = FutureProvider<UsageStats>((ref) async {
     if (record.type == RecordType.audio) audioCount++;
     if (record.type == RecordType.ocr) ocrCount++;
     if (record.type == RecordType.text) textCount++;
-    if (record.transcriptionStatus == TranscriptionStatus.success) successCount++;
+    if (record.transcriptionStatus == TranscriptionStatus.success)
+      successCount++;
     if (record.transcriptionStatus == TranscriptionStatus.failed) failedCount++;
     if (record.isFavorite) favoriteCount++;
     totalTags += record.tags.length;
@@ -42,7 +39,8 @@ final realTimeStatsProvider = FutureProvider<UsageStats>((ref) async {
       tagsFrequency[tag] = (tagsFrequency[tag] ?? 0) + 1;
     }
 
-    final dateKey = '${record.createdAt.year}-${record.createdAt.month.toString().padLeft(2, '0')}-${record.createdAt.day.toString().padLeft(2, '0')}';
+    final dateKey =
+        '${record.createdAt.year}-${record.createdAt.month.toString().padLeft(2, '0')}-${record.createdAt.day.toString().padLeft(2, '0')}';
     recordsPerDay[dateKey] = (recordsPerDay[dateKey] ?? 0) + 1;
 
     usedDays.add(dateKey);

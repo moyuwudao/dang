@@ -1,9 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../data/models/record_model.dart';
-import '../../data/repositories/record_repository.dart';
-import 'api_service.dart';
-import 'notification_service.dart';
 
 class BackgroundService {
   static final BackgroundService _instance = BackgroundService._internal();

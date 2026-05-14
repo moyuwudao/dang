@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/expandable_text_field.dart';
 import '../../../core/widgets/tag_selector.dart';
 import '../providers/quick_note_provider.dart';
 
@@ -84,37 +85,29 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
         child: Column(
           children: [
             Expanded(
-              child: TextField(
+              child: ExpandableTextField(
                 controller: _contentController,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                decoration: const InputDecoration(
-                  hintText: '在这里输入你的想法...',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.all(16),
-                ),
+                hintText: '在这里输入你的想法...',
+                minLines: 10,
+                maxLines: 50,
               ),
             ),
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 8),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '添加标签（可选）',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '标签',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 200,
-              child: SingleChildScrollView(
-                child: TagSelector(
+                const SizedBox(height: 8),
+                TagSelector(
                   selectedTags: _tags,
                   onTagsChanged: (tags) {
                     setState(() {
@@ -123,7 +116,7 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
                     });
                   },
                 ),
-              ),
+              ],
             ),
             if (quickNoteState.error != null) ...[
               const SizedBox(height: 8),

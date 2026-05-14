@@ -74,13 +74,119 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
   }
 
   Future<void> _generateAiMindMap() async {
+    // 获取所有标签供用户选择
+    final allRecords = await ref.read(recordRepositoryProvider).getAllRecords();
+    final allTags = <String>{};
+    for (final record in allRecords) {
+      allTags.addAll(record.tags);
+    }
+
+    List<String>? selectedTags;
+    if (allTags.isNotEmpty && mounted) {
+      final tagSelections = Map<String, bool>.fromEntries(
+        allTags.map((tag) => MapEntry(tag, true)),
+      );
+
+      final result = await showDialog<List<String>>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) {
+            final selectedCount = tagSelections.values.where((v) => v).length;
+            return AlertDialog(
+              title: const Text('选择标签'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('已选择 $selectedCount 个标签'),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: tagSelections.keys.map((tag) {
+                        final isSelected = tagSelections[tag] ?? false;
+                        return FilterChip(
+                          label: Text(
+                            tag,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setDialogState(() {
+                              tagSelections[tag] = selected;
+                            });
+                          },
+                          selectedColor:
+                              AppColors.primary.withValues(alpha: 0.2),
+                          checkmarkColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setDialogState(() {
+                          for (final key in tagSelections.keys) {
+                            tagSelections[key] = false;
+                          }
+                        });
+                      },
+                      child: const Text('清空'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setDialogState(() {
+                          for (final key in tagSelections.keys) {
+                            tagSelections[key] = true;
+                          }
+                        });
+                      },
+                      child: const Text('全选'),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, null),
+                      child: const Text('取消'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        final selected = tagSelections.entries
+                            .where((e) => e.value)
+                            .map((e) => e.key)
+                            .toList();
+                        Navigator.pop(context, selected);
+                      },
+                      child: const Text('确认'),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      if (result == null) return;
+      selectedTags = result;
+    }
+
     setState(() {
       _isAiGenerating = true;
     });
 
     try {
       final aiService = ref.read(mindMapAiServiceProvider);
-      final nodes = await aiService.generateAiMindMap();
+      final nodes =
+          await aiService.generateAiMindMap(selectedTags: selectedTags);
 
       if (mounted) {
         if (nodes.isNotEmpty) {
@@ -341,7 +447,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
       appBar: AppBar(
         title: const Text('知识脑图'),
         actions: [
-          if (_nodes.isNotEmpty && _viewType == MindMapViewType.aiGenerated)
+          if (_nodes.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.save_outlined),
               tooltip: '保存方案/归档',

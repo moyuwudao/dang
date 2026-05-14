@@ -104,9 +104,10 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
       ),
       child: Column(
         children: [
-          Icon(Icons.auto_awesome, size: 32, color: AppColors.primary.withOpacity(0.5)),
+          Icon(Icons.auto_awesome,
+              size: 32, color: AppColors.primary.withOpacity(0.5)),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             '点击 + 使用AI角色分析此记录',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
@@ -124,7 +125,7 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
         color: AppColors.info.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: const Row(
         children: [
           SizedBox(
             width: 16,
@@ -134,7 +135,7 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
               color: AppColors.info,
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Text(
             'AI正在分析中...',
             style: TextStyle(color: AppColors.info, fontSize: 13),
@@ -259,7 +260,9 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${role.name} 分析完成'), backgroundColor: AppColors.success),
+          SnackBar(
+              content: Text('${role.name} 分析完成'),
+              backgroundColor: AppColors.success),
         );
         if (widget.onAnalysisComplete != null) {
           widget.onAnalysisComplete!();

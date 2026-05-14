@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/expandable_text_field.dart';
 
 class AnalysisTemplateSettingsScreen extends ConsumerStatefulWidget {
   const AnalysisTemplateSettingsScreen({super.key});
@@ -269,7 +270,8 @@ class _AnalysisTemplateSettingsScreenState
     final builtIn = type == 'weekly_report'
         ? _builtInWeeklyTemplates
         : _builtInMindMapTemplates;
-    final custom = _config.customTemplates.where((t) => t.type == type).toList();
+    final custom =
+        _config.customTemplates.where((t) => t.type == type).toList();
     return [...builtIn, ...custom];
   }
 
@@ -287,7 +289,8 @@ class _AnalysisTemplateSettingsScreenState
     setState(() => _config = newConfig);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('默认模板已更新'), backgroundColor: AppColors.success),
+        const SnackBar(
+            content: Text('默认模板已更新'), backgroundColor: AppColors.success),
       );
     }
   }
@@ -298,17 +301,20 @@ class _AnalysisTemplateSettingsScreenState
 
     // 如果删除的是默认模板，重置为内置默认
     if (_config.defaultWeeklyReportTemplateId == id) {
-      newConfig = newConfig.copyWith(defaultWeeklyReportTemplateId: 'builtin_weekly_default');
+      newConfig = newConfig.copyWith(
+          defaultWeeklyReportTemplateId: 'builtin_weekly_default');
     }
     if (_config.defaultMindMapTemplateId == id) {
-      newConfig = newConfig.copyWith(defaultMindMapTemplateId: 'builtin_mindmap_default');
+      newConfig = newConfig.copyWith(
+          defaultMindMapTemplateId: 'builtin_mindmap_default');
     }
 
     await StorageService.saveAnalysisTemplates(newConfig);
     setState(() => _config = newConfig);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('模板已删除'), backgroundColor: AppColors.success),
+        const SnackBar(
+            content: Text('模板已删除'), backgroundColor: AppColors.success),
       );
     }
   }
@@ -317,8 +323,10 @@ class _AnalysisTemplateSettingsScreenState
     final isEditing = existing != null;
     final type = _tabController.index == 0 ? 'weekly_report' : 'mindmap';
     final nameController = TextEditingController(text: existing?.name ?? '');
-    final descController = TextEditingController(text: existing?.description ?? '');
-    final promptController = TextEditingController(text: existing?.systemPrompt ?? '');
+    final descController =
+        TextEditingController(text: existing?.description ?? '');
+    final promptController =
+        TextEditingController(text: existing?.systemPrompt ?? '');
 
     showDialog(
       context: context,
@@ -328,24 +336,27 @@ class _AnalysisTemplateSettingsScreenState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
+              ExpandableTextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: '模板名称'),
+                labelText: '模板名称',
+                minLines: 1,
+                maxLines: 2,
+                showExpandButton: false,
               ),
               const SizedBox(height: 12),
-              TextField(
+              ExpandableTextField(
                 controller: descController,
-                decoration: const InputDecoration(labelText: '描述'),
+                labelText: '描述',
+                minLines: 2,
+                maxLines: 4,
               ),
               const SizedBox(height: 12),
-              TextField(
+              ExpandableTextField(
                 controller: promptController,
-                decoration: const InputDecoration(
-                  labelText: 'System Prompt',
-                  hintText: '输入AI分析时使用的系统提示词...',
-                ),
-                maxLines: 10,
+                labelText: 'System Prompt',
+                hintText: '输入AI分析时使用的系统提示词...',
                 minLines: 5,
+                maxLines: 10,
               ),
             ],
           ),
@@ -367,19 +378,20 @@ class _AnalysisTemplateSettingsScreenState
               }
 
               final newTemplate = AnalysisTemplate(
-                id: isEditing ? existing!.id : 'custom_${const Uuid().v4()}',
+                id: isEditing ? existing.id : 'custom_${const Uuid().v4()}',
                 name: name,
                 description: descController.text.trim(),
                 type: type,
                 systemPrompt: prompt,
                 isBuiltIn: false,
-                createdAt: isEditing ? existing!.createdAt : DateTime.now(),
+                createdAt: isEditing ? existing.createdAt : DateTime.now(),
                 updatedAt: DateTime.now(),
               );
 
-              final newCustom = List<AnalysisTemplate>.from(_config.customTemplates);
+              final newCustom =
+                  List<AnalysisTemplate>.from(_config.customTemplates);
               if (isEditing) {
-                final idx = newCustom.indexWhere((t) => t.id == existing!.id);
+                final idx = newCustom.indexWhere((t) => t.id == existing.id);
                 if (idx >= 0) newCustom[idx] = newTemplate;
               } else {
                 newCustom.add(newTemplate);
@@ -392,7 +404,9 @@ class _AnalysisTemplateSettingsScreenState
               if (mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('模板已保存'), backgroundColor: AppColors.success),
+                  const SnackBar(
+                      content: Text('模板已保存'),
+                      backgroundColor: AppColors.success),
                 );
               }
             },
@@ -477,11 +491,14 @@ class _AnalysisTemplateSettingsScreenState
                           if (isBuiltIn) ...[
                             const SizedBox(width: 8),
                             Chip(
-                              label: const Text('系统', style: TextStyle(fontSize: 10)),
-                              backgroundColor: AppColors.primary.withOpacity(0.1),
+                              label: const Text('系统',
+                                  style: TextStyle(fontSize: 10)),
+                              backgroundColor:
+                                  AppColors.primary.withOpacity(0.1),
                               side: BorderSide.none,
                               padding: EdgeInsets.zero,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
                             ),
                           ],
                         ],
@@ -489,7 +506,8 @@ class _AnalysisTemplateSettingsScreenState
                     ),
                     if (isDefault)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
@@ -508,7 +526,8 @@ class _AnalysisTemplateSettingsScreenState
                 const SizedBox(height: 4),
                 Text(
                   template.description,
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -525,10 +544,12 @@ class _AnalysisTemplateSettingsScreenState
                     if (!isBuiltIn) ...[
                       IconButton(
                         icon: const Icon(Icons.edit, size: 18),
-                        onPressed: () => _showTemplateEditor(existing: template),
+                        onPressed: () =>
+                            _showTemplateEditor(existing: template),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                        icon: const Icon(Icons.delete_outline,
+                            size: 18, color: AppColors.error),
                         onPressed: () => _deleteCustomTemplate(template.id),
                       ),
                     ],

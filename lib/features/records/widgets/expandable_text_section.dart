@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/rich_text_editor.dart';
+import '../../../core/widgets/markdown_viewer.dart';
+import '../../../core/widgets/expandable_text_field.dart';
 
 class ExpandableTextSection extends StatefulWidget {
   final String title;
@@ -74,39 +75,14 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
   }
 
   void _showDirectEditDialog() {
-    final controller = TextEditingController(text: widget.content ?? '');
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('编辑${widget.title}'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: TextField(
-            controller: controller,
-            maxLines: null,
-            minLines: 5,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.all(12),
-            ),
-            autofocus: true,
-          ),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => FullScreenEditorScreen(
+          controller: _textController,
+          hintText: '输入内容...',
+          title: '编辑${widget.title}',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (widget.onContentChanged != null) {
-                widget.onContentChanged!(controller.text);
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('保存'),
-          ),
-        ],
       ),
     );
   }
@@ -137,10 +113,7 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
         ],
       );
     }
-    return SelectableText(
-      text,
-      style: Theme.of(context).textTheme.bodyLarge,
-    );
+    return MarkdownViewer(content: text);
   }
 
   void _saveEdit() {
@@ -235,11 +208,11 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: hasContent || _isEditing
                   ? _isEditing
-                      ? RichTextEditor(
+                      ? ExpandableTextField(
                           controller: _textController,
                           hintText: '输入内容...',
                           minLines: 5,
-                          maxLines: null,
+                          maxLines: 15,
                         )
                       : _buildContentText(context)
                   : const Text(
@@ -342,29 +315,58 @@ class _FullScreenTextViewState extends State<_FullScreenTextView> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: _isEditing
-            ? TextField(
+      body: _isEditing
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
                 controller: _textController,
                 maxLines: null,
+                expands: true,
                 keyboardType: TextInputType.multiline,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.all(12),
-                ),
+                textAlignVertical: TextAlignVertical.top,
                 autofocus: true,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      height: 1.6,
+                cursorColor: Theme.of(context).colorScheme.primary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 16,
+                ),
+                decoration: InputDecoration(
+                  hintText: '输入内容...',
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withValues(alpha: 0.3),
                     ),
-              )
-            : RichTextEditor(
-                controller: _textController,
-                hintText: '输入内容...',
-                minLines: 10,
-                maxLines: null,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withValues(alpha: 0.3),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
               ),
-      ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: MarkdownViewer(content: widget.content),
+            ),
     );
   }
 }

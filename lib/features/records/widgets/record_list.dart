@@ -7,12 +7,38 @@ import '../../../data/models/record_model.dart';
 import '../providers/record_provider.dart';
 import '../../../routes/app_router.dart';
 
-class RecordList extends ConsumerWidget {
+class RecordList extends ConsumerStatefulWidget {
   const RecordList({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final recordsAsync = ref.watch(recordsProvider);
+  ConsumerState<RecordList> createState() => _RecordListState();
+}
+
+class _RecordListState extends ConsumerState<RecordList> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent * 0.8) {
+      ref.read(paginatedRecordsProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final recordsAsync = ref.watch(paginatedRecordsProvider);
 
     return recordsAsync.when(
       data: (records) {
@@ -23,12 +49,32 @@ class RecordList extends ConsumerWidget {
         }
         return RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(recordsProvider);
+            ref.read(paginatedRecordsProvider.notifier).reset();
           },
           child: ListView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.all(16),
-            itemCount: records.length,
+            itemCount: records.length + 1,
             itemBuilder: (context, index) {
+              if (index == records.length) {
+                final hasMore = ref.read(paginatedRecordsProvider.notifier).hasMore;
+                final isLoading = ref.read(paginatedRecordsProvider.notifier).isLoading;
+                if (isLoading) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (hasMore) {
+                  return const SizedBox.shrink();
+                }
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(
+                    child: Text('没有更多记录了', style: TextStyle(color: Colors.grey)),
+                  ),
+                );
+              }
               final record = records[index];
               return _RecordCard(record: record);
             },
@@ -43,7 +89,7 @@ class RecordList extends ConsumerWidget {
             Text('加载失败: $error'),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => ref.refresh(recordsProvider),
+              onPressed: () => ref.read(paginatedRecordsProvider.notifier).reset(),
               child: const Text('重试'),
             ),
           ],
@@ -205,13 +251,35 @@ class _RecordCard extends ConsumerWidget {
         break;
     }
 
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, size: 16, color: color),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        if (record.isRealtime)
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: AppColors.success,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

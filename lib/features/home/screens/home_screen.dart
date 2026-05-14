@@ -5,12 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/ai_model_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/tag_selector.dart';
+import '../../../core/widgets/expandable_text_field.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../records/providers/record_provider.dart';
 import '../../records/widgets/record_list.dart';
 import '../../settings/providers/settings_provider.dart';
+import '../../workbench/providers/workbench_provider.dart';
 import '../widgets/enhanced_search_delegate.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -88,8 +90,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.star_outline),
+            onPressed: () => context.push('/favorites'),
+          ),
+          IconButton(
             icon: const Icon(Icons.dashboard_outlined),
             onPressed: () => context.push('/workbench'),
+            tooltip: '工具台',
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -108,19 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              FloatingActionButton.small(
-                heroTag: 'weeklyReport',
-                onPressed: () => context.push('/weekly-report'),
-                backgroundColor: AppColors.success,
-                child: const Icon(Icons.summarize),
-              ),
-              const SizedBox(height: 8),
-              FloatingActionButton.small(
-                heroTag: 'mindmap',
-                onPressed: () => context.push('/mindmap'),
-                backgroundColor: AppColors.purple,
-                child: const Icon(Icons.map_outlined),
-              ),
+              _buildHomeQuickActions(),
               const SizedBox(height: 8),
               FloatingActionButton.small(
                 heroTag: 'text',
@@ -150,6 +145,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         loading: () => const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            SizedBox(height: 8),
             FloatingActionButton.small(
               heroTag: 'text',
               onPressed: null,
@@ -175,6 +171,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         error: (_, __) => const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            SizedBox(height: 8),
             FloatingActionButton.small(
               heroTag: 'text',
               onPressed: null,
@@ -217,40 +214,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
+                  ExpandableTextField(
                     controller: controller,
-                    maxLines: 6,
-                    decoration: InputDecoration(
-                      hintText: l10n.textInputHint,
-                      border: const OutlineInputBorder(),
-                    ),
-                    autofocus: true,
+                    hintText: l10n.textInputHint,
+                    minLines: 5,
+                    maxLines: 8,
                   ),
                   const SizedBox(height: 16),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '添加标签（可选）',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
+                  Row(
+                    children: [
+                      const Text(
+                        '添加标签（可选）',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 180,
-                    child: SingleChildScrollView(
-                      child: TagSelector(
-                        selectedTags: tags,
-                        onTagsChanged: (newTags) {
-                          setState(() {
-                            tags.clear();
-                            tags.addAll(newTags);
-                          });
-                        },
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TagSelector(
+                          selectedTags: tags,
+                          onTagsChanged: (newTags) {
+                            setState(() {
+                              tags.clear();
+                              tags.addAll(newTags);
+                            });
+                          },
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -301,6 +293,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     controller.dispose();
+  }
+
+  Widget _buildHomeQuickActions() {
+    final homeTools = ref.watch(workbenchProvider.select((s) => s.homeTools));
+
+    if (homeTools.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: homeTools.map((tool) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: FloatingActionButton.small(
+            heroTag: 'home_tool_${tool.id}',
+            onPressed: () => context.push(tool.route),
+            backgroundColor: tool.color,
+            child: Icon(tool.icon),
+          ),
+        );
+      }).toList(),
+    );
   }
 }
 

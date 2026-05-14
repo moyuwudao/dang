@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -5,11 +6,15 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 import '../models/ai_model_config.dart';
 import 'storage_service.dart';
+import 'stats_service.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
+  final statsService = ref.read(statsServiceProvider);
+  return ApiService(statsService: statsService);
 });
 
 class AudioChunkInfo {
@@ -38,13 +43,15 @@ class ApiService {
   late Dio _dio;
   AiModelConfig? _currentConfig;
   String? _apiKey;
+  String? _appId;
   bool _isConfigured = false;
+  final StatsService? _statsService;
 
   static const int _chunkDurationSeconds = 30; // 减小分片时长，避免文件过大
   static const int _wavHeaderSize = 44;
   static const int _wavBytesPerSecond = 32000;
 
-  ApiService() {
+  ApiService({StatsService? statsService}) : _statsService = statsService {
     _dio = Dio(
       BaseOptions(
         connectTimeout: const Duration(seconds: 60),
@@ -68,9 +75,11 @@ class ApiService {
     required String apiKey,
     required AiModelConfig config,
     String? customBaseUrl,
+    String? appId,
   }) {
     _currentConfig = config;
     _apiKey = apiKey;
+    _appId = appId;
     _isConfigured = true;
     final baseUrl = customBaseUrl ?? config.baseUrl;
 
@@ -337,71 +346,28 @@ class ApiService {
             onProgress?.call('upload', '上传音频到OpenAI Whisper');
             result =
                 await _transcribeWhisper(audioFilePath, model: effectiveModel);
-            onProgress?.call('process', 'AI转写完成');
             break;
           case TranscriptionMethod.audioUpload:
-            onProgress?.call('upload', '上传音频到Gemini');
+            onProgress?.call('upload', '上传音频文件');
             result = await _transcribeAudioUpload(audioFilePath,
                 model: effectiveModel);
-            onProgress?.call('process', 'AI转写完成');
             break;
           case TranscriptionMethod.nativeAsr:
           case TranscriptionMethod.asyncAsr:
-            onProgress?.call('upload', '上传音频到${_currentConfig!.displayName}');
+            onProgress?.call('process', '进行语音转写');
             result = await _transcribeNativeAsr(audioFilePath,
                 model: effectiveModel, onProgress: onProgress);
-            onProgress?.call('process', 'AI转写完成');
             break;
+          case TranscriptionMethod.realtimeWebSocket:
+            throw Exception('Realtime WebSocket does not support file transcription. Use transcribeRealtime() instead.');
         }
       }
 
-      onProgress?.call('save', '保存转写结果');
-      debugPrint('=== Transcription Success: ${result.length} chars ===');
+      _statsService?.apiVoiceCallCompleted(true);
       return result;
-    } on DioException catch (e) {
-      final errorMsg = _extractDioError(e);
-      final statusCode = e.response?.statusCode;
-      final responseData = e.response?.data;
-      debugPrint('=== Transcription Failed ===');
-      debugPrint('Status: $statusCode');
-      debugPrint('Error: $errorMsg');
-      debugPrint('Request URL: ${e.requestOptions.uri}');
-      debugPrint('Request Method: ${e.requestOptions.method}');
-      debugPrint('Request Headers: ${e.requestOptions.headers}');
-      if (responseData != null) {
-        final responseStr = responseData.toString();
-        debugPrint('Response Data Length: ${responseStr.length}');
-        if (responseStr.isNotEmpty) {
-          debugPrint(
-              'Response Data: ${responseStr.length > 1500 ? '${responseStr.substring(0, 1500)}...' : responseStr}');
-        }
-      } else {
-        debugPrint('Response Data: null');
-      }
-      debugPrint('Dio Error Type: ${e.type}');
-      debugPrint('Dio Message: ${e.message}');
-      debugPrint(
-          'API Key starts with: ${_apiKey?.substring(0, 8) ?? 'null'}...');
-
-      if (statusCode == 400) {
-        throw Exception('请求格式错误(400): $errorMsg');
-      } else if (statusCode == 401) {
-        throw Exception('API Key无效(401)，请检查配置');
-      } else if (statusCode == 403) {
-        throw Exception('无权限访问(403): $errorMsg');
-      } else if (statusCode == 404) {
-        throw Exception('模型不存在(404): $errorMsg');
-      } else if (statusCode == 429) {
-        throw Exception('请求频率超限(429)，请稍后重试');
-      } else if (statusCode != null && statusCode >= 500) {
-        throw Exception('服务器错误($statusCode)，请稍后重试');
-      } else {
-        throw Exception('转写失败: $errorMsg');
-      }
     } catch (e) {
-      debugPrint('=== Transcription Error: $e ===');
-      if (e is Exception) rethrow;
-      throw Exception('转写失败: $e');
+      _statsService?.apiVoiceCallCompleted(false);
+      throw e;
     }
   }
 
@@ -505,6 +471,8 @@ class ApiService {
               chunkResult = await _transcribeNativeAsrChunk(chunks[i], mimeType,
                   model: model);
               break;
+            case TranscriptionMethod.realtimeWebSocket:
+              throw Exception('Realtime WebSocket does not support chunk transcription');
           }
 
           if (chunkResult.isNotEmpty) {
@@ -668,6 +636,8 @@ class ApiService {
                 allChunks[chunkIndex], mimeType,
                 model: effectiveModel);
             break;
+          case TranscriptionMethod.realtimeWebSocket:
+            throw Exception('Realtime WebSocket does not support chunk retranscription');
         }
 
         if (chunkResult.isNotEmpty) {
@@ -974,11 +944,13 @@ class ApiService {
     }
   }
 
-  Future<String> chatCompletion(String prompt, {String? model}) async {
+  Future<String> chatCompletion(String prompt,
+      {String? model, String? toolId}) async {
     return await chatCompletionWithSystem(
       prompt,
       systemPrompt: 'You are a helpful assistant.',
       model: model,
+      toolId: toolId,
     );
   }
 
@@ -986,23 +958,31 @@ class ApiService {
     String prompt, {
     required String systemPrompt,
     String? model,
+    String? toolId,
   }) async {
     if (!isConfigured) throw Exception('API not configured');
     final useModel = model ?? _currentConfig!.defaultModel;
 
     try {
+      String result;
       switch (_currentConfig!.provider) {
         case AiProvider.claude:
-          return await _claudeChat(
+          result = await _claudeChat(
               model: useModel, systemPrompt: systemPrompt, userContent: prompt);
+          break;
         case AiProvider.gemini:
-          return await _geminiChatWithSystem(
+          result = await _geminiChatWithSystem(
               model: useModel, prompt: prompt, systemPrompt: systemPrompt);
+          break;
         default:
-          return await _openAIStyleChat(
+          result = await _openAIStyleChat(
               model: useModel, systemPrompt: systemPrompt, userContent: prompt);
+          break;
       }
+      _statsService?.apiTextCallCompleted(true, toolId: toolId);
+      return result;
     } on DioException catch (e) {
+      _statsService?.apiTextCallCompleted(false, toolId: toolId);
       final errorMsg = _extractDioError(e);
       final statusCode = e.response?.statusCode;
       debugPrint('Chat failed: status=$statusCode, error=$errorMsg');
@@ -1011,6 +991,7 @@ class ApiService {
           'Request data: ${e.requestOptions.data.toString().substring(0, e.requestOptions.data.toString().length > 200 ? 200 : e.requestOptions.data.toString().length)}...');
       throw Exception('对话失败: $errorMsg');
     } catch (e) {
+      _statsService?.apiTextCallCompleted(false, toolId: toolId);
       throw Exception('对话失败: $e');
     }
   }
@@ -1123,20 +1104,24 @@ class ApiService {
 
     final bytes = await file.readAsBytes();
     final base64Image = base64Encode(bytes);
-    final useModel = model ?? _currentConfig!.defaultModel;
+    final useModel = model ?? _currentConfig!.visionModel;
     final prompt = systemPrompt ??
         '请识别这张图片中的所有文字内容。如果图片包含表格，请尽量保持表格结构。如果图片是文档，请按段落输出文字。只输出识别到的文字内容，不要添加任何解释。';
 
-    debugPrint('RecognizeImage: provider=${_currentConfig!.name}, model=$useModel');
+    debugPrint(
+        'RecognizeImage: provider=${_currentConfig!.name}, model=$useModel');
 
     try {
       switch (_currentConfig!.provider) {
         case AiProvider.gemini:
-          return await _geminiRecognizeImage(base64Image, prompt: prompt, model: useModel);
+          return await _geminiRecognizeImage(base64Image,
+              prompt: prompt, model: useModel);
         case AiProvider.claude:
-          return await _claudeRecognizeImage(base64Image, prompt: prompt, model: useModel);
+          return await _claudeRecognizeImage(base64Image,
+              prompt: prompt, model: useModel);
         default:
-          return await _openAIStyleRecognizeImage(base64Image, prompt: prompt, model: useModel);
+          return await _openAIStyleRecognizeImage(base64Image,
+              prompt: prompt, model: useModel);
       }
     } on DioException catch (e) {
       final errorMsg = _extractDioError(e);
@@ -1183,7 +1168,14 @@ class ApiService {
         {
           'role': 'user',
           'content': [
-            {'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/jpeg', 'data': base64Image}},
+            {
+              'type': 'image',
+              'source': {
+                'type': 'base64',
+                'media_type': 'image/jpeg',
+                'data': base64Image
+              }
+            },
             {'type': 'text', 'text': prompt},
           ],
         },
@@ -1267,8 +1259,9 @@ class ApiService {
     );
 
     String fullContent = '';
+    final decoder = Utf8Decoder(allowMalformed: false);
     await for (final chunk in response.data!.stream) {
-      final text = utf8.decode(chunk, allowMalformed: true);
+      final text = decoder.convert(chunk);
       final lines = text.split('\n');
       for (final line in lines) {
         final trimmed = line.trim();
@@ -1309,8 +1302,9 @@ class ApiService {
     );
 
     String fullContent = '';
+    final decoder = Utf8Decoder(allowMalformed: false);
     await for (final chunk in response.data!.stream) {
-      final text = utf8.decode(chunk, allowMalformed: true);
+      final text = decoder.convert(chunk);
       final lines = text.split('\n');
       for (final line in lines) {
         final trimmed = line.trim();
@@ -1365,8 +1359,9 @@ class ApiService {
     );
 
     String fullContent = '';
+    final decoder = Utf8Decoder(allowMalformed: false);
     await for (final chunk in response.data!.stream) {
-      final text = utf8.decode(chunk, allowMalformed: true);
+      final text = decoder.convert(chunk);
       final lines = text.split('\n');
       for (final line in lines) {
         final trimmed = line.trim();
@@ -1602,5 +1597,536 @@ class ApiService {
     }
 
     throw Exception('转写超时，请稍后通过任务ID查询结果: $taskId');
+  }
+
+  // ==================== 实时语音转写方法 ====================
+
+  /// 实时语音转写 - 返回增量文本流
+  ///
+  /// 使用方式：
+  /// ```dart
+  /// final stream = apiService.transcribeRealtime(
+  ///   audioStream: microphoneStream,
+  ///   onStatusChange: (status) => print(status),
+  /// );
+  /// await for (final text in stream) {
+  ///   print('增量文本: $text');
+  /// }
+  /// ```
+  Stream<RealtimeTranscriptionResult> transcribeRealtime({
+    required Stream<List<int>> audioStream,
+    void Function(String status, String detail)? onStatusChange,
+    String? language,
+  }) async* {
+    if (!isConfigured) {
+      throw Exception('API未配置，请先在设置中配置API Key');
+    }
+
+    if (!_currentConfig!.supportsRealtimeTranscription) {
+      throw Exception(
+          '${_currentConfig!.displayName} 不支持实时语音转写。请使用讯飞 Spark 或阿里云 Qwen。');
+    }
+
+    debugPrint('=== Realtime Transcription Start ===');
+    debugPrint('Provider: ${_currentConfig!.name}');
+
+    switch (_currentConfig!.provider) {
+      case AiProvider.qwen:
+        yield* _transcribeQwenRealtime(
+          audioStream: audioStream,
+          onStatusChange: onStatusChange,
+          language: language,
+        );
+        break;
+      case AiProvider.spark:
+        yield* _transcribeIflytekRealtime(
+          audioStream: audioStream,
+          onStatusChange: onStatusChange,
+          language: language,
+        );
+        break;
+      default:
+        throw Exception('${_currentConfig!.displayName} 不支持实时语音转写');
+    }
+  }
+
+  /// 阿里云 Qwen 实时转写 (WebSocket)
+  ///
+  /// 支持两种模式：
+  /// 1. DashScope Fun-ASR: 需要 sk-xxx 格式的 API Key
+  /// 2. 通义听悟 TingWu: 需要 sk-xxx API Key + AppId
+  ///
+  /// 文档:
+  /// - Fun-ASR: https://help.aliyun.com/zh/model-studio/fun-asr-real-time-speech-recognition-api-reference/
+  /// - TingWu: https://help.aliyun.com/zh/model-studio/tingwu-industrial-instruction-api-websocket
+  Stream<RealtimeTranscriptionResult> _transcribeQwenRealtime({
+    required Stream<List<int>> audioStream,
+    void Function(String status, String detail)? onStatusChange,
+    String? language,
+  }) async* {
+    final taskId = _generateTaskId();
+
+    const wsUrl = 'wss://dashscope.aliyuncs.com/api-ws/v1/inference/';
+
+    onStatusChange?.call('connecting', '连接 Qwen 实时转写服务...');
+
+    // 判断使用哪种协议
+    final hasAppId = _appId != null && _appId!.isNotEmpty;
+    final isDashScopeApiKey = _apiKey != null && _apiKey!.startsWith('sk-');
+
+    debugPrint('Qwen realtime: apiKey=${_apiKey?.substring(0, _apiKey!.length > 5 ? 5 : _apiKey!.length)}..., appId=$_appId, hasAppId=$hasAppId, isDashScopeApiKey=$isDashScopeApiKey');
+
+    WebSocketChannel? channel;
+    try {
+      // 统一使用 Authorization: Bearer 认证
+      channel = IOWebSocketChannel.connect(
+        Uri.parse(wsUrl),
+        headers: {
+          'Authorization': 'Bearer ${_apiKey ?? ''}',
+        },
+      );
+
+      onStatusChange?.call('connected', '已连接，启动任务...');
+
+      // 根据 appId 判断使用哪种协议
+      Map<String, dynamic> runTaskMessage;
+      if (hasAppId) {
+        // 通义听悟协议
+        runTaskMessage = {
+          'header': {
+            'action': 'run-task',
+            'task_id': taskId,
+            'streaming': 'duplex',
+          },
+          'payload': {
+            'model': 'tingwu-industrial-instruction',
+            'task_group': 'aigc',
+            'task': 'multimodal-generation',
+            'function': 'generation',
+            'input': {
+              'appId': _appId,
+              'directive': 'start',
+            },
+            'parameters': {
+              'sampleRate': 16000,
+              'format': 'pcm',
+            },
+          },
+        };
+      } else {
+        // DashScope Fun-ASR 协议
+        runTaskMessage = {
+          'header': {
+            'action': 'run-task',
+            'task_id': taskId,
+            'streaming': 'duplex',
+          },
+          'payload': {
+            'task_group': 'audio',
+            'task': 'asr',
+            'function': 'recognition',
+            'model': _currentConfig!.realtimeAsrModel.isNotEmpty
+                ? _currentConfig!.realtimeAsrModel
+                : 'fun-asr-realtime',
+            'parameters': {
+              'sample_rate': 16000,
+              'format': 'wav',
+              if (language != null) 'language': language,
+            },
+            'input': {},
+          },
+        };
+      }
+
+      debugPrint('Sending run-task: ${jsonEncode(runTaskMessage)}');
+      channel.sink.add(jsonEncode(runTaskMessage));
+
+      bool taskStarted = false;
+      bool speechListening = false;
+      final audioController = StreamController<List<int>>();
+
+      // 转发音频数据
+      audioStream.listen(
+        (data) {
+          audioController.add(data);
+        },
+        onDone: () {
+          audioController.close();
+        },
+        onError: (e) {
+          debugPrint('Audio stream error: $e');
+          audioController.addError(e);
+        },
+      );
+
+      // 接收事件并处理
+      await for (final message in channel.stream) {
+        try {
+          final data = jsonDecode(message as String) as Map<String, dynamic>;
+          final header = data['header'] as Map<String, dynamic>?;
+          final event = header?['event'] as String?;
+          final payload = data['payload'] as Map<String, dynamic>?;
+          final output = payload?['output'] as Map<String, dynamic>?;
+
+          debugPrint('Received event: $event, action: ${output?['action']}');
+
+          if (hasAppId) {
+            // 通义听悟协议处理
+            final action = output?['action'] as String?;
+            switch (action) {
+              case 'speech-listen':
+                speechListening = true;
+                taskStarted = true;
+                onStatusChange?.call('streaming', '开始发送音频数据...');
+                _sendAudioStream(audioController.stream, channel!);
+                break;
+              case 'recognize-result':
+                final result = _parseTingwuResult(data);
+                if (result != null) {
+                  yield result;
+                }
+                break;
+              case 'ai-result':
+                final correction = output?['aiResult']?['correction'] as String?;
+                if (correction != null && correction.isNotEmpty) {
+                  yield RealtimeTranscriptionResult(
+                    text: correction,
+                    isFinal: true,
+                    beginTime: Duration.zero,
+                    endTime: Duration.zero,
+                  );
+                }
+                break;
+              case 'speech-end':
+                onStatusChange?.call('completed', '转写完成');
+                break;
+              case 'task-failed':
+                final errorCode = output?['errorCode'] ?? 'unknown';
+                final errorMsg = output?['errorMessage'] ?? '任务失败';
+                debugPrint('TingWu task failed: $errorCode - $errorMsg');
+                onStatusChange?.call('error', '转写失败: $errorMsg');
+                throw Exception('通义听悟实时转写失败: $errorMsg');
+            }
+          } else {
+            // DashScope Fun-ASR 协议处理
+            switch (event) {
+              case 'task-started':
+                taskStarted = true;
+                onStatusChange?.call('streaming', '开始发送音频数据...');
+                _sendAudioStream(audioController.stream, channel!);
+                break;
+              case 'result-generated':
+                final result = _parseQwenRealtimeResult(data);
+                if (result != null) {
+                  yield result;
+                }
+                break;
+              case 'task-finished':
+                onStatusChange?.call('completed', '转写完成');
+                break;
+              case 'task-failed':
+                final errorMsg = header?['error_message'] ?? '任务失败';
+                debugPrint('Qwen ASR task failed: $errorMsg');
+                onStatusChange?.call('error', '转写失败: $errorMsg');
+                throw Exception('Qwen 实时转写失败: $errorMsg');
+              default:
+                debugPrint('Unknown event: $event');
+            }
+          }
+        } catch (e) {
+          if (e is Exception) rethrow;
+          debugPrint('Parse realtime result error: $e');
+        }
+      }
+
+      if (!taskStarted) {
+        throw Exception('任务未启动，连接已关闭');
+      }
+    } catch (e) {
+      onStatusChange?.call('error', '连接失败: $e');
+      throw Exception('Qwen 实时转写连接失败: $e');
+    } finally {
+      // 发送 finish-task 指令
+      Map<String, dynamic> finishTaskMessage;
+      if (hasAppId) {
+        finishTaskMessage = {
+          'header': {
+            'action': 'finish-task',
+            'task_id': taskId,
+            'streaming': 'duplex',
+          },
+          'payload': {
+            'model': 'tingwu-industrial-instruction',
+            'task_group': 'aigc',
+            'task': 'multimodal-generation',
+            'function': 'generation',
+            'input': {
+              'directive': 'stop',
+            },
+          },
+        };
+      } else {
+        finishTaskMessage = {
+          'header': {
+            'action': 'finish-task',
+            'task_id': taskId,
+            'streaming': 'duplex',
+          },
+          'payload': {
+            'input': {},
+          },
+        };
+      }
+      channel?.sink.add(jsonEncode(finishTaskMessage));
+      await Future.delayed(const Duration(milliseconds: 500));
+      channel?.sink.close();
+      onStatusChange?.call('disconnected', '连接已关闭');
+    }
+  }
+
+  String _generateTaskId() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final random = DateTime.now().millisecondsSinceEpoch;
+    var result = '';
+    for (var i = 0; i < 32; i++) {
+      result += chars[(random + i) % chars.length];
+    }
+    return result;
+  }
+
+  void _sendAudioStream(
+    Stream<List<int>> audioStream,
+    WebSocketChannel channel,
+  ) {
+    audioStream.listen(
+      (data) {
+        if (channel.closeCode == null) {
+          channel.sink.add(Uint8List.fromList(data));
+        }
+      },
+      onDone: () {
+        debugPrint('Audio stream ended');
+      },
+      onError: (e) {
+        debugPrint('Audio stream error: $e');
+      },
+    );
+  }
+
+  RealtimeTranscriptionResult? _parseQwenRealtimeResult(
+      Map<String, dynamic> data) {
+    final payload = data['payload'] as Map<String, dynamic>?;
+    if (payload == null) return null;
+
+    final output = payload['output'] as Map<String, dynamic>?;
+    if (output == null) return null;
+
+    final sentence = output['sentence'] as Map<String, dynamic>?;
+    if (sentence == null) return null;
+
+    final text = sentence['text'] as String? ?? '';
+    final isFinal = sentence['end_time'] != null;
+    final beginTime = sentence['begin_time'] as int? ?? 0;
+    final endTime = sentence['end_time'] as int? ?? beginTime;
+
+    if (text.isEmpty) return null;
+
+    return RealtimeTranscriptionResult(
+      text: text,
+      isFinal: isFinal,
+      beginTime: Duration(milliseconds: beginTime),
+      endTime: Duration(milliseconds: endTime),
+    );
+  }
+
+  RealtimeTranscriptionResult? _parseTingwuResult(
+      Map<String, dynamic> data) {
+    final payload = data['payload'] as Map<String, dynamic>?;
+    if (payload == null) return null;
+
+    final output = payload['output'] as Map<String, dynamic>?;
+    if (output == null) return null;
+
+    final transcription = output['transcription'] as Map<String, dynamic>?;
+    if (transcription == null) return null;
+
+    final text = transcription['text'] as String? ?? '';
+    final isFinal = transcription['sentenceEnd'] as bool? ?? false;
+    final beginTime = transcription['beginTime'] as int? ?? 0;
+    final endTime = transcription['endTime'] as int? ?? beginTime;
+
+    if (text.isEmpty) return null;
+
+    return RealtimeTranscriptionResult(
+      text: text,
+      isFinal: isFinal,
+      beginTime: Duration(milliseconds: beginTime),
+      endTime: Duration(milliseconds: endTime),
+    );
+  }
+
+  /// 讯飞实时转写 (WebSocket)
+  ///
+  /// 文档: https://www.xfyun.cn/doc/asr/rtasr/API.html
+  Stream<RealtimeTranscriptionResult> _transcribeIflytekRealtime({
+    required Stream<List<int>> audioStream,
+    void Function(String status, String detail)? onStatusChange,
+    String? language,
+  }) async* {
+    onStatusChange?.call('connecting', '连接讯飞实时转写服务...');
+
+    // 讯飞需要 AppID + APIKey + APISecret
+    final apiKey = _apiKey ?? '';
+    final appId = _appId;
+    if (appId == null || appId.isEmpty) {
+      throw Exception('讯飞实时转写需要配置 AppID，请在设置中配置');
+    }
+
+    // 构建鉴权 URL
+    final wsUrl = await _buildIflytekWsUrl(apiKey, appId);
+
+    WebSocketChannel? channel;
+    try {
+      channel = IOWebSocketChannel.connect(Uri.parse(wsUrl));
+
+      onStatusChange?.call('connected', '已连接，开始发送音频...');
+
+      // 发送第一帧参数
+      final firstFrame = {
+        'common': {
+          'app_id': appId,
+        },
+        'business': {
+          'language': language ?? 'zh_cn',
+          'domain': 'iat',
+          'accent': 'mandarin',
+          'vad_eos': 3000,
+          'dwa': 'wpgs', // 动态修正
+        },
+        'data': {
+          'status': 0, // 第一帧
+          'format': 'audio/L16;rate=16000',
+          'encoding': 'raw',
+          'audio': '',
+        },
+      };
+      channel.sink.add(jsonEncode(firstFrame));
+
+      bool isFirst = true;
+
+      // 发送音频数据
+      audioStream.listen(
+        (data) {
+          if (channel != null) {
+            final frame = {
+              'data': {
+                'status': isFirst ? 0 : 1, // 0=第一帧, 1=中间帧
+                'format': 'audio/L16;rate=16000',
+                'encoding': 'raw',
+                'audio': base64Encode(Uint8List.fromList(data)),
+              }
+            };
+            channel.sink.add(jsonEncode(frame));
+            isFirst = false;
+          }
+        },
+        onDone: () {
+          // 发送最后一帧
+          final lastFrame = {
+            'data': {
+              'status': 2, // 最后一帧
+              'format': 'audio/L16;rate=16000',
+              'encoding': 'raw',
+              'audio': '',
+            }
+          };
+          channel?.sink.add(jsonEncode(lastFrame));
+        },
+        onError: (e) {
+          debugPrint('Audio stream error: $e');
+          onStatusChange?.call('error', '音频流错误: $e');
+        },
+      );
+
+      // 接收转写结果
+      await for (final message in channel.stream) {
+        try {
+          final data = jsonDecode(message as String) as Map<String, dynamic>;
+          final result = _parseIflytekRealtimeResult(data);
+          if (result != null) {
+            yield result;
+          }
+        } catch (e) {
+          debugPrint('Parse realtime result error: $e');
+        }
+      }
+    } catch (e) {
+      onStatusChange?.call('error', '连接失败: $e');
+      throw Exception('讯飞实时转写连接失败: $e');
+    } finally {
+      channel?.sink.close();
+      onStatusChange?.call('disconnected', '连接已关闭');
+    }
+  }
+
+  Future<String> _buildIflytekWsUrl(String apiKey, String appId) async {
+    // 讯飞 WebSocket 鉴权 URL 构建
+    // 参考: https://www.xfyun.cn/doc/asr/rtasr/API.html#_鉴权说明
+    final host = 'rtasr.xfyun.cn';
+    final path = '/v1/ws';
+    final date = HttpDate.format(DateTime.now().toUtc());
+
+    final signatureOrigin = 'host: $host\ndate: $date\nGET $path HTTP/1.1';
+    // 使用 HMAC-SHA256 签名
+    // 这里简化处理，实际需要根据讯飞文档实现完整鉴权
+
+    return 'wss://$host$path?appid=$appId&$apiKey';
+  }
+
+  RealtimeTranscriptionResult? _parseIflytekRealtimeResult(
+      Map<String, dynamic> data) {
+    final code = data['code'] as String? ?? '';
+    if (code != '0') {
+      final message = data['message'] as String? ?? 'Unknown error';
+      debugPrint('iFlytek error: $message');
+      return null;
+    }
+
+    final resultData = data['data'] as Map<String, dynamic>?;
+    if (resultData == null) return null;
+
+    final result = resultData['result'] as String? ?? '';
+    final isFinal = resultData['ls'] == true;
+    final bg = resultData['bg'] as String? ?? '0';
+    final ed = resultData['ed'] as String? ?? bg;
+
+    if (result.isEmpty) return null;
+
+    return RealtimeTranscriptionResult(
+      text: result,
+      isFinal: isFinal,
+      beginTime: Duration(milliseconds: int.tryParse(bg) ?? 0),
+      endTime: Duration(milliseconds: int.tryParse(ed) ?? 0),
+    );
+  }
+}
+
+/// 实时转写结果
+class RealtimeTranscriptionResult {
+  final String text;
+  final bool isFinal;
+  final Duration beginTime;
+  final Duration endTime;
+
+  const RealtimeTranscriptionResult({
+    required this.text,
+    required this.isFinal,
+    required this.beginTime,
+    required this.endTime,
+  });
+
+  @override
+  String toString() {
+    return 'RealtimeTranscriptionResult(text: $text, isFinal: $isFinal, beginTime: $beginTime, endTime: $endTime)';
   }
 }

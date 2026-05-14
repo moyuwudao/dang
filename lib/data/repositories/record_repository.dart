@@ -22,6 +22,11 @@ class RecordRepository {
     return records.map(_mapToModel).toList();
   }
 
+  Future<List<RecordModel>> getRecordsByTags(List<String> tags) async {
+    final records = await _database.getRecordsByTags(tags);
+    return records.map(_mapToModel).toList();
+  }
+
   Future<RecordModel?> getRecordById(int id) async {
     final record = await _database.getRecordById(id);
     return record != null ? _mapToModel(record) : null;
@@ -34,6 +39,7 @@ class RecordRepository {
     String? imagePath,
     List<String> tags = const [],
     TranscriptionStatus? transcriptionStatus,
+    bool isRealtime = false,
   }) async {
     final now = DateTime.now();
     final companion = RecordsCompanion(
@@ -47,6 +53,7 @@ class RecordRepository {
       transcriptionStatus: Value(transcriptionStatus?.name ?? 'pending'),
       transcriptionError: const Value.absent(),
       isFavorite: const Value(false),
+      isRealtime: Value(isRealtime),
     );
     return await _database.insertRecord(companion);
   }
@@ -171,6 +178,7 @@ class RecordRepository {
       isFavorite: record.isFavorite,
       aiAnalysisResults: _parseAiAnalysis(record.aiAnalysis ?? ''),
       supplements: _parseSupplements(record.supplements),
+      isRealtime: record.isRealtime,
     );
   }
 

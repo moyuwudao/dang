@@ -17,6 +17,15 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
   final List<String> _tags = [];
 
   @override
+  void initState() {
+    super.initState();
+    // 页面加载时检查实时转写可用性
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(recordingStateProvider.notifier).checkRealtimeAvailability();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final recordingState = ref.watch(recordingStateProvider);
     final recordingNotifier = ref.read(recordingStateProvider.notifier);
@@ -95,87 +104,208 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                   ]
                   else
                     // 控制按钮 - 放大录音键
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // 删除/取消按钮
-                        if (recordingState.isRecording)
-                          _buildControlButton(
-                            icon: Icons.delete_outline,
-                            onPressed: () {
-                              recordingNotifier.cancelRecording();
-                              if (context.mounted) {
-                                context.pop();
-                              }
-                            },
-                            color: Colors.white54,
-                          )
-                        else
-                          const SizedBox(width: 72),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // 删除/取消按钮
+                            if (recordingState.isRecording)
+                              _buildControlButton(
+                                icon: Icons.delete_outline,
+                                onPressed: () {
+                                  recordingNotifier.cancelRecording();
+                                  if (context.mounted) {
+                                    context.pop();
+                                  }
+                                },
+                                color: Colors.white54,
+                              )
+                            else
+                              const SizedBox(width: 72),
 
-                        const SizedBox(width: 32),
+                            const SizedBox(width: 32),
 
-                        // 录音/停止按钮 - 放大到 110
-                        GestureDetector(
-                          onTap: () {
-                            if (recordingState.isRecording) {
-                              recordingNotifier.stopRecording(tags: _tags);
-                            } else {
-                              recordingNotifier.startRecording();
-                            }
-                          },
-                          child: Container(
-                            width: 110,
-                            height: 110,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: recordingState.isRecording
-                                  ? AppColors.error
-                                  : AppColors.primary,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (recordingState.isRecording
-                                          ? AppColors.error
-                                          : AppColors.primary)
-                                      .withOpacity(0.35),
-                                  blurRadius: 28,
-                                  spreadRadius: 8,
+                            // 录音/停止按钮 - 放大到 110
+                            GestureDetector(
+                              onTap: () {
+                                if (recordingState.isRecording) {
+                                  recordingNotifier.stopRecording(tags: _tags);
+                                } else {
+                                  recordingNotifier.startRecording();
+                                }
+                              },
+                              child: Container(
+                                width: 110,
+                                height: 110,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: recordingState.isRecording
+                                      ? AppColors.error
+                                      : AppColors.primary,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (recordingState.isRecording
+                                              ? AppColors.error
+                                              : AppColors.primary)
+                                          .withOpacity(0.35),
+                                      blurRadius: 28,
+                                      spreadRadius: 8,
+                                    ),
+                                  ],
                                 ),
-                              ],
+                                child: Icon(
+                                  recordingState.isRecording
+                                      ? Icons.stop
+                                      : Icons.mic,
+                                  color: Colors.white,
+                                  size: 44,
+                                ),
+                              ),
                             ),
-                            child: Icon(
-                              recordingState.isRecording
-                                  ? Icons.stop
-                                  : Icons.mic,
-                              color: Colors.white,
-                              size: 44,
-                            ),
-                          ),
+
+                            const SizedBox(width: 32),
+
+                            // 暂停按钮
+                            if (recordingState.isRecording)
+                              _buildControlButton(
+                                icon: recordingState.isPaused
+                                    ? Icons.play_arrow
+                                    : Icons.pause,
+                                onPressed: () {
+                                  if (recordingState.isPaused) {
+                                    recordingNotifier.resumeRecording();
+                                  } else {
+                                    recordingNotifier.pauseRecording();
+                                  }
+                                },
+                                color: Colors.white54,
+                              )
+                            else
+                              const SizedBox(width: 72),
+                          ],
                         ),
 
-                        const SizedBox(width: 32),
-
-                        // 暂停按钮
-                        if (recordingState.isRecording)
-                          _buildControlButton(
-                            icon: recordingState.isPaused
-                                ? Icons.play_arrow
-                                : Icons.pause,
-                            onPressed: () {
-                              if (recordingState.isPaused) {
-                                recordingNotifier.resumeRecording();
-                              } else {
-                                recordingNotifier.pauseRecording();
-                              }
-                            },
-                            color: Colors.white54,
-                          )
-                        else
-                          const SizedBox(width: 72),
+                        // 实时转写开关（始终显示）
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.keyboard_voice,
+                              color: recordingState.isRealtimeAvailable
+                                  ? AppColors.primary
+                                  : Colors.white30,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '实时转写',
+                              style: TextStyle(
+                                color: recordingState.isRealtimeAvailable
+                                    ? Colors.white70
+                                    : Colors.white30,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Switch(
+                              value: recordingState.isRealtimeEnabled && recordingState.isRealtimeAvailable,
+                              onChanged: recordingState.isRealtimeAvailable
+                                  ? (value) {
+                                      recordingNotifier.toggleRealtime(value);
+                                    }
+                                  : (value) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('请先配置实时转写API'),
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                              activeColor: AppColors.primary,
+                              inactiveThumbColor: Colors.white30,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ],
+                        ),
+                        if (!recordingState.isRealtimeAvailable)
+                          GestureDetector(
+                            onTap: () => context.push('/settings/multi-api-config'),
+                            child: Text(
+                              '未配置API，点击前往配置',
+                              style: TextStyle(
+                                color: AppColors.primary.withOpacity(0.7),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
 
-                  const SizedBox(height: 16),
+                  // 实时转写文本显示（录音中且开启实时转写时）
+                  if (recordingState.isRecording &&
+                      recordingState.isRealtimeEnabled &&
+                      recordingState.realtimeText != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.keyboard_voice,
+                                color: AppColors.primary,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '实时转写中',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            recordingState.realtimeText!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                            maxLines: 5,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   // 提示文字
                   if (!recordingState.isTranscribing)
@@ -212,7 +342,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
               ),
             ),
 
-            // 下半部分：标签选择（当页可见，不需要下拉）
+            // 标签选择
             if (!recordingState.isRecording && !recordingState.isTranscribing)
               Container(
                 padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
@@ -223,39 +353,24 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                   ),
                 ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.label_outline,
-                            color: Colors.white70, size: 16),
-                        SizedBox(width: 6),
-                        Text(
-                          '添加标签（可选）',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
+                    const Text(
+                      '标签',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
                     ),
-                    const SizedBox(height: 10),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.22,
-                      ),
-                      child: SingleChildScrollView(
-                        child: TagSelector(
-                          selectedTags: _tags,
-                          onTagsChanged: (tags) {
-                            setState(() {
-                              _tags.clear();
-                              _tags.addAll(tags);
-                            });
-                          },
-                        ),
-                      ),
+                    const SizedBox(height: 8),
+                    TagSelector(
+                      selectedTags: _tags,
+                      onTagsChanged: (tags) {
+                        setState(() {
+                          _tags.clear();
+                          _tags.addAll(tags);
+                        });
+                      },
                     ),
                   ],
                 ),

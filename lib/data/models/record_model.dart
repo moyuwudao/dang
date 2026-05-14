@@ -106,6 +106,7 @@ class RecordModel {
   final bool isFavorite;
   final List<AiAnalysisResult> aiAnalysisResults;
   final List<SupplementItem> supplements;
+  final bool isRealtime;
 
   const RecordModel({
     required this.id,
@@ -121,6 +122,7 @@ class RecordModel {
     this.isFavorite = false,
     this.aiAnalysisResults = const [],
     this.supplements = const [],
+    this.isRealtime = false,
   });
 
   RecordModel copyWith({
@@ -137,6 +139,7 @@ class RecordModel {
     bool? isFavorite,
     List<AiAnalysisResult>? aiAnalysisResults,
     List<SupplementItem>? supplements,
+    bool? isRealtime,
   }) {
     return RecordModel(
       id: id ?? this.id,
@@ -152,6 +155,7 @@ class RecordModel {
       isFavorite: isFavorite ?? this.isFavorite,
       aiAnalysisResults: aiAnalysisResults ?? this.aiAnalysisResults,
       supplements: supplements ?? this.supplements,
+      isRealtime: isRealtime ?? this.isRealtime,
     );
   }
 
@@ -173,6 +177,7 @@ class RecordModel {
       'isFavorite': isFavorite,
       'aiAnalysisResults': aiAnalysisResults.map((r) => r.toJson()).toList(),
       'supplements': supplements.map((s) => s.toJson()).toList(),
+      'isRealtime': isRealtime,
     };
   }
 
@@ -198,6 +203,7 @@ class RecordModel {
       supplements: (json['supplements'] as List<dynamic>? ?? [])
           .map((s) => SupplementItem.fromJson(s as Map<String, dynamic>))
           .toList(),
+      isRealtime: json['isRealtime'] as bool? ?? false,
     );
   }
 }

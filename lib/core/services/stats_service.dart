@@ -1,7 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/record_model.dart';
+
+final statsServiceProvider = ChangeNotifierProvider<StatsService>((ref) {
+  final service = StatsService();
+  service.init();
+  return service;
+});
 
 class UsageStats {
   final int totalRecords;
@@ -20,6 +27,13 @@ class UsageStats {
   final int daysUsed;
   final Map<String, int> recordsPerDay;
   final Map<String, int> tagsFrequency;
+  final int apiTextCalls;
+  final int apiVoiceCalls;
+  final int apiImageCalls;
+  final int apiSuccessCalls;
+  final int apiFailedCalls;
+  final Map<String, int> apiCallsPerDay;
+  final Map<String, int> apiCallsByTool;
 
   const UsageStats({
     this.totalRecords = 0,
@@ -38,6 +52,13 @@ class UsageStats {
     this.daysUsed = 0,
     this.recordsPerDay = const {},
     this.tagsFrequency = const {},
+    this.apiTextCalls = 0,
+    this.apiVoiceCalls = 0,
+    this.apiImageCalls = 0,
+    this.apiSuccessCalls = 0,
+    this.apiFailedCalls = 0,
+    this.apiCallsPerDay = const {},
+    this.apiCallsByTool = const {},
   });
 
   UsageStats copyWith({
@@ -57,13 +78,21 @@ class UsageStats {
     int? daysUsed,
     Map<String, int>? recordsPerDay,
     Map<String, int>? tagsFrequency,
+    int? apiTextCalls,
+    int? apiVoiceCalls,
+    int? apiImageCalls,
+    int? apiSuccessCalls,
+    int? apiFailedCalls,
+    Map<String, int>? apiCallsPerDay,
+    Map<String, int>? apiCallsByTool,
   }) {
     return UsageStats(
       totalRecords: totalRecords ?? this.totalRecords,
       audioRecords: audioRecords ?? this.audioRecords,
       ocrRecords: ocrRecords ?? this.ocrRecords,
       textRecords: textRecords ?? this.textRecords,
-      successfulTranscriptions: successfulTranscriptions ?? this.successfulTranscriptions,
+      successfulTranscriptions:
+          successfulTranscriptions ?? this.successfulTranscriptions,
       failedTranscriptions: failedTranscriptions ?? this.failedTranscriptions,
       favoriteRecords: favoriteRecords ?? this.favoriteRecords,
       totalTags: totalTags ?? this.totalTags,
@@ -75,6 +104,13 @@ class UsageStats {
       daysUsed: daysUsed ?? this.daysUsed,
       recordsPerDay: recordsPerDay ?? this.recordsPerDay,
       tagsFrequency: tagsFrequency ?? this.tagsFrequency,
+      apiTextCalls: apiTextCalls ?? this.apiTextCalls,
+      apiVoiceCalls: apiVoiceCalls ?? this.apiVoiceCalls,
+      apiImageCalls: apiImageCalls ?? this.apiImageCalls,
+      apiSuccessCalls: apiSuccessCalls ?? this.apiSuccessCalls,
+      apiFailedCalls: apiFailedCalls ?? this.apiFailedCalls,
+      apiCallsPerDay: apiCallsPerDay ?? this.apiCallsPerDay,
+      apiCallsByTool: apiCallsByTool ?? this.apiCallsByTool,
     );
   }
 
@@ -96,6 +132,13 @@ class UsageStats {
       'daysUsed': daysUsed,
       'recordsPerDay': recordsPerDay,
       'tagsFrequency': tagsFrequency,
+      'apiTextCalls': apiTextCalls,
+      'apiVoiceCalls': apiVoiceCalls,
+      'apiImageCalls': apiImageCalls,
+      'apiSuccessCalls': apiSuccessCalls,
+      'apiFailedCalls': apiFailedCalls,
+      'apiCallsPerDay': apiCallsPerDay,
+      'apiCallsByTool': apiCallsByTool,
     };
   }
 
@@ -117,13 +160,26 @@ class UsageStats {
       daysUsed: json['daysUsed'] as int? ?? 0,
       recordsPerDay: (json['recordsPerDay'] as Map?)?.cast<String, int>() ?? {},
       tagsFrequency: (json['tagsFrequency'] as Map?)?.cast<String, int>() ?? {},
+      apiTextCalls: json['apiTextCalls'] as int? ?? 0,
+      apiVoiceCalls: json['apiVoiceCalls'] as int? ?? 0,
+      apiImageCalls: json['apiImageCalls'] as int? ?? 0,
+      apiSuccessCalls: json['apiSuccessCalls'] as int? ?? 0,
+      apiFailedCalls: json['apiFailedCalls'] as int? ?? 0,
+      apiCallsPerDay:
+          (json['apiCallsPerDay'] as Map?)?.cast<String, int>() ?? {},
+      apiCallsByTool:
+          (json['apiCallsByTool'] as Map?)?.cast<String, int>() ?? {},
     );
   }
+
+  int get totalApiCalls => apiTextCalls + apiVoiceCalls + apiImageCalls;
+  double get apiSuccessRate =>
+      totalApiCalls > 0 ? (apiSuccessCalls / totalApiCalls) * 100 : 0;
 }
 
 class StatsService extends ChangeNotifier {
   static const String _statsKey = 'usage_stats';
-  
+
   UsageStats _stats = UsageStats(
     firstUseDate: DateTime.now(),
     lastUseDate: DateTime.now(),
@@ -139,7 +195,7 @@ class StatsService extends ChangeNotifier {
   Future<void> _loadStats() async {
     final prefs = await SharedPreferences.getInstance();
     final statsJson = prefs.getString(_statsKey);
-    
+
     if (statsJson != null) {
       try {
         final data = jsonDecode(statsJson) as Map<String, dynamic>;
@@ -159,8 +215,9 @@ class StatsService extends ChangeNotifier {
   void _updateLastUseDate() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final lastUse = DateTime(_stats.lastUseDate.year, _stats.lastUseDate.month, _stats.lastUseDate.day);
-    
+    final lastUse = DateTime(_stats.lastUseDate.year, _stats.lastUseDate.month,
+        _stats.lastUseDate.day);
+
     if (today.isAfter(lastUse)) {
       _stats = _stats.copyWith(
         lastUseDate: now,
@@ -172,45 +229,55 @@ class StatsService extends ChangeNotifier {
 
   void recordCreated(RecordType type) {
     final now = DateTime.now();
-    final dateKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    
+    final dateKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
     final newRecordsPerDay = Map<String, int>.from(_stats.recordsPerDay);
     newRecordsPerDay[dateKey] = (newRecordsPerDay[dateKey] ?? 0) + 1;
-    
+
     _stats = _stats.copyWith(
       totalRecords: _stats.totalRecords + 1,
-      audioRecords: type == RecordType.audio ? _stats.audioRecords + 1 : _stats.audioRecords,
-      ocrRecords: type == RecordType.ocr ? _stats.ocrRecords + 1 : _stats.ocrRecords,
-      textRecords: type == RecordType.text ? _stats.textRecords + 1 : _stats.textRecords,
+      audioRecords: type == RecordType.audio
+          ? _stats.audioRecords + 1
+          : _stats.audioRecords,
+      ocrRecords:
+          type == RecordType.ocr ? _stats.ocrRecords + 1 : _stats.ocrRecords,
+      textRecords:
+          type == RecordType.text ? _stats.textRecords + 1 : _stats.textRecords,
       lastUseDate: now,
       recordsPerDay: newRecordsPerDay,
     );
-    
+
     _saveStats();
   }
 
   void transcriptionCompleted(bool success) {
     _stats = _stats.copyWith(
-      successfulTranscriptions: success ? _stats.successfulTranscriptions + 1 : _stats.successfulTranscriptions,
-      failedTranscriptions: success ? _stats.failedTranscriptions : _stats.failedTranscriptions + 1,
+      successfulTranscriptions: success
+          ? _stats.successfulTranscriptions + 1
+          : _stats.successfulTranscriptions,
+      failedTranscriptions: success
+          ? _stats.failedTranscriptions
+          : _stats.failedTranscriptions + 1,
     );
     _saveStats();
   }
 
   void favoriteToggled(bool isFavorite) {
     _stats = _stats.copyWith(
-      favoriteRecords: isFavorite ? _stats.favoriteRecords + 1 : _stats.favoriteRecords - 1,
+      favoriteRecords:
+          isFavorite ? _stats.favoriteRecords + 1 : _stats.favoriteRecords - 1,
     );
     _saveStats();
   }
 
   void tagsAdded(List<String> tags) {
     final newTagsFrequency = Map<String, int>.from(_stats.tagsFrequency);
-    
+
     for (final tag in tags) {
       newTagsFrequency[tag] = (newTagsFrequency[tag] ?? 0) + 1;
     }
-    
+
     _stats = _stats.copyWith(
       totalTags: _stats.totalTags + tags.length,
       tagsFrequency: newTagsFrequency,
@@ -236,6 +303,70 @@ class StatsService extends ChangeNotifier {
     _stats = _stats.copyWith(
       shareCount: _stats.shareCount + 1,
     );
+    _saveStats();
+  }
+
+  void apiTextCallCompleted(bool success, {String? toolId}) {
+    _recordApiCall(
+      apiTextCalls: _stats.apiTextCalls + 1,
+      apiSuccessCalls:
+          success ? _stats.apiSuccessCalls + 1 : _stats.apiSuccessCalls,
+      apiFailedCalls:
+          success ? _stats.apiFailedCalls : _stats.apiFailedCalls + 1,
+      toolId: toolId,
+    );
+  }
+
+  void apiVoiceCallCompleted(bool success) {
+    _recordApiCall(
+      apiVoiceCalls: _stats.apiVoiceCalls + 1,
+      apiSuccessCalls:
+          success ? _stats.apiSuccessCalls + 1 : _stats.apiSuccessCalls,
+      apiFailedCalls:
+          success ? _stats.apiFailedCalls : _stats.apiFailedCalls + 1,
+    );
+  }
+
+  void apiImageCallCompleted(bool success) {
+    _recordApiCall(
+      apiImageCalls: _stats.apiImageCalls + 1,
+      apiSuccessCalls:
+          success ? _stats.apiSuccessCalls + 1 : _stats.apiSuccessCalls,
+      apiFailedCalls:
+          success ? _stats.apiFailedCalls : _stats.apiFailedCalls + 1,
+    );
+  }
+
+  void _recordApiCall({
+    int? apiTextCalls,
+    int? apiVoiceCalls,
+    int? apiImageCalls,
+    required int apiSuccessCalls,
+    required int apiFailedCalls,
+    String? toolId,
+  }) {
+    final now = DateTime.now();
+    final dateKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final newApiCallsPerDay = Map<String, int>.from(_stats.apiCallsPerDay);
+    newApiCallsPerDay[dateKey] = (newApiCallsPerDay[dateKey] ?? 0) + 1;
+
+    final newApiCallsByTool = Map<String, int>.from(_stats.apiCallsByTool);
+    if (toolId != null) {
+      newApiCallsByTool[toolId] = (newApiCallsByTool[toolId] ?? 0) + 1;
+    }
+
+    _stats = _stats.copyWith(
+      apiTextCalls: apiTextCalls ?? _stats.apiTextCalls,
+      apiVoiceCalls: apiVoiceCalls ?? _stats.apiVoiceCalls,
+      apiImageCalls: apiImageCalls ?? _stats.apiImageCalls,
+      apiSuccessCalls: apiSuccessCalls,
+      apiFailedCalls: apiFailedCalls,
+      apiCallsPerDay: newApiCallsPerDay,
+      apiCallsByTool: newApiCallsByTool,
+    );
+
     _saveStats();
   }
 

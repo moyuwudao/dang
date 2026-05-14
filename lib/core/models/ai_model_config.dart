@@ -14,10 +14,12 @@ enum AiProvider {
 
 enum AppFeature {
   recording,
-  transcription,
+  textAnalysis,
+  speechTranscription,
+  speechRealtimeTranscription,
+  ocr,
   chatSummary,
   titleGeneration,
-  ocr,
 }
 
 enum TranscriptionMethod {
@@ -25,6 +27,7 @@ enum TranscriptionMethod {
   audioUpload,
   nativeAsr,
   asyncAsr,
+  realtimeWebSocket,
 }
 
 class TranscriptionLimit {
@@ -63,16 +66,25 @@ class AiModelConfig {
   final String defaultModel;
   final List<String> availableModels;
   final bool supportsTranscription;
+  final bool supportsRealtimeTranscription;
   final bool supportsChat;
+  final bool supportsTextAnalysis;
+  final bool supportsOCR;
   final String? apiKeyPrefix;
   final String description;
   final TranscriptionMethod transcriptionMethod;
+  final TranscriptionMethod? realtimeTranscriptionMethod;
   final TranscriptionLimit? transcriptionLimit;
   final List<ModelDetail> modelDetails;
   final String asrModel;
   final String asrDescription;
+  final String realtimeAsrModel;
+  final String realtimeAsrDescription;
+  final String visionModel;
   final String limitationNote;
   final String pricingNote;
+  final bool requiresAppId;
+  final String? appIdDescription;
 
   const AiModelConfig({
     required this.provider,
@@ -82,16 +94,25 @@ class AiModelConfig {
     required this.defaultModel,
     required this.availableModels,
     this.supportsTranscription = false,
+    this.supportsRealtimeTranscription = false,
     this.supportsChat = true,
+    this.supportsTextAnalysis = true,
+    this.supportsOCR = false,
+    this.visionModel = '',
     this.apiKeyPrefix,
     required this.description,
     this.transcriptionMethod = TranscriptionMethod.whisperApi,
+    this.realtimeTranscriptionMethod,
     this.transcriptionLimit,
     this.modelDetails = const [],
     this.asrModel = '',
     this.asrDescription = '',
+    this.realtimeAsrModel = '',
+    this.realtimeAsrDescription = '',
     this.limitationNote = '',
     this.pricingNote = '',
+    this.requiresAppId = false,
+    this.appIdDescription,
   });
 
   static const List<AiModelConfig> allProviders = [
@@ -111,12 +132,23 @@ class AiModelConfig {
   static bool canUseFeature(AppFeature feature, AiProvider? configuredProvider) {
     switch (feature) {
       case AppFeature.recording:
-      case AppFeature.ocr:
         return true;
-      case AppFeature.transcription:
+      case AppFeature.textAnalysis:
+        if (configuredProvider == null) return false;
+        final config = getConfig(configuredProvider);
+        return config.supportsTextAnalysis;
+      case AppFeature.speechTranscription:
         if (configuredProvider == null) return false;
         final config = getConfig(configuredProvider);
         return config.supportsTranscription;
+      case AppFeature.speechRealtimeTranscription:
+        if (configuredProvider == null) return false;
+        final config = getConfig(configuredProvider);
+        return config.supportsRealtimeTranscription;
+      case AppFeature.ocr:
+        if (configuredProvider == null) return false;
+        final config = getConfig(configuredProvider);
+        return config.supportsOCR;
       case AppFeature.chatSummary:
       case AppFeature.titleGeneration:
         return configuredProvider != null;
@@ -126,15 +158,41 @@ class AiModelConfig {
   static String? getFeatureDisabledReason(AppFeature feature, AiProvider? configuredProvider) {
     switch (feature) {
       case AppFeature.recording:
-      case AppFeature.ocr:
         return null;
-      case AppFeature.transcription:
+      case AppFeature.textAnalysis:
+        if (configuredProvider == null) {
+          return 'Please configure an AI model API Key first';
+        }
+        final config = getConfig(configuredProvider);
+        if (!config.supportsTextAnalysis) {
+          return '${config.displayName} does not support text analysis.';
+        }
+        return null;
+      case AppFeature.speechTranscription:
         if (configuredProvider == null) {
           return 'Please configure an AI model API Key first';
         }
         final config = getConfig(configuredProvider);
         if (!config.supportsTranscription) {
-          return '${config.displayName} does not support transcription. Please use OpenAI, Gemini, or Qwen.';
+          return '${config.displayName} does not support speech transcription. Please use OpenAI, Gemini, or Qwen.';
+        }
+        return null;
+      case AppFeature.speechRealtimeTranscription:
+        if (configuredProvider == null) {
+          return 'Please configure an AI model API Key first';
+        }
+        final config = getConfig(configuredProvider);
+        if (!config.supportsRealtimeTranscription) {
+          return '${config.displayName} does not support real-time speech transcription. Please use iFlytek Spark or Aliyun Qwen.';
+        }
+        return null;
+      case AppFeature.ocr:
+        if (configuredProvider == null) {
+          return 'Please configure an AI model API Key first';
+        }
+        final config = getConfig(configuredProvider);
+        if (!config.supportsOCR) {
+          return '${config.displayName} does not support image recognition. Please use OpenAI (GPT-4o), Gemini, or Qwen.';
         }
         return null;
       case AppFeature.chatSummary:
@@ -160,9 +218,13 @@ class AiModelConfig {
       'gpt-4.1-nano',
     ],
     supportsTranscription: true,
+    supportsRealtimeTranscription: false,
     supportsChat: true,
+    supportsTextAnalysis: true,
+    supportsOCR: true,
+    visionModel: 'gpt-4o',
     apiKeyPrefix: 'sk-',
-    description: 'Industry-leading AI with best-in-class Whisper transcription. Most reliable for voice-to-text.',
+    description: 'Industry-leading AI with best-in-class Whisper transcription. Most reliable for voice-to-text. GPT-4o supports image recognition.',
     transcriptionMethod: TranscriptionMethod.whisperApi,
     transcriptionLimit: TranscriptionLimit(
       maxDurationSeconds: 600,
@@ -220,9 +282,13 @@ class AiModelConfig {
       'gemini-3.1-pro',
     ],
     supportsTranscription: true,
+    supportsRealtimeTranscription: false,
     supportsChat: true,
+    supportsTextAnalysis: true,
+    supportsOCR: true,
+    visionModel: 'gemini-2.5-flash',
     apiKeyPrefix: null,
-    description: 'Google\'s Gemini with generous free tier. Supports audio upload for transcription via multimodal input.',
+    description: 'Google\'s Gemini with generous free tier. Supports audio upload for transcription via multimodal input. Also supports image recognition.',
     transcriptionMethod: TranscriptionMethod.audioUpload,
     transcriptionLimit: TranscriptionLimit(
       maxDurationSeconds: 300,
@@ -293,7 +359,7 @@ class AiModelConfig {
   static const qwen = AiModelConfig(
     provider: AiProvider.qwen,
     name: 'qwen',
-    displayName: 'Qwen',
+    displayName: '通义千问',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     defaultModel: 'qwen-turbo',
     availableModels: [
@@ -305,25 +371,32 @@ class AiModelConfig {
       'qwen3.6-max',
     ],
     supportsTranscription: true,
+    supportsRealtimeTranscription: true,
     supportsChat: true,
+    supportsTextAnalysis: true,
+    supportsOCR: true,
+    visionModel: 'qwen3.6-vl-plus',
     apiKeyPrefix: 'sk-',
-    description: 'Alibaba Qwen 3.6 series. Strong Chinese understanding. Auto-selects qwen3-asr-flash for transcription, supports long audio via async API.',
+    description: '阿里云通义千问系列。中文理解能力强，支持语音转写和实时语音转写。语音转写用 qwen-asr-flash，实时转写用 WebSocket 流式接口。',
     transcriptionMethod: TranscriptionMethod.nativeAsr,
+    realtimeTranscriptionMethod: TranscriptionMethod.realtimeWebSocket,
     transcriptionLimit: TranscriptionLimit(
       maxDurationSeconds: 43200,
       maxFileSizeMB: 500,
       durationLabel: '12 hours',
-      note: 'Short audio (<5min, <10MB): qwen3-asr-flash sync. Long audio: qwen3-asr-flash-filetrans async.',
+      note: 'Short audio (<5min, <10MB): qwen3-asr-flash sync. Long audio: qwen3-asr-flash-filetrans async. Realtime: qwen3-asr-flash via WebSocket.',
     ),
     asrModel: 'qwen3-asr-flash',
     asrDescription: 'qwen3-asr-flash: 52 languages + 22 Chinese dialects. Best open-source ASR accuracy.\nqwen3-asr-flash-filetrans: For long audio up to 12 hours, async processing.',
+    realtimeAsrModel: 'qwen3-asr-flash',
+    realtimeAsrDescription: 'Realtime ASR via DashScope WebSocket. Supports streaming audio input with incremental text output. Low latency for live transcription.',
     modelDetails: [
       ModelDetail(name: 'qwen3.6-max', description: 'Most capable', contextWindow: '128K', recommended: false),
       ModelDetail(name: 'qwen3.6-plus', description: 'Balanced quality & cost', contextWindow: '128K', recommended: false),
       ModelDetail(name: 'qwen3.6-flash', description: 'Fastest, most affordable', contextWindow: '128K', recommended: true),
       ModelDetail(name: 'qwen3.5-plus', description: 'Previous gen, stable', contextWindow: '128K', recommended: false),
     ],
-    pricingNote: 'Chat: ¥0.001-¥2/M tokens | ASR: ¥0.001-¥0.01/min',
+    pricingNote: 'Chat: ¥0.001-¥2/M tokens | ASR: ¥0.001-¥0.01/min | Realtime: ¥0.003/min',
   );
 
   static const ernie = AiModelConfig(
@@ -423,17 +496,33 @@ class AiModelConfig {
       'lite',
     ],
     supportsTranscription: false,
+    supportsRealtimeTranscription: true,
     supportsChat: true,
+    supportsTextAnalysis: true,
     apiKeyPrefix: null,
-    description: 'iFlytek Spark X2: 293B MoE. Leading voice technology company in China.',
-    limitationNote: 'ASR requires separate iFlytek credentials (AppID+APIKey+APISecret). Chat/summary only.',
+    description: 'iFlytek Spark X2: 293B MoE. Leading voice technology company in China. Supports realtime ASR via iFlytek WebSocket API.',
+    transcriptionMethod: TranscriptionMethod.nativeAsr,
+    realtimeTranscriptionMethod: TranscriptionMethod.realtimeWebSocket,
+    transcriptionLimit: TranscriptionLimit(
+      maxDurationSeconds: 14400,
+      maxFileSizeMB: 200,
+      durationLabel: '4 hours',
+      note: 'Realtime ASR via iFlytek WebSocket. Best Chinese ASR accuracy.',
+    ),
+    asrModel: '',
+    asrDescription: 'iFlytek Spark does not support file-based ASR through this endpoint. Use realtime ASR instead.',
+    realtimeAsrModel: 'iFlytek-realtime-asr',
+    realtimeAsrDescription: 'iFlytek Realtime ASR via WebSocket. Industry-leading Chinese speech recognition. Supports Mandarin, dialects, and mixed-language. Low latency with incremental results.',
+    limitationNote: 'File-based ASR requires separate iFlytek credentials. Realtime ASR available via WebSocket.',
+    requiresAppId: true,
+    appIdDescription: '讯飞开放平台 AppID（在讯飞开放平台控制台获取）',
     modelDetails: [
       ModelDetail(name: 'x2', description: 'Flagship, 293B MoE', contextWindow: '128K', recommended: false),
       ModelDetail(name: 'x2-flash', description: 'Fast & affordable', contextWindow: '128K', recommended: true),
       ModelDetail(name: 'generalv3.5', description: 'V3.5 stable', contextWindow: '8K', recommended: false),
       ModelDetail(name: 'pro-128k', description: 'Long context', contextWindow: '128K', recommended: false),
     ],
-    pricingNote: 'Chat: ¥0.001-¥0.12/M tokens',
+    pricingNote: 'Chat: ¥0.001-¥0.12/M tokens | Realtime ASR: ¥0.004/min',
   );
 
   static const custom = AiModelConfig(
@@ -444,10 +533,14 @@ class AiModelConfig {
     defaultModel: '',
     availableModels: [],
     supportsTranscription: false,
+    supportsRealtimeTranscription: false,
     supportsChat: true,
+    supportsTextAnalysis: true,
+    supportsOCR: false,
+    visionModel: '',
     apiKeyPrefix: null,
     description: 'Any OpenAI-compatible API endpoint. Enter your own base URL and model name.',
-    limitationNote: 'ASR support depends on your endpoint. Whisper-compatible endpoints may work.',
+    limitationNote: 'ASR/OCR support depends on your endpoint. Whisper-compatible endpoints may work for ASR. Vision models for OCR.',
     modelDetails: [],
   );
 
@@ -486,5 +579,17 @@ class AiModelConfig {
 
   static List<AiModelConfig> get transcriptionProviders => allProviders
       .where((p) => p.supportsTranscription)
+      .toList();
+
+  static List<AiModelConfig> get realtimeTranscriptionProviders => allProviders
+      .where((p) => p.supportsRealtimeTranscription)
+      .toList();
+
+  static List<AiModelConfig> get textAnalysisProviders => allProviders
+      .where((p) => p.supportsTextAnalysis)
+      .toList();
+
+  static List<AiModelConfig> get ocrProviders => allProviders
+      .where((p) => p.supportsOCR)
       .toList();
 }

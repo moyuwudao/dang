@@ -13,10 +13,18 @@ class MindMapAiService {
 
   MindMapAiService(this._transcriptionService, this._recordRepository);
 
-  Future<List<MindMapNode>> generateAiMindMap() async {
+  Future<List<MindMapNode>> generateAiMindMap(
+      {List<String>? selectedTags}) async {
     final allRecords = await _recordRepository.getAllRecords();
-    final recordsWithContent =
+    var recordsWithContent =
         allRecords.where((r) => (r.content ?? '').trim().isNotEmpty).toList();
+
+    // 如果用户选择了标签，只使用包含这些标签的记录
+    if (selectedTags != null && selectedTags.isNotEmpty) {
+      recordsWithContent = recordsWithContent.where((r) {
+        return r.tags.any((tag) => selectedTags.contains(tag));
+      }).toList();
+    }
 
     if (recordsWithContent.isEmpty) {
       return [];

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/prompt_template_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/expandable_text_field.dart';
 
 final templateListProvider = FutureProvider<List<PromptTemplate>>((ref) async {
   final service = ref.read(promptTemplateServiceProvider);
@@ -13,10 +14,12 @@ class PromptTemplateManagementScreen extends ConsumerStatefulWidget {
   const PromptTemplateManagementScreen({super.key});
 
   @override
-  ConsumerState<PromptTemplateManagementScreen> createState() => _PromptTemplateManagementScreenState();
+  ConsumerState<PromptTemplateManagementScreen> createState() =>
+      _PromptTemplateManagementScreenState();
 }
 
-class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateManagementScreen> {
+class _PromptTemplateManagementScreenState
+    extends ConsumerState<PromptTemplateManagementScreen> {
   String _selectedCategory = 'all';
 
   static const _categoryConfig = {
@@ -54,25 +57,34 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
               data: (templates) {
                 final filtered = _selectedCategory == 'all'
                     ? templates
-                    : templates.where((t) => t.category == _selectedCategory).toList();
+                    : templates
+                        .where((t) => t.category == _selectedCategory)
+                        .toList();
                 if (filtered.isEmpty) {
-                  return Center(
+                  return const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.description_outlined, size: 64, color: AppColors.textTertiary),
-                        const SizedBox(height: 16),
-                        Text('暂无模板', style: TextStyle(color: AppColors.textTertiary, fontSize: 16)),
-                        const SizedBox(height: 8),
-                        Text('点击右上角 + 创建新模板', style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
+                        Icon(Icons.description_outlined,
+                            size: 64, color: AppColors.textTertiary),
+                        SizedBox(height: 16),
+                        Text('暂无模板',
+                            style: TextStyle(
+                                color: AppColors.textTertiary, fontSize: 16)),
+                        SizedBox(height: 8),
+                        Text('点击右上角 + 创建新模板',
+                            style: TextStyle(
+                                color: AppColors.textTertiary, fontSize: 13)),
                       ],
                     ),
                   );
                 }
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemCount: filtered.length,
-                  itemBuilder: (context, index) => _buildTemplateCard(filtered[index]),
+                  itemBuilder: (context, index) =>
+                      _buildTemplateCard(filtered[index]),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -107,7 +119,9 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
   }
 
   Widget _buildTemplateCard(PromptTemplate template) {
-    final categoryLabel = _categoryConfig[template.category]?['label'] as String? ?? template.category;
+    final categoryLabel =
+        _categoryConfig[template.category]?['label'] as String? ??
+            template.category;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -127,13 +141,17 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                       children: [
                         Text(
                           template.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 15),
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: template.isBuiltIn ? AppColors.info.withOpacity(0.1) : AppColors.success.withOpacity(0.1),
+                            color: template.isBuiltIn
+                                ? AppColors.info.withOpacity(0.1)
+                                : AppColors.success.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -141,20 +159,24 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: template.isBuiltIn ? AppColors.info : AppColors.success,
+                              color: template.isBuiltIn
+                                  ? AppColors.info
+                                  : AppColors.success,
                             ),
                           ),
                         ),
                         const SizedBox(width: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             categoryLabel,
-                            style: TextStyle(fontSize: 10, color: AppColors.primary),
+                            style: const TextStyle(
+                                fontSize: 10, color: AppColors.primary),
                           ),
                         ),
                       ],
@@ -179,14 +201,16 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
               const SizedBox(height: 6),
               Text(
                 template.description,
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 8),
               Text(
                 template.template.length > 80
                     ? '${template.template.substring(0, 80)}...'
                     : template.template,
-                style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textTertiary),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -217,7 +241,8 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
             children: [
               Center(
                 child: Container(
-                  width: 40, height: 4,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: Colors.grey[300],
                     borderRadius: BorderRadius.circular(2),
@@ -225,11 +250,15 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                 ),
               ),
               const SizedBox(height: 16),
-              Text(template.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(template.name,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text(template.description, style: TextStyle(color: AppColors.textSecondary)),
+              Text(template.description,
+                  style: const TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 16),
-              const Text('模板内容', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              const Text('模板内容',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
@@ -266,7 +295,8 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                         },
                         icon: const Icon(Icons.delete_outline, size: 18),
                         label: const Text('删除'),
-                        style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.error),
                       ),
                     ),
                   ],
@@ -282,8 +312,10 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
   void _showTemplateEditor(BuildContext context, {PromptTemplate? template}) {
     final isEditing = template != null;
     final nameController = TextEditingController(text: template?.name ?? '');
-    final descController = TextEditingController(text: template?.description ?? '');
-    final contentController = TextEditingController(text: template?.template ?? '');
+    final descController =
+        TextEditingController(text: template?.description ?? '');
+    final contentController =
+        TextEditingController(text: template?.template ?? '');
     String selectedCategory = template?.category ?? 'solopreneur';
 
     showModalBottomSheet(
@@ -295,7 +327,9 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
-            left: 24, right: 24, top: 24,
+            left: 24,
+            right: 24,
+            top: 24,
             bottom: MediaQuery.of(context).viewInsets.bottom + 24,
           ),
           child: SingleChildScrollView(
@@ -305,7 +339,8 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
               children: [
                 Center(
                   child: Container(
-                    width: 40, height: 4,
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
                       color: Colors.grey[300],
                       borderRadius: BorderRadius.circular(2),
@@ -315,7 +350,8 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                 const SizedBox(height: 16),
                 Text(
                   isEditing ? '编辑模板' : '创建新模板',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 20),
                 TextField(
@@ -323,24 +359,25 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                   decoration: InputDecoration(
                     labelText: '模板名称',
                     hintText: '如：客户沟通复盘',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextField(
+                ExpandableTextField(
                   controller: descController,
-                  decoration: InputDecoration(
-                    labelText: '简短描述',
-                    hintText: '一句话描述模板用途',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                  labelText: '简短描述',
+                  hintText: '一句话描述模板用途',
+                  minLines: 2,
+                  maxLines: 3,
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedCategory,
+                  initialValue: selectedCategory,
                   decoration: InputDecoration(
                     labelText: '分类',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   items: _categoryConfig.entries
                       .where((e) => e.key != 'all')
@@ -358,18 +395,15 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                   onChanged: (v) => setModalState(() => selectedCategory = v!),
                 ),
                 const SizedBox(height: 12),
-                TextField(
+                ExpandableTextField(
                   controller: contentController,
+                  labelText: '模板内容',
+                  hintText: '使用 {{content}} 作为内容占位符',
+                  minLines: 5,
                   maxLines: 10,
-                  decoration: InputDecoration(
-                    labelText: '模板内容',
-                    hintText: '使用 {{content}} 作为内容占位符',
-                    alignLabelWithHint: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   '提示：使用 {{content}} 表示用户录音/笔记内容的位置',
                   style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
                 ),
@@ -378,7 +412,8 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      if (nameController.text.isEmpty || contentController.text.isEmpty) {
+                      if (nameController.text.isEmpty ||
+                          contentController.text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('请填写模板名称和内容')),
                         );
@@ -387,13 +422,15 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                       final service = ref.read(promptTemplateServiceProvider);
                       final now = DateTime.now();
                       final newTemplate = PromptTemplate(
-                        id: isEditing ? template!.id : 'custom_${now.millisecondsSinceEpoch}',
+                        id: isEditing
+                            ? template.id
+                            : 'custom_${now.millisecondsSinceEpoch}',
                         name: nameController.text,
                         description: descController.text,
                         template: contentController.text,
                         category: selectedCategory,
                         isBuiltIn: false,
-                        createdAt: isEditing ? template!.createdAt : now,
+                        createdAt: isEditing ? template.createdAt : now,
                         updatedAt: now,
                       );
                       if (isEditing) {
@@ -409,7 +446,8 @@ class _PromptTemplateManagementScreenState extends ConsumerState<PromptTemplateM
                     },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: Text(isEditing ? '保存修改' : '创建模板'),
                   ),

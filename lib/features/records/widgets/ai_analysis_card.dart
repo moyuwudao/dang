@@ -33,7 +33,7 @@ class _AiAnalysisCardState extends State<AiAnalysisCard> {
     if (lines.length <= 3) {
       return widget.content;
     }
-    return lines.take(3).join('\n') + '\n...';
+    return '${lines.take(3).join('\n')}\n...';
   }
 
   void _showFullScreen() {
@@ -59,7 +59,8 @@ class _AiAnalysisCardState extends State<AiAnalysisCard> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Row(
               children: [
-                const Icon(Icons.psychology, size: 18, color: AppColors.secondary),
+                const Icon(Icons.psychology,
+                    size: 18, color: AppColors.secondary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -75,7 +76,8 @@ class _AiAnalysisCardState extends State<AiAnalysisCard> {
                   tooltip: '全屏查看',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                  icon: const Icon(Icons.delete_outline,
+                      size: 18, color: AppColors.error),
                   onPressed: widget.onDelete,
                   tooltip: '删除',
                 ),
@@ -101,7 +103,10 @@ class _AiAnalysisCardState extends State<AiAnalysisCard> {
                     scrollDirection: Axis.vertical,
                     child: SelectableText(
                       widget.content,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(height: 1.6),
                     ),
                   ),
                 ),
@@ -112,7 +117,10 @@ class _AiAnalysisCardState extends State<AiAnalysisCard> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Text(
                 _previewContent,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(height: 1.6),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),

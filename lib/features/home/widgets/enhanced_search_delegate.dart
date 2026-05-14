@@ -2,44 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/tag_selector.dart';
 import '../../../data/models/record_model.dart';
 import '../../records/providers/record_provider.dart';
 
 class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
   EnhancedRecordSearchDelegate({
     List<String> initialTags = const [],
-  }) : _selectedTags = initialTags;
+  }) : _selectedTags = List.from(initialTags);
 
-  final List<String> _selectedTags;
-  final List<String> _allTags = [];
+  List<String> _selectedTags;
 
   @override
   List<Widget> buildActions(BuildContext context) {
     return [
-      if (_selectedTags.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Wrap(
-            spacing: 4,
-            children: _selectedTags.take(3).map((tag) {
-              return Chip(
-                label: Text(tag),
-                deleteIcon: const Icon(Icons.close, size: 14),
-                onDeleted: () {
-                  _selectedTags.remove(tag);
-                  query = '';
-                },
-                backgroundColor: AppColors.primary.withOpacity(0.2),
-                labelStyle: const TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 12,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              );
-            }).toList(),
-          ),
-        ),
       IconButton(
         icon: const Icon(Icons.clear),
         onPressed: () {
@@ -73,6 +48,7 @@ class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
   Widget _buildSearchResults(BuildContext context) {
     return Consumer(
       builder: (context, ref, child) {
+        final allTagsAsync = ref.watch(allTagsProvider);
         final searchResults = ref.watch(searchRecordsWithTagsProvider((
           query: query,
           tags: _selectedTags,
@@ -80,7 +56,110 @@ class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
 
         return Column(
           children: [
-            if (_selectedTags.isNotEmpty || query.isNotEmpty)
+            // 标签云
+            allTagsAsync.when(
+              data: (tags) {
+                if (tags.isEmpty) return const SizedBox.shrink();
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Theme.of(context).dividerColor.withOpacity(0.5),
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.local_offer_outlined,
+                            size: 16,
+                            color: AppColors.textSecondary,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            '标签',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: tags.map((tag) {
+                          final isSelected = _selectedTags.contains(tag);
+                          return GestureDetector(
+                            onTap: () {
+                              if (isSelected) {
+                                _selectedTags.remove(tag);
+                              } else {
+                                _selectedTags.add(tag);
+                              }
+                              query = '';
+                              showSuggestions(context);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.primary.withOpacity(0.2)
+                                    : AppColors.primary.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(20),
+                                border: isSelected
+                                    ? Border.all(
+                                        color: AppColors.primary.withOpacity(0.5),
+                                      )
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isSelected) ...[
+                                    const Icon(
+                                      Icons.check,
+                                      size: 14,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Text(
+                                    tag,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : AppColors.textSecondary,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+            // 已选标签
+            if (_selectedTags.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
@@ -95,6 +174,7 @@ class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
                             onDeleted: () {
                               _selectedTags.remove(tag);
                               query = '';
+                              showSuggestions(context);
                             },
                             backgroundColor: AppColors.primary.withOpacity(0.1),
                             labelStyle: const TextStyle(color: AppColors.primary),
@@ -309,63 +389,5 @@ class _SearchRecordCard extends StatelessWidget {
     } else {
       return '${date.month}月${date.day}日';
     }
-  }
-}
-
-class TagSearchDialog extends StatefulWidget {
-  final List<String> selectedTags;
-  final ValueChanged<List<String>> onTagsChanged;
-
-  const TagSearchDialog({
-    super.key,
-    required this.selectedTags,
-    required this.onTagsChanged,
-  });
-
-  @override
-  State<TagSearchDialog> createState() => _TagSearchDialogState();
-}
-
-class _TagSearchDialogState extends State<TagSearchDialog> {
-  late List<String> _currentTags;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentTags = List.from(widget.selectedTags);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('选择标签'),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: 400,
-        child: SingleChildScrollView(
-          child: TagSelector(
-            selectedTags: _currentTags,
-            onTagsChanged: (newTags) {
-              setState(() {
-                _currentTags = newTags;
-              });
-            },
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            widget.onTagsChanged(_currentTags);
-            Navigator.pop(context);
-          },
-          child: const Text('确定'),
-        ),
-      ],
-    );
   }
 }
