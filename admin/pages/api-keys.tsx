@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardBody, Button, Input, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Modal, ModalHeader, ModalBody, ModalFooter, Select, SelectItem, Alert } from '@nextui-org/react';
-import { Plus, Search, Edit, Trash2, Key, Eye, Copy, Check } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Key, Eye, Copy, Check, Shield, Sparkles } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { apiKeyAPI } from '@/services/api';
 import type { ApiKey } from '@/types';
@@ -40,7 +40,7 @@ export default function ApiKeysPage() {
     fetchKeys();
   }, []);
 
-  const filteredKeys = apiKeys.filter(key => 
+  const filteredKeys = apiKeys.filter(key =>
     key.provider.includes(searchTerm) || key.model.includes(searchTerm)
   );
 
@@ -80,72 +80,87 @@ export default function ApiKeysPage() {
   return (
     <Layout currentPage="api-keys">
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">API Key 管理</h1>
-            <p className="text-gray-500 mt-1">管理第三方服务的 API Key</p>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">API Key 管理</h1>
+            <p className="text-gray-500 mt-1 flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              安全地管理第三方服务的 API Key
+            </p>
           </div>
-          <Button color="primary" className="flex items-center gap-2" onClick={() => setShowAddModal(true)}>
+          <Button color="primary" className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/30" onClick={() => setShowAddModal(true)}>
             <Plus className="w-4 h-4" />
             添加 Key
           </Button>
         </div>
 
-        <Card className="bg-white border border-gray-200">
+        {/* Search Card */}
+        <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
           <CardBody className="p-4">
             <div className="flex items-center gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   placeholder="搜索提供商或模型..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-12"
+                  classNames={{
+                    inputWrapper: 'bg-gray-50/80 border border-gray-200/50 rounded-xl',
+                  }}
                 />
               </div>
             </div>
           </CardBody>
         </Card>
 
-        <Card className="bg-white border border-gray-200">
+        {/* Table Card */}
+        <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
           <CardBody className="p-0">
             <Table>
               <TableHeader>
-                <TableColumn>提供商</TableColumn>
-                <TableColumn>模型</TableColumn>
-                <TableColumn>速率限制</TableColumn>
-                <TableColumn>状态</TableColumn>
-                <TableColumn>创建时间</TableColumn>
-                <TableColumn>操作</TableColumn>
+                <TableColumn className="bg-gray-50/80">提供商</TableColumn>
+                <TableColumn className="bg-gray-50/80">模型</TableColumn>
+                <TableColumn className="bg-gray-50/80">速率限制</TableColumn>
+                <TableColumn className="bg-gray-50/80">状态</TableColumn>
+                <TableColumn className="bg-gray-50/80">创建时间</TableColumn>
+                <TableColumn className="bg-gray-50/80">操作</TableColumn>
               </TableHeader>
               <TableBody>
                 {filteredKeys.map((key) => (
-                  <TableRow key={key.id}>
+                  <TableRow key={key.id} className="hover:bg-indigo-50/30 transition-colors">
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center">
-                          <Key className="w-4 h-4 text-white" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md">
+                          <Key className="w-5 h-5 text-white" />
                         </div>
-                        <span className="font-medium">{key.provider}</span>
+                        <span className="font-semibold text-gray-800 capitalize">{key.provider}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{key.model}</TableCell>
-                    <TableCell>{key.rateLimitPerMin}/分钟</TableCell>
                     <TableCell>
-                      <Chip color={key.isActive ? 'success' : 'danger'} size="sm">
+                      <span className="font-medium text-gray-700">{key.model}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-gray-600">{key.rateLimitPerMin}/分钟</span>
+                    </TableCell>
+                    <TableCell>
+                      <Chip color={key.isActive ? 'success' : 'danger'} size="sm" className={key.isActive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}>
                         {key.isActive ? '活跃' : '停用'}
                       </Chip>
                     </TableCell>
-                    <TableCell>{key.createdAt}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="light" color="primary" onClick={() => handleView(key)}>
+                      <span className="text-gray-500">{key.createdAt}</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="light" color="primary" onClick={() => handleView(key)} className="hover:bg-indigo-50">
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="light" color="warning">
+                        <Button size="sm" variant="light" color="warning" className="hover:bg-yellow-50">
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="light" color="danger" onClick={() => handleDeleteKey(key.id)}>
+                        <Button size="sm" variant="light" color="danger" onClick={() => handleDeleteKey(key.id)} className="hover:bg-red-50">
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -157,59 +172,83 @@ export default function ApiKeysPage() {
           </CardBody>
         </Card>
 
-        <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)}>
-          <ModalHeader>添加新 API Key</ModalHeader>
+        {/* Add Modal */}
+        <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} classNames={{
+          base: 'rounded-2xl',
+        }}>
+          <ModalHeader className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+              <Plus className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-gray-800">添加新 API Key</p>
+              <p className="text-sm text-gray-500">配置第三方服务访问</p>
+            </div>
+          </ModalHeader>
           <ModalBody>
             <div className="space-y-4">
-              <Select label="提供商" value={newKey.provider} onChange={(e) => setNewKey({ ...newKey, provider: e.target.value })}>
+              <Select label="提供商" value={newKey.provider} onChange={(e) => setNewKey({ ...newKey, provider: e.target.value })} classNames={{ trigger: 'rounded-xl' }}>
                 <SelectItem key="qwen" value="qwen">阿里云通义千问</SelectItem>
               </Select>
-              <Input label="模型名称" placeholder="如: qwen-max" value={newKey.model} onChange={(e) => setNewKey({ ...newKey, model: e.target.value })} />
-              <Input label="API Key" type="password" placeholder="输入 API Key" value={newKey.apiKey} onChange={(e) => setNewKey({ ...newKey, apiKey: e.target.value })} />
-              <Input label="每分钟速率限制" type="number" value={String(newKey.rateLimitPerMin)} onChange={(e) => setNewKey({ ...newKey, rateLimitPerMin: parseInt(e.target.value) || 60 })} />
+              <Input label="模型名称" placeholder="如: qwen-max" value={newKey.model} onChange={(e) => setNewKey({ ...newKey, model: e.target.value })} classNames={{ inputWrapper: 'rounded-xl' }} />
+              <Input label="API Key" type="password" placeholder="输入 API Key" value={newKey.apiKey} onChange={(e) => setNewKey({ ...newKey, apiKey: e.target.value })} classNames={{ inputWrapper: 'rounded-xl' }} />
+              <Input label="每分钟速率限制" type="number" value={String(newKey.rateLimitPerMin)} onChange={(e) => setNewKey({ ...newKey, rateLimitPerMin: parseInt(e.target.value) || 60 })} classNames={{ inputWrapper: 'rounded-xl' }} />
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onClick={() => setShowAddModal(false)}>取消</Button>
-            <Button color="primary" onClick={handleAddKey}>创建</Button>
+            <Button variant="light" onClick={() => setShowAddModal(false)} className="hover:bg-gray-100 rounded-xl">取消</Button>
+            <Button color="primary" className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl" onClick={handleAddKey}>创建</Button>
           </ModalFooter>
         </Modal>
 
-        <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)}>
-          <ModalHeader>API Key 详情</ModalHeader>
+        {/* View Modal */}
+        <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)} classNames={{
+          base: 'rounded-2xl',
+        }}>
+          <ModalHeader className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-gray-800">API Key 详情</p>
+              <p className="text-sm text-gray-500">查看 Key 详细信息</p>
+            </div>
+          </ModalHeader>
           <ModalBody>
             {selectedKey && (
-              <div className="space-y-4">
-                <Alert color="warning" className="flex items-center gap-2">
-                  <Key className="w-5 h-5" />
+              <div className="space-y-5">
+                <Alert color="warning" className="flex items-center gap-2 bg-yellow-50/80 border border-yellow-200/50 rounded-xl">
+                  <Shield className="w-5 h-5" />
                   <span>API Key 已加密存储，无法查看原始值</span>
                 </Alert>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">提供商</p>
-                    <p className="font-medium">{selectedKey.provider}</p>
+                  <div className="p-4 bg-gray-50/80 rounded-xl">
+                    <p className="text-sm text-gray-500 mb-1">提供商</p>
+                    <p className="font-semibold text-gray-800 capitalize">{selectedKey.provider}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">模型</p>
-                    <p className="font-medium">{selectedKey.model}</p>
+                  <div className="p-4 bg-gray-50/80 rounded-xl">
+                    <p className="text-sm text-gray-500 mb-1">模型</p>
+                    <p className="font-semibold text-gray-800">{selectedKey.model}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">速率限制</p>
-                    <p className="font-medium">{selectedKey.rateLimitPerMin}/分钟</p>
+                  <div className="p-4 bg-gray-50/80 rounded-xl">
+                    <p className="text-sm text-gray-500 mb-1">速率限制</p>
+                    <p className="font-semibold text-gray-800">{selectedKey.rateLimitPerMin}/分钟</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">状态</p>
-                    <Chip color={selectedKey.isActive ? 'success' : 'danger'}>{selectedKey.isActive ? '活跃' : '停用'}</Chip>
+                  <div className="p-4 bg-gray-50/80 rounded-xl">
+                    <p className="text-sm text-gray-500 mb-1">状态</p>
+                    <Chip color={selectedKey.isActive ? 'success' : 'danger'} size="sm" className={selectedKey.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                      {selectedKey.isActive ? '活跃' : '停用'}
+                    </Chip>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">创建时间</p>
-                    <p className="font-medium">{selectedKey.createdAt}</p>
+                  <div className="p-4 bg-gray-50/80 rounded-xl">
+                    <p className="text-sm text-gray-500 mb-1">创建时间</p>
+                    <p className="font-semibold text-gray-800">{selectedKey.createdAt}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Key ID</p>
+                  <div className="p-4 bg-gray-50/80 rounded-xl">
+                    <p className="text-sm text-gray-500 mb-1">Key ID</p>
                     <div className="flex items-center gap-2">
-                      <p className="font-mono text-sm">{selectedKey.id}</p>
-                      <Button size="sm" variant="light" onClick={() => handleCopy(selectedKey.id)}>
+                      <p className="font-mono text-sm bg-gray-200/50 px-2 py-1 rounded">{selectedKey.id}</p>
+                      <Button size="sm" variant="light" onClick={() => handleCopy(selectedKey.id)} className="hover:bg-gray-100">
                         {copiedId === selectedKey.id ? (
                           <Check className="w-4 h-4 text-green-500" />
                         ) : (
@@ -223,7 +262,7 @@ export default function ApiKeysPage() {
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onClick={() => setShowViewModal(false)}>关闭</Button>
+            <Button variant="light" onClick={() => setShowViewModal(false)} className="hover:bg-gray-100 rounded-xl">关闭</Button>
           </ModalFooter>
         </Modal>
       </div>
