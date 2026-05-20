@@ -1,11 +1,15 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/models/ai_model_config.dart';
 import '../../../core/models/api_config.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/aliyun_signer.dart';
 
 class MultiApiConfigScreen extends ConsumerStatefulWidget {
   const MultiApiConfigScreen({super.key});
@@ -33,8 +37,29 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
     });
   }
 
+  Future<void> _syncRuntimeConfig() async {
+    if (_config.hasAnyConfig) {
+      final defaultEntry = _config.defaultConfigId != null
+          ? _config.getConfigById(_config.defaultConfigId!)
+          : _config.activeConfigs.firstOrNull;
+
+      if (defaultEntry != null) {
+        final apiService = ref.read(apiServiceProvider);
+        final providerConfig = AiModelConfig.getConfig(defaultEntry.provider);
+        apiService.configure(
+          apiKey: defaultEntry.apiKey,
+          config: providerConfig,
+          customBaseUrl: defaultEntry.baseUrl,
+          appId: defaultEntry.appId,
+          accessKeySecret: defaultEntry.accessKeySecret,
+        );
+      }
+    }
+  }
+
   Future<void> _saveConfig() async {
     await StorageService.saveMultiApiConfig(_config);
+    await _syncRuntimeConfig();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -162,35 +187,40 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       leading: Icon(icon, color: AppColors.primary),
       title: Text(title),
       subtitle: Text(subtitle),
-      trailing: DropdownButton<String?>(
-        value: assignment.configId,
-        hint: const Text('选择配置'),
-        underline: const SizedBox.shrink(),
-        items: dropdownItems,
-        onChanged: (value) async {
-          setState(() {
-            final newAssignments = List<ApiFunctionAssignment>.from(
-              _config.functionAssignments,
-            );
-            final index = newAssignments.indexWhere(
-              (a) => a.functionType == functionType,
-            );
-            if (index >= 0) {
-              newAssignments[index] = ApiFunctionAssignment(
-                functionType: functionType,
-                configId: value,
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 140),
+        child: DropdownButton<String?>(
+          value: assignment.configId,
+          hint: const Text('选择配置'),
+          underline: const SizedBox.shrink(),
+          isDense: true,
+          items: dropdownItems,
+          onChanged: (value) async {
+            setState(() {
+              final newAssignments = List<ApiFunctionAssignment>.from(
+                _config.functionAssignments,
               );
-            } else {
-              newAssignments.add(ApiFunctionAssignment(
-                functionType: functionType,
-                configId: value,
-              ));
-            }
-            _config = _config.copyWith(functionAssignments: newAssignments);
-          });
-          // Auto-save function assignment changes
-          await StorageService.saveMultiApiConfig(_config);
-        },
+              final index = newAssignments.indexWhere(
+                (a) => a.functionType == functionType,
+              );
+              if (index >= 0) {
+                newAssignments[index] = ApiFunctionAssignment(
+                  functionType: functionType,
+                  configId: value,
+                );
+              } else {
+                newAssignments.add(ApiFunctionAssignment(
+                  functionType: functionType,
+                  configId: value,
+                ));
+              }
+              _config = _config.copyWith(functionAssignments: newAssignments);
+            });
+            // Auto-save function assignment changes
+            await StorageService.saveMultiApiConfig(_config);
+            await _syncRuntimeConfig();
+          },
+        ),
       ),
     );
   }
@@ -354,8 +384,10 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
         ),
       );
 
-      // Set auth header
-      dio.options.headers['Authorization'] = 'Bearer ${config.apiKey}';
+      // Set auth header (for non-Tingwu providers)
+      if (config.provider != AiProvider.tingwu) {
+        dio.options.headers['Authorization'] = 'Bearer ${config.apiKey}';
+      }
 
       Response response;
       if (config.provider == AiProvider.gemini) {
@@ -363,13 +395,56 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
           '/models',
           queryParameters: {'key': config.apiKey},
         );
+      } else if (config.provider == AiProvider.tingwu) {
+        // 通义听悟使用阿里云 V2 ROA 签名
+        if (config.accessKeySecret == null || config.accessKeySecret!.isEmpty) {
+          throw Exception('通义听悟需要 AccessKey Secret 进行签名');
+        }
+        final signer = AliyunSigner(
+          accessKeyId: config.apiKey,
+          accessKeySecret: config.accessKeySecret!,
+        );
+        final path = '/openapi/tingwu/v2/tasks';
+        final queryParams = {'type': 'offline'};
+        final testBody = jsonEncode({
+          'AppKey': config.appId ?? '',
+          'Input': {
+            'SourceLanguage': 'cn',
+            'TaskKey': 'test_${DateTime.now().millisecondsSinceEpoch}',
+          },
+        });
+        final signedHeaders = signer.signRoaRequest(
+          method: 'PUT',
+          path: path,
+          queryParams: queryParams,
+          body: testBody,
+        );
+        final baseUrl = config.baseUrl ?? 'https://tingwu.cn-beijing.aliyuncs.com';
+        try {
+          response = await dio.put(
+            '$baseUrl$path',
+            data: testBody,
+            queryParameters: queryParams,
+            options: Options(headers: signedHeaders),
+          );
+        } on DioException catch (e) {
+          if (e.response?.statusCode == 400) {
+            // 400 表示签名正确，缺少 FileUrl，视为验证成功
+            response = e.response!;
+          } else {
+            rethrow;
+          }
+        }
       } else {
         response = await dio.get('/models');
       }
 
       if (mounted) {
         Navigator.pop(context);
-        final isSuccess = response.statusCode == 200;
+        // 通义听悟返回 400 表示签名正确（缺少 FileUrl），也视为成功
+        final isSuccess = response.statusCode == 200 ||
+            (config.provider == AiProvider.tingwu &&
+                response.statusCode == 400);
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -483,6 +558,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
         TextEditingController(text: existingConfig?.apiKey ?? '');
     final appIdController =
         TextEditingController(text: existingConfig?.appId ?? '');
+    final accessKeySecretController =
+        TextEditingController(text: existingConfig?.accessKeySecret ?? '');
     final baseUrlController =
         TextEditingController(text: existingConfig?.baseUrl ?? '');
     final customModelController =
@@ -624,6 +701,20 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                     const SizedBox(height: 12),
                   ],
 
+                  // 显示 AccessKey Secret 输入框（如果提供商需要）
+                  if (providerConfig.requiresAccessKeySecret) ...[
+                    TextField(
+                      controller: accessKeySecretController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'AccessKey Secret',
+                        hintText: providerConfig.accessKeySecretDescription ??
+                            '输入AccessKey Secret',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
                   if (isCustomProvider ||
                       selectedProvider == AiProvider.custom) ...[
                     TextField(
@@ -660,6 +751,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                     });
 
                     await StorageService.saveMultiApiConfig(updatedConfig);
+                    await _syncRuntimeConfig();
 
                     if (mounted) {
                       Navigator.pop(context);
@@ -721,6 +813,9 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                     createdAt:
                         isEditing ? existingConfig.createdAt : DateTime.now(),
                     updatedAt: DateTime.now(),
+                    accessKeySecret: accessKeySecretController.text.trim().isEmpty
+                        ? null
+                        : accessKeySecretController.text.trim(),
                   );
 
                   final newConfigs = List<ApiConfigEntry>.from(_config.configs);
@@ -742,6 +837,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
                   // Auto-save to storage immediately
                   await StorageService.saveMultiApiConfig(updatedConfig);
+                  await _syncRuntimeConfig();
 
                   if (mounted) {
                     Navigator.pop(context);
@@ -784,6 +880,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
         return Icons.flash_on;
       case AiProvider.grok:
         return Icons.chat;
+      case AiProvider.tingwu:
+        return Icons.hearing;
       case AiProvider.custom:
         return Icons.tune;
     }

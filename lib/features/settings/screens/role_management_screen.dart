@@ -58,9 +58,9 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
         title: const Text('AI分析角色'),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textSecondary,
+          indicatorColor: AppColors.primary,
           tabs: [
             Tab(text: '系统角色 (${_builtInRoles.length})'),
             Tab(text: '自定义 (${_customRoles.length})'),

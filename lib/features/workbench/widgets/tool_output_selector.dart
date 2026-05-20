@@ -6,8 +6,8 @@ import '../../../data/models/tool_output_model.dart';
 
 class ToolOutputSelector extends ConsumerStatefulWidget {
   final String? selectedToolId;
-  final List<String> selectedOutputIds;
-  final ValueChanged<List<String>> onSelected;
+  final List<int> selectedOutputIds;
+  final ValueChanged<List<int>> onSelected;
 
   const ToolOutputSelector({
     super.key,
@@ -45,8 +45,8 @@ class _ToolOutputSelectorState extends ConsumerState<ToolOutputSelector> {
     setState(() => _isLoading = false);
   }
 
-  void _toggleSelection(String outputId) {
-    final newSelection = List<String>.from(widget.selectedOutputIds);
+  void _toggleSelection(int outputId) {
+    final newSelection = List<int>.from(widget.selectedOutputIds);
     if (newSelection.contains(outputId)) {
       newSelection.remove(outputId);
     } else {

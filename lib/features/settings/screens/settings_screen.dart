@@ -73,6 +73,19 @@ class AiConfigTab extends ConsumerWidget {
       children: [
         _buildSection(
           context,
+          title: '调试工具',
+          children: [
+            ListTile(
+              leading: const Icon(Icons.terminal, color: AppColors.warning),
+              title: const Text('运行日志'),
+              subtitle: const Text('查看APP运行日志，用于排查问题'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/logs'),
+            ),
+          ],
+        ),
+        _buildSection(
+          context,
           title: l10n.apiKeySettings,
           children: [
             ListTile(

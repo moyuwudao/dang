@@ -34,7 +34,7 @@ extension DataSourceCategoryExtension on DataSourceCategory {
 class DataSourceSelection {
   final List<DataSourceCategory> selectedCategories;
   final List<String> selectedTags;
-  final List<String> selectedToolOutputIds;
+  final List<int> selectedToolOutputIds;
   final DateTimeRange? dateRange;
   final bool includeAiAnalysis;
 
@@ -49,7 +49,7 @@ class DataSourceSelection {
   DataSourceSelection copyWith({
     List<DataSourceCategory>? selectedCategories,
     List<String>? selectedTags,
-    List<String>? selectedToolOutputIds,
+    List<int>? selectedToolOutputIds,
     DateTimeRange? dateRange,
     bool? includeAiAnalysis,
   }) {
@@ -94,7 +94,7 @@ class DataSourceSelection {
           [],
       selectedTags: (json['selectedTags'] as List<dynamic>?)?.cast<String>() ?? [],
       selectedToolOutputIds:
-          (json['selectedToolOutputIds'] as List<dynamic>?)?.cast<String>() ?? [],
+          (json['selectedToolOutputIds'] as List<dynamic>?)?.cast<int>() ?? [],
       dateRange: json['dateRange'] != null
           ? DateTimeRange(
               start: DateTime.parse(json['dateRange']['start']),

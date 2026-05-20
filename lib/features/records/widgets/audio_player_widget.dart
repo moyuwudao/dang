@@ -33,73 +33,108 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    _checkFile();
-    _initPlayer();
+    _initialize();
   }
 
-  Future<void> _checkFile() async {
-    final file = File(widget.audioPath);
-    final exists = await file.exists();
-    if (mounted) {
-      setState(() {
-        _fileExists = exists;
-        if (!exists) {
-          _errorMessage = '音频文件不存在';
-        }
-      });
-    }
-  }
-
-  Future<void> _initPlayer() async {
+  Future<void> _initialize() async {
     try {
       final file = File(widget.audioPath);
-      if (!await file.exists()) return;
+      final exists = await file.exists();
+      if (!exists) {
+        if (mounted) {
+          setState(() {
+            _fileExists = false;
+            _errorMessage = '音频文件不存在: ${widget.audioPath}';
+          });
+        }
+        debugPrint('AudioPlayer: 文件不存在: ${widget.audioPath}');
+        return;
+      }
 
-      setState(() {
-        _isLoading = true;
-      });
+      if (mounted) {
+        setState(() {
+          _fileExists = true;
+          _isLoading = true;
+        });
+      }
 
       final stat = await file.stat();
       _fileSize = stat.size;
+      debugPrint('AudioPlayer: 文件存在，大小: $stat.size bytes');
 
-      await _audioPlayer.setFilePath(widget.audioPath);
-
-      _durationSub = _audioPlayer.durationStream.listen((duration) {
-        if (mounted && duration != null) {
-          setState(() {
-            _duration = duration;
-          });
-        }
-      });
-
-      _positionSub = _audioPlayer.positionStream.listen((position) {
-        if (mounted && !_isDragging) {
-          setState(() {
-            _position = position;
-          });
-        }
-      });
-
-      _playerStateSub = _audioPlayer.playerStateStream.listen((state) {
+      if (stat.size < 44) {
         if (mounted) {
           setState(() {
-            _isPlaying = state.playing;
-            if (state.processingState == ProcessingState.completed) {
-              _isPlaying = false;
-              _position = Duration.zero;
-            }
+            _isLoading = false;
+            _errorMessage = '音频文件无效(太小: ${stat.size} bytes)';
           });
         }
-      });
+        debugPrint('AudioPlayer: 文件太小，不是有效的WAV文件');
+        return;
+      }
 
-      setState(() {
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '播放器初始化失败: $e';
-      });
+      debugPrint('AudioPlayer: 开始设置音频源...');
+      final duration = await _audioPlayer.setFilePath(widget.audioPath);
+      debugPrint('AudioPlayer: 音频源设置成功，时长: $duration');
+
+      _durationSub = _audioPlayer.durationStream.listen(
+        (duration) {
+          if (mounted && duration != null) {
+            setState(() {
+              _duration = duration;
+            });
+          }
+        },
+        onError: (e) {
+          debugPrint('AudioPlayer durationStream error: $e');
+        },
+      );
+
+      _positionSub = _audioPlayer.positionStream.listen(
+        (position) {
+          if (mounted && !_isDragging) {
+            setState(() {
+              _position = position;
+            });
+          }
+        },
+        onError: (e) {
+          debugPrint('AudioPlayer positionStream error: $e');
+        },
+      );
+
+      _playerStateSub = _audioPlayer.playerStateStream.listen(
+        (state) {
+          if (mounted) {
+            setState(() {
+              _isPlaying = state.playing;
+              if (state.processingState == ProcessingState.completed) {
+                _isPlaying = false;
+                _position = Duration.zero;
+              }
+            });
+          }
+        },
+        onError: (e) {
+          debugPrint('AudioPlayer playerStateStream error: $e');
+        },
+      );
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      debugPrint('AudioPlayer: 初始化完成');
+    } catch (e, stackTrace) {
+      debugPrint('AudioPlayer 初始化失败: $e');
+      debugPrint('StackTrace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = '播放器初始化失败: $e';
+        });
+      }
     }
   }
 

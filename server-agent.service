@@ -1,0 +1,16 @@
+[Unit]
+Description=Server Management Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/server-agent
+ExecStart=/usr/bin/python3 /opt/server-agent/server-agent.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

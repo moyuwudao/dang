@@ -39,7 +39,7 @@ class _FavoriteRecordsScreenState extends ConsumerState<FavoriteRecordsScreen> {
     setState(() => _isLoadingToolOutputs = false);
   }
 
-  Future<void> _toggleToolOutputFavorite(String id, bool current) async {
+  Future<void> _toggleToolOutputFavorite(int id, bool current) async {
     final repository = ref.read(toolOutputRepositoryProvider);
     await repository.updateFavorite(id, !current);
     await _loadFavoriteToolOutputs();

@@ -229,7 +229,6 @@ class PromptTemplateService {
     final response = await apiService.chatCompletionWithSystem(
       prompt,
       systemPrompt: prompt,
-      toolId: 'prompt_template',
     );
 
     return response;

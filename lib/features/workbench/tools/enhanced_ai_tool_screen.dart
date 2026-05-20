@@ -181,7 +181,6 @@ class _EnhancedAiToolScreenState extends ConsumerState<EnhancedAiToolScreen> {
       final result = await apiService.chatCompletionWithSystem(
         input,
         systemPrompt: _currentTemplate!.systemPrompt,
-        toolId: widget.config.id,
       );
 
       if (mounted) {
@@ -257,7 +256,7 @@ class _EnhancedAiToolScreenState extends ConsumerState<EnhancedAiToolScreen> {
     }
   }
 
-  Future<void> _deleteSavedResult(String id) async {
+  Future<void> _deleteSavedResult(int id) async {
     final repository = ref.read(toolOutputRepositoryProvider);
     await repository.deleteToolOutput(id);
     await _loadSavedResults();

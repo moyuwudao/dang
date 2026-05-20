@@ -23,7 +23,7 @@ class ToolDataSource {
   final DateTimeRange? dateRange;
   final List<String>? selectedTags;
   final List<int>? selectedRecordIds;
-  final List<String>? selectedToolOutputIds;
+  final List<int>? selectedToolOutputIds;
   final String? textInput;
   final bool includeAiAnalysis;
   final List<DataSourceCategory> selectedCategories;
@@ -46,7 +46,7 @@ class ToolDataSource {
     DateTimeRange? dateRange,
     List<String>? selectedTags,
     List<int>? selectedRecordIds,
-    List<String>? selectedToolOutputIds,
+    List<int>? selectedToolOutputIds,
     String? textInput,
     bool? includeAiAnalysis,
     List<DataSourceCategory>? selectedCategories,
@@ -103,7 +103,7 @@ class ToolDataSource {
         selectedRecordIds:
             (json['selectedRecordIds'] as List<dynamic>?)?.cast<int>(),
         selectedToolOutputIds:
-            (json['selectedToolOutputIds'] as List<dynamic>?)?.cast<String>(),
+            (json['selectedToolOutputIds'] as List<dynamic>?)?.cast<int>(),
         textInput: json['textInput'] as String?,
         includeAiAnalysis: json['includeAiAnalysis'] as bool? ?? true,
         selectedCategories: (json['selectedCategories'] as List<dynamic>?)

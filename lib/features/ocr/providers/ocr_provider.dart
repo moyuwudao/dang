@@ -14,7 +14,7 @@ class OCRNotifier extends StateNotifier<AsyncValue<void>> {
   }) async {
     state = const AsyncValue.loading();
     try {
-      await _repository.createRecord(
+      await _repository.createRecordFromFields(
         type: RecordType.ocr,
         imagePath: imagePath,
         content: content,

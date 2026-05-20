@@ -265,7 +265,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (result == true && controller.text.trim().isNotEmpty) {
       try {
         final recordRepository = ref.read(recordRepositoryProvider);
-        await recordRepository.createRecord(
+        await recordRepository.createRecordFromFields(
           type: RecordType.audio,
           content: controller.text.trim(),
           tags: List<String>.from(tags),

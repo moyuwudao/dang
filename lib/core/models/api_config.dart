@@ -21,6 +21,7 @@ class ApiConfigEntry {
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? accessKeySecret;
 
   const ApiConfigEntry({
     required this.id,
@@ -36,6 +37,7 @@ class ApiConfigEntry {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.accessKeySecret,
   });
 
   ApiConfigEntry copyWith({
@@ -52,6 +54,7 @@ class ApiConfigEntry {
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? accessKeySecret,
   }) {
     return ApiConfigEntry(
       id: id ?? this.id,
@@ -67,6 +70,7 @@ class ApiConfigEntry {
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      accessKeySecret: accessKeySecret ?? this.accessKeySecret,
     );
   }
 
@@ -85,6 +89,7 @@ class ApiConfigEntry {
       'isActive': isActive,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'accessKeySecret': accessKeySecret,
     };
   }
 
@@ -112,6 +117,7 @@ class ApiConfigEntry {
       isActive: json['isActive'] ?? true,
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
+      accessKeySecret: json['accessKeySecret'],
     );
   }
 

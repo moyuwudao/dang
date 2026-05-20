@@ -9,6 +9,7 @@ import '../../../core/services/role_service.dart';
 import '../../../core/services/transcription_service.dart';
 import '../../../core/services/share_service.dart';
 import '../../../core/services/storage_service.dart';
+import '../../../core/services/app_logger.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
 import '../providers/record_provider.dart';
@@ -20,6 +21,7 @@ import '../widgets/chunk_selection_dialog.dart';
 import '../widgets/supplement_input_dialog.dart';
 import '../widgets/ai_analysis_card.dart';
 import '../widgets/ai_analysis_panel.dart';
+
 import '../../../core/widgets/tag_selector.dart';
 
 final shareServiceProvider = Provider((ref) => ShareService());
@@ -66,11 +68,35 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   bool _isAnalyzing = false;
   AiRole? _selectedRole;
   List<AiRole> _roles = [];
+  final List<LogEntry> _debugLogs = [];
+  void Function(LogEntry)? _logListener;
 
   @override
   void initState() {
     super.initState();
     _loadRoles();
+    _setupLogListener();
+  }
+
+  void _setupLogListener() {
+    final existingLogs = AppLogger().filterByTag('Transcription');
+    _debugLogs.addAll(existingLogs);
+    _logListener = (entry) {
+      if (entry.tag == 'Transcription') {
+        setState(() {
+          _debugLogs.add(entry);
+        });
+      }
+    };
+    AppLogger().addListener(_logListener!);
+  }
+
+  @override
+  void dispose() {
+    if (_logListener != null) {
+      AppLogger().removeListener(_logListener!);
+    }
+    super.dispose();
   }
 
   Future<void> _loadRoles() async {
@@ -122,6 +148,26 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
       appBar: AppBar(
         title: Text(_formatDate(record.createdAt)),
         actions: [
+          if (_isRetrying)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.refresh, color: AppColors.primary),
+              onPressed: _showRetryOptions,
+              tooltip: '重新转写',
+            ),
           IconButton(
             icon: const Icon(Icons.share_outlined),
             onPressed: _shareRecord,
@@ -190,6 +236,99 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                 );
               },
             ),
+
+            // Debug logs section
+            if (_debugLogs.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade900,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade700),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '转写日志',
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            if (_isRetrying)
+                              const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white70),
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _debugLogs.clear();
+                                });
+                              },
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                '清空',
+                                style: TextStyle(
+                                  color: Colors.grey.shade500,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        reverse: true,
+                        itemCount: _debugLogs.length,
+                        itemBuilder: (context, index) {
+                          final log = _debugLogs[_debugLogs.length - 1 - index];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Text(
+                              '[${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}:${log.timestamp.second.toString().padLeft(2, '0')}] ${log.message}',
+                              style: TextStyle(
+                                color: log.level == LogLevel.error
+                                    ? Colors.red.shade300
+                                    : log.level == LogLevel.warning
+                                        ? Colors.orange.shade300
+                                        : Colors.grey.shade400,
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             // Supplement idea button
             const SizedBox(height: 8),
@@ -438,7 +577,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
     try {
       final chunks = await ref
           .read(transcriptionServiceProvider)
-          .getAudioChunks(widget.record.id);
+          .getAudioChunks(widget.record.audioPath!);
 
       if (!mounted) return;
 
@@ -454,6 +593,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
 
       setState(() {
         _isRetrying = true;
+        _debugLogs.clear();
       });
 
       final progressNotifier = ref.read(transcriptionProgressProvider.notifier);
@@ -461,9 +601,10 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
 
       final result =
           await ref.read(transcriptionServiceProvider).retranscribeChunks(
-        widget.record.id,
+        widget.record.audioPath!,
         chunkIndices: selectedIndices,
         onProgress: (step, detail) {
+          AppLogger().i('Transcription', '$step: $detail');
           progressNotifier.updateStep(
               widget.record.id, step, TranscriptionStepStatus.running);
           progressNotifier.setCurrentAction(widget.record.id, detail);
@@ -513,8 +654,11 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Future<void> _retryTranscription() async {
+    if (_isRetrying) return;
+
     setState(() {
       _isRetrying = true;
+      _debugLogs.clear();
     });
 
     if (!mounted) {
@@ -527,40 +671,53 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
     final progressNotifier = ref.read(transcriptionProgressProvider.notifier);
     progressNotifier.startTranscription(widget.record.id);
 
+    final wasSuccessful =
+        widget.record.transcriptionStatus == TranscriptionStatus.success;
+    final originalContent = widget.record.content ?? '';
+
     try {
-      await ref.read(transcriptionServiceProvider).retryTranscription(
-        widget.record.id,
-        onProgress: (step, detail) {
-          if (!mounted) return;
-          progressNotifier.updateStep(
-              widget.record.id, step, TranscriptionStepStatus.running);
-          progressNotifier.setCurrentAction(widget.record.id, detail);
-        },
-      );
+      final result = await ref.read(transcriptionServiceProvider).transcribeAudio(
+            widget.record.audioPath!,
+            onProgress: (step, detail) {
+              if (!mounted) return;
+              AppLogger().i('Transcription', '$step: $detail');
+              progressNotifier.updateStep(
+                  widget.record.id, step, TranscriptionStepStatus.running);
+              progressNotifier.setCurrentAction(widget.record.id, detail);
+
+              if (!wasSuccessful &&
+                  detail.contains('转写完成') &&
+                  !detail.contains('失败')) {
+                progressNotifier.updatePartialContent(widget.record.id, detail);
+              }
+            },
+          );
 
       if (!mounted) return;
       progressNotifier.updateStep(
           widget.record.id, 'save', TranscriptionStepStatus.success);
       progressNotifier.setCurrentAction(widget.record.id, '转写完成！');
 
-      ref.invalidate(recordDetailProvider(widget.record.id));
+      await ref.read(recordRepositoryProvider).updateRecordContent(
+            widget.record.id,
+            result,
+          );
+      await ref.read(recordRepositoryProvider).updateTranscriptionStatus(
+            widget.record.id,
+            TranscriptionStatus.success,
+            null,
+          );
 
-      final updatedRecord = await ref
-          .read(recordRepositoryProvider)
-          .getRecordById(widget.record.id);
-      final transcriptionText = updatedRecord?.content;
+      ref.invalidate(recordDetailProvider(widget.record.id));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                transcriptionText != null && transcriptionText.isNotEmpty
-                    ? '转写成功'
-                    : '转写完成，但未获取到文本内容'),
-            backgroundColor:
-                transcriptionText != null && transcriptionText.isNotEmpty
-                    ? AppColors.success
-                    : AppColors.warning,
+                result.isNotEmpty ? '转写成功' : '转写完成，但未获取到文本内容'),
+            backgroundColor: result.isNotEmpty
+                ? AppColors.success
+                : AppColors.warning,
           ),
         );
       }
@@ -569,6 +726,20 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
       progressNotifier.setError(widget.record.id, e.toString());
       progressNotifier.updateStep(
           widget.record.id, 'upload', TranscriptionStepStatus.failed);
+
+      if (wasSuccessful) {
+        await ref.read(recordRepositoryProvider).updateRecordContent(
+              widget.record.id,
+              originalContent,
+            );
+      }
+
+      await ref.read(recordRepositoryProvider).updateTranscriptionStatus(
+            widget.record.id,
+            TranscriptionStatus.failed,
+            e.toString(),
+          );
+
       ref.invalidate(recordDetailProvider(widget.record.id));
 
       if (mounted) {
@@ -776,11 +947,34 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
         return const SizedBox.shrink();
     }
 
-    return Chip(
-      label: Text(text),
-      backgroundColor: color.withOpacity(0.1),
-      side: BorderSide.none,
-      labelStyle: TextStyle(color: color, fontSize: 12),
+    return Row(
+      children: [
+        Chip(
+          label: Text(text),
+          backgroundColor: color.withOpacity(0.1),
+          side: BorderSide.none,
+          labelStyle: TextStyle(color: color, fontSize: 12),
+        ),
+        const SizedBox(width: 8),
+        if (widget.record.type == RecordType.audio &&
+            widget.record.audioPath != null &&
+            widget.record.transcriptionStatus != TranscriptionStatus.processing)
+          _buildRetryButton(),
+      ],
+    );
+  }
+
+  Widget _buildRetryButton() {
+    return IconButton(
+      icon: Icon(
+        Icons.refresh,
+        size: 18,
+        color: AppColors.info,
+      ),
+      onPressed: _retryTranscription,
+      tooltip: '重新转写',
+      padding: const EdgeInsets.all(4),
+      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
     );
   }
 
@@ -1267,8 +1461,10 @@ class _RelatedRecordsSectionState
     final hiddenIds = await StorageServiceHiddenRecords.getHiddenRelatedRecords(
         widget.record.id);
 
-    final candidateRecords =
-        await repository.getRecordsByTags(widget.record.tags);
+    final allRecords = await repository.getAllRecords();
+    final candidateRecords = allRecords
+        .where((r) => r.tags.any((tag) => widget.record.tags.contains(tag)))
+        .toList();
 
     final scored = <RecordModel, int>{};
     for (final other in candidateRecords) {

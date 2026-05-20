@@ -51,17 +51,20 @@ description: 交互基础规则 - 何时问问题、何时行动、如何确认
 | 配置文件变更 | "修改了 pubspec.yaml、build.gradle.kts 等" |
 | 资源文件更新 | "添加/修改了图片、图标等" |
 
+**⚠️ 构建前必须调用 BUILD.md 规则**
+
+BUILD.md 不是 alwaysApply 规则，构建前**必须主动读取**。
+
+> 强制检查清单 → 详见 [BUILD_RED_LINES.md](BUILD_RED_LINES.md)（6 项强制检查）
+
 **询问模板**：
 ```
 代码更新已完成！是否需要构建 APK 进行测试？
 
-构建命令：
-wsl -d dang bash -c "export PUB_HOSTED_URL=https://pub.flutter-io.cn && export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn && export PATH=/home/mayn/flutter/bin:/usr/bin:/bin:/usr/local/bin:\$PATH && cd /home/mayn/dang && flutter clean && flutter build apk --release"
-
-copy D:\trae_projects\dang\build\app\outputs\flutter-apk\app-release.apk D:\trae_projects\dang\changji_app.apk
+⚠️ 构建前必读：BUILD.md（非 alwaysApply 规则，需主动调用）
 
 请回复：
-- "构建" → 立即执行构建
+- "构建" → 立即执行构建（自动调用 BUILD.md 规则）
 - "不需要" → 跳过构建
 - "稍后" → 暂不提供，后续手动构建
 ```
@@ -90,7 +93,45 @@ copy D:\trae_projects\dang\build\app\outputs\flutter-apk\app-release.apk D:\trae
 - 代码更新后**必须主动询问**是否需要构建，不能等待用户提起
 - **Bug 修复属于自动构建，不需要询问用户**
 - 用户未明确要求构建时，默认询问而不是自动执行
+- **⚠️ 构建时必须调用 BUILD.md 规则**（非 alwaysApply，需主动读取）
 - 构建命令已标准化，不需要额外考虑构建细节
+
+### 🚫 构建阻断机制
+
+**触发阻断的条件**：
+- 检测到构建相关操作（flutter build、gradlew 等）
+- 检测到 APK 复制操作
+- 检测到 WSL 命令执行
+
+**阻断流程**：
+```
+检测到构建操作
+  ↓
+1. 立即停止执行
+  ↓
+2. 检查是否已阅读 BUILD.md
+   └─ 未阅读 → 提示"必须先阅读 BUILD.md"
+  ↓
+3. 检查是否完成 6 项强制检查（BUILD_RED_LINES.md）
+   └─ 未完成 → 按 BUILD_RED_LINES.md 执行
+  ↓
+4. 全部确认后才允许继续
+```
+
+**阻断提示模板**：
+```
+⚠️ 检测到构建操作，已触发阻断机制！
+
+构建前必须完成：
+□ 1. 阅读 BUILD.md（非 alwaysApply 规则）
+□ 2. 同步代码到 WSL
+□ 3. WSL 环境构建
+□ 4. WSL cp 复制 APK
+□ 5. 时间戳命名
+□ 6. 验证 APK
+
+请确认已完成以上检查，或回复"阅读 BUILD.md"查看详细流程。
+```
 
 ### 📋 方案优先原则（必须遵循）
 

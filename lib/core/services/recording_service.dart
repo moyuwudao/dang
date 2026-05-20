@@ -23,7 +23,7 @@ class RecordingService {
 
   Stream<List<double>> get amplitudeStream => _amplitudeController.stream;
   Stream<Duration> get durationStream => _durationController.stream;
-  Stream<List<int>>? get audioStream => _audioStreamController.hasListener || !_audioStreamController.isClosed
+  Stream<List<int>>? get audioStream => !_audioStreamController.isClosed
       ? _audioStreamController.stream
       : null;
 
@@ -83,14 +83,60 @@ class RecordingService {
     _currentDuration = Duration.zero;
     _amplitudes = [];
 
-    // 停止音频流并关闭文件
     await _streamSubscription?.cancel();
     _streamSubscription = null;
     await _fileSink?.close();
     _fileSink = null;
 
     await _audioRecorder.stop();
+
+    if (_currentFilePath != null) {
+      await _addWavHeader(_currentFilePath!);
+    }
+
     return _currentFilePath;
+  }
+
+  Future<void> _addWavHeader(String filePath) async {
+    final file = File(filePath);
+    if (!await file.exists()) return;
+
+    final pcmBytes = await file.readAsBytes();
+    if (pcmBytes.isEmpty) return;
+
+    const sampleRate = 16000;
+    const bitsPerSample = 16;
+    const numChannels = 1;
+    const byteRate = sampleRate * numChannels * (bitsPerSample ~/ 8);
+    const blockAlign = numChannels * (bitsPerSample ~/ 8);
+    final dataSize = pcmBytes.length;
+    final fileSize = dataSize + 36;
+
+    final header = Uint8List(44);
+    final headerView = ByteData.sublistView(header);
+
+    header.setRange(0, 4, 'RIFF'.codeUnits);
+    headerView.setUint32(4, fileSize, Endian.little);
+    header.setRange(8, 12, 'WAVE'.codeUnits);
+
+    header.setRange(12, 16, 'fmt '.codeUnits);
+    headerView.setUint32(16, 16, Endian.little);
+    headerView.setUint16(20, 1, Endian.little);
+    headerView.setUint16(22, numChannels, Endian.little);
+    headerView.setUint32(24, sampleRate, Endian.little);
+    headerView.setUint32(28, byteRate, Endian.little);
+    headerView.setUint16(32, blockAlign, Endian.little);
+    headerView.setUint16(34, bitsPerSample, Endian.little);
+
+    header.setRange(36, 40, 'data'.codeUnits);
+    headerView.setUint32(40, dataSize, Endian.little);
+
+    final wavBytes = Uint8List(header.length + pcmBytes.length);
+    wavBytes.setRange(0, header.length, header);
+    wavBytes.setRange(header.length, wavBytes.length, pcmBytes);
+
+    await file.writeAsBytes(wavBytes);
+    debugPrint('WAV header added: ${wavBytes.length} bytes, duration ~${dataSize ~/ byteRate}s');
   }
 
   Future<void> pauseRecording() async {

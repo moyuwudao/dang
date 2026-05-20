@@ -239,6 +239,22 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
         }
       }
 
+      final contentToAnalyze = buffer.toString().trim();
+      if (contentToAnalyze.isEmpty ||
+          contentToAnalyze == '=== 原始转写文本 ===' ||
+          contentToAnalyze.replaceAll(RegExp(r'[=\s\n\-]'), '').isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('没有可分析的内容，请先添加转写文本或补充内容'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
+          setState(() => _isAnalyzing = false);
+        }
+        return;
+      }
+
       final result = await transcriptionService.analyzeText(
         buffer.toString(),
         systemPrompt: role.systemPrompt,

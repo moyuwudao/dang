@@ -359,7 +359,6 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
       final report = await apiService.chatCompletionWithSystem(
         buffer.toString(),
         systemPrompt: systemPrompt,
-        toolId: 'weekly_report',
       );
 
       if (mounted) {

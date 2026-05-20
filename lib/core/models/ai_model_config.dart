@@ -4,6 +4,7 @@ enum AiProvider {
   gemini,
   deepSeek,
   qwen,
+  tingwu,
   ernie,
   zhipu,
   kimi,
@@ -17,6 +18,7 @@ enum AppFeature {
   textAnalysis,
   speechTranscription,
   speechRealtimeTranscription,
+  speakerDiarization,
   ocr,
   chatSummary,
   titleGeneration,
@@ -67,6 +69,7 @@ class AiModelConfig {
   final List<String> availableModels;
   final bool supportsTranscription;
   final bool supportsRealtimeTranscription;
+  final bool supportsSpeakerDiarization;
   final bool supportsChat;
   final bool supportsTextAnalysis;
   final bool supportsOCR;
@@ -85,6 +88,15 @@ class AiModelConfig {
   final String pricingNote;
   final bool requiresAppId;
   final String? appIdDescription;
+  final String? appIdLabel;
+  final String? appIdHint;
+  final bool requiresAccessKeySecret;
+  final String? accessKeySecretDescription;
+  final String? accessKeySecretLabel;
+  final String? accessKeySecretHint;
+  final String? apiKeyLabel;
+  final String? apiKeyHint;
+  final String? apiKeyDescription;
 
   const AiModelConfig({
     required this.provider,
@@ -95,6 +107,7 @@ class AiModelConfig {
     required this.availableModels,
     this.supportsTranscription = false,
     this.supportsRealtimeTranscription = false,
+    this.supportsSpeakerDiarization = false,
     this.supportsChat = true,
     this.supportsTextAnalysis = true,
     this.supportsOCR = false,
@@ -113,6 +126,15 @@ class AiModelConfig {
     this.pricingNote = '',
     this.requiresAppId = false,
     this.appIdDescription,
+    this.appIdLabel,
+    this.appIdHint,
+    this.requiresAccessKeySecret = false,
+    this.accessKeySecretDescription,
+    this.accessKeySecretLabel,
+    this.accessKeySecretHint,
+    this.apiKeyLabel,
+    this.apiKeyHint,
+    this.apiKeyDescription,
   });
 
   static const List<AiModelConfig> allProviders = [
@@ -121,6 +143,7 @@ class AiModelConfig {
     claude,
     gemini,
     qwen,
+    tingwu,
     ernie,
     zhipu,
     kimi,
@@ -145,6 +168,10 @@ class AiModelConfig {
         if (configuredProvider == null) return false;
         final config = getConfig(configuredProvider);
         return config.supportsRealtimeTranscription;
+      case AppFeature.speakerDiarization:
+        if (configuredProvider == null) return false;
+        final config = getConfig(configuredProvider);
+        return config.supportsSpeakerDiarization;
       case AppFeature.ocr:
         if (configuredProvider == null) return false;
         final config = getConfig(configuredProvider);
@@ -186,6 +213,15 @@ class AiModelConfig {
           return '${config.displayName} does not support real-time speech transcription. Please use iFlytek Spark or Aliyun Qwen.';
         }
         return null;
+      case AppFeature.speakerDiarization:
+        if (configuredProvider == null) {
+          return 'Please configure an AI model API Key first';
+        }
+        final config = getConfig(configuredProvider);
+        if (!config.supportsSpeakerDiarization) {
+          return '${config.displayName} does not support speaker diarization (speaker recognition). This feature requires a dedicated speaker recognition API (e.g., Aliyun Voice ID, iFlytek Speaker Recognition).';
+        }
+        return null;
       case AppFeature.ocr:
         if (configuredProvider == null) {
           return 'Please configure an AI model API Key first';
@@ -219,6 +255,7 @@ class AiModelConfig {
     ],
     supportsTranscription: true,
     supportsRealtimeTranscription: false,
+    supportsSpeakerDiarization: false,
     supportsChat: true,
     supportsTextAnalysis: true,
     supportsOCR: true,
@@ -283,6 +320,7 @@ class AiModelConfig {
     ],
     supportsTranscription: true,
     supportsRealtimeTranscription: false,
+    supportsSpeakerDiarization: false,
     supportsChat: true,
     supportsTextAnalysis: true,
     supportsOCR: true,
@@ -372,12 +410,15 @@ class AiModelConfig {
     ],
     supportsTranscription: true,
     supportsRealtimeTranscription: true,
+    supportsSpeakerDiarization: false,
     supportsChat: true,
     supportsTextAnalysis: true,
     supportsOCR: true,
     visionModel: 'qwen3.6-vl-plus',
     apiKeyPrefix: 'sk-',
-    description: '阿里云通义千问系列。中文理解能力强，支持语音转写和实时语音转写。语音转写用 qwen-asr-flash，实时转写用 WebSocket 流式接口。',
+    requiresAppId: true,
+    appIdDescription: '通义听悟 AppID（可选，用于实时转写。在阿里云听悟控制台获取）',
+    description: '阿里云通义千问系列。中文理解能力强，支持语音转写和实时语音转写。语音转写用 qwen-asr-flash，实时转写用 WebSocket 流式接口。不支持声纹识别（说话人分离）。',
     transcriptionMethod: TranscriptionMethod.nativeAsr,
     realtimeTranscriptionMethod: TranscriptionMethod.realtimeWebSocket,
     transcriptionLimit: TranscriptionLimit(
@@ -497,6 +538,7 @@ class AiModelConfig {
     ],
     supportsTranscription: false,
     supportsRealtimeTranscription: true,
+    supportsSpeakerDiarization: false,
     supportsChat: true,
     supportsTextAnalysis: true,
     apiKeyPrefix: null,
@@ -525,6 +567,112 @@ class AiModelConfig {
     pricingNote: 'Chat: ¥0.001-¥0.12/M tokens | Realtime ASR: ¥0.004/min',
   );
 
+  // TODO: Speaker Diarization API - 声纹识别（说话人分离）
+  // 当前没有内置提供商支持声纹识别。
+  // 如需接入，请申请以下服务之一：
+  //
+  // ============================================================
+  // 推荐方案 1: 阿里云通义听悟（Tingwu）- 说话人分离
+  // ============================================================
+  // 通义听悟支持在语音转写中开启"说话人分离"功能，
+  // 能够区分对话中的不同发言人。
+  //
+  // 申请地址: https://tingwu.aliyun.com/
+  // API 文档: https://tingwu.aliyun.com/helpcenter/api
+  // 说话人分离参数:
+  //   - Transcription.DiarizationEnabled = true
+  //   - Transcription.Diarization.SpeakerCount = 0(不定人数) 或 2(2人)
+  //
+  // 计费: 语音转写按音频时长计费，说话人分离不额外收费
+  // 限制: 需提交音频文件 URL，不支持本地文件
+  //
+  // ============================================================
+  // 方案 2: 讯飞开放平台 - 声纹识别
+  // ============================================================
+  // 讯飞声纹识别是身份核验技术（1:1 或 1:N 比对），
+  // 不是说话人分离，但可用于说话人辨认场景。
+  //
+  // 申请地址: https://www.xfyun.cn/
+  // 文档: https://www.xfyun.cn/doc/voiceservice/isv/API.html
+  // 流程: 创建声纹库 → 添加音频特征 → 特征比对
+  //
+  // 计费: 按调用次数计费
+  // 限制: 需要先注册声纹，不适合会议纪要场景
+  //
+  // ============================================================
+  // 方案 3: 百度智能云 - 音频文件转写
+  // ============================================================
+  // 百度语音识别支持音频文件转写，但说话人分离能力较弱。
+  //
+  // 申请地址: https://console.bce.baidu.com/
+  // 文档: https://ai.baidu.com/ai-doc/SPEECH/
+  //
+  // 计费: 按调用次数计费，有免费额度
+  // 限制: 说话人分离不是主要能力
+  //
+  // ============================================================
+  // 推荐选择
+  // ============================================================
+  // 会议纪要场景推荐: 阿里云通义听悟
+  // 原因:
+  //   1. 原生支持说话人分离（Diarization）
+  //   2. 与现有阿里云账号体系兼容
+  //   3. 支持离线文件转写，适合录音后处理
+  //   4. 同时提供摘要、待办提取等会议纪要功能
+  //
+  // 接入步骤:
+  // 1. 在通义听悟官网申请账号和 API Key
+  // 2. 在 AiProvider 枚举中添加 tingwu 提供商
+  // 3. 在 allProviders 列表中添加配置
+  // 4. 设置 supportsSpeakerDiarization = true
+  // 5. 实现 TingwuTranscriptionService（参考通义听悟 API 文档）
+
+  static const tingwu = AiModelConfig(
+    provider: AiProvider.tingwu,
+    name: 'tingwu',
+    displayName: '通义听悟',
+    baseUrl: 'https://tingwu.cn-beijing.aliyuncs.com',
+    defaultModel: 'tingwu-v2',
+    availableModels: ['tingwu-v2'],
+    supportsTranscription: true,
+    supportsRealtimeTranscription: true,
+    supportsSpeakerDiarization: true,
+    supportsChat: false,
+    supportsTextAnalysis: true,
+    supportsOCR: false,
+    visionModel: '',
+    apiKeyPrefix: null,
+    description: '阿里云通义听悟 - 音视频内容工作学习AI助手。支持语音转写、说话人分离、全文摘要、章节速览、发言总结、待办提取、关键词提取、翻译等一站式会议纪要功能。',
+    transcriptionMethod: TranscriptionMethod.asyncAsr,
+    realtimeTranscriptionMethod: TranscriptionMethod.realtimeWebSocket,
+    transcriptionLimit: TranscriptionLimit(
+      maxDurationSeconds: 21600,
+      maxFileSizeMB: 6144,
+      durationLabel: '6 hours',
+      note: '需提交音频文件URL。支持mp3/wav/m4a等格式。说话人分离、摘要、待办等能力需额外开启。',
+    ),
+    asrModel: 'tingwu-asr',
+    asrDescription: '通义听悟语音转写，支持中文、英文、粤语、中英混、日语。可开启说话人分离（2人或不定人数）。',
+    realtimeAsrModel: 'tingwu-realtime',
+    realtimeAsrDescription: '通义听悟实时会议记录，支持实时转写和翻译。',
+    limitationNote: '文件转写需提交URL，不支持本地文件直接上传。大模型能力（摘要/待办/关键词）按功能叠加计费。',
+    requiresAppId: true,
+    appIdLabel: 'AppKey',
+    appIdDescription: '通义听悟 AppKey（在通义听悟控制台创建项目后获取）',
+    appIdHint: '如: UFtTh4CAQxxhNdEC',
+    requiresAccessKeySecret: true,
+    accessKeySecretLabel: 'AccessKey Secret',
+    accessKeySecretDescription: '阿里云 AccessKey Secret（RAM 用户密钥）',
+    accessKeySecretHint: '如: your-access-key-secret',
+    apiKeyLabel: 'AccessKey ID',
+    apiKeyHint: '如: your-access-key-id',
+    apiKeyDescription: '阿里云 RAM 用户的 AccessKey ID',
+    modelDetails: [
+      ModelDetail(name: 'tingwu-v2', description: '通义听悟V2，完整会议纪要能力', contextWindow: 'N/A', recommended: true),
+    ],
+    pricingNote: '转写: ¥0.6/小时 | 大模型能力: ¥0.064/小时/功能 | 翻译: ¥0.5-4/小时 | 新用户免费试用90天',
+  );
+
   static const custom = AiModelConfig(
     provider: AiProvider.custom,
     name: 'custom',
@@ -534,6 +682,7 @@ class AiModelConfig {
     availableModels: [],
     supportsTranscription: false,
     supportsRealtimeTranscription: false,
+    supportsSpeakerDiarization: false,
     supportsChat: true,
     supportsTextAnalysis: true,
     supportsOCR: false,
@@ -564,6 +713,7 @@ class AiModelConfig {
   static List<AiModelConfig> get domesticProviders => [
     deepSeek,
     qwen,
+    tingwu,
     ernie,
     zhipu,
     kimi,
@@ -591,5 +741,9 @@ class AiModelConfig {
 
   static List<AiModelConfig> get ocrProviders => allProviders
       .where((p) => p.supportsOCR)
+      .toList();
+
+  static List<AiModelConfig> get speakerDiarizationProviders => allProviders
+      .where((p) => p.supportsSpeakerDiarization)
       .toList();
 }

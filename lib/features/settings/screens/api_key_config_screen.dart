@@ -15,14 +15,18 @@ class ApiKeyConfigScreen extends ConsumerStatefulWidget {
 class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
   final _formKey = GlobalKey<FormState>();
   final _apiKeyController = TextEditingController();
+  final _appIdController = TextEditingController();
   final _baseUrlController = TextEditingController();
   final _customModelController = TextEditingController();
+  final _accessKeySecretController = TextEditingController();
 
   AiProvider _selectedProvider = AiProvider.openAI;
   String _selectedModel = '';
   bool _isTesting = false;
   bool _isSaving = false;
   bool _isKeyVisible = false;
+  bool _isAppIdVisible = false;
+  bool _isAccessKeySecretVisible = false;
   bool _useCustomModel = false;
 
   @override
@@ -37,7 +41,9 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
       if (config != null && mounted) {
         setState(() {
           _apiKeyController.text = config.apiKey;
+          _appIdController.text = config.appId ?? '';
           _baseUrlController.text = config.baseUrl ?? '';
+          _accessKeySecretController.text = config.accessKeySecret ?? '';
 
           final providerConfig = AiModelConfig.getConfigByName(config.provider);
           if (providerConfig != null) {
@@ -86,6 +92,12 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                     ? null
                     : _baseUrlController.text,
                 model: _effectiveModel,
+                appId: _appIdController.text.isEmpty
+                    ? null
+                    : _appIdController.text,
+                accessKeySecret: _accessKeySecretController.text.isEmpty
+                    ? null
+                    : _accessKeySecretController.text,
               );
 
       if (mounted) {
@@ -137,6 +149,12 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                     ? null
                     : _baseUrlController.text,
                 model: _effectiveModel,
+                appId: _appIdController.text.isEmpty
+                    ? null
+                    : _appIdController.text,
+                accessKeySecret: _accessKeySecretController.text.isEmpty
+                    ? null
+                    : _accessKeySecretController.text,
               );
 
       if (mounted) {
@@ -180,8 +198,10 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _appIdController.dispose();
     _baseUrlController.dispose();
     _customModelController.dispose();
+    _accessKeySecretController.dispose();
     super.dispose();
   }
 
@@ -243,10 +263,17 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                 controller: _apiKeyController,
                 obscureText: !_isKeyVisible,
                 decoration: InputDecoration(
-                  labelText: l10n.openaiApiKey,
-                  hintText: config.apiKeyPrefix != null
-                      ? '${config.apiKeyPrefix}...'
-                      : 'Enter your API key',
+                  labelText: config.apiKeyLabel ??
+                      (config.requiresAccessKeySecret
+                          ? 'AccessKey ID'
+                          : (config.requiresAppId
+                              ? 'AppKey / AccessKey ID'
+                              : l10n.openaiApiKey)),
+                  hintText: config.apiKeyHint ??
+                      (config.apiKeyPrefix != null
+                          ? '${config.apiKeyPrefix}...'
+                          : 'Enter your API key'),
+                  helperText: config.apiKeyDescription,
                   suffixIcon: IconButton(
                     icon: Icon(
                       _isKeyVisible ? Icons.visibility_off : Icons.visibility,
@@ -260,7 +287,13 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter API Key';
+                    final labelText = config.apiKeyLabel ??
+                        (config.requiresAccessKeySecret
+                            ? 'AccessKey ID'
+                            : (config.requiresAppId
+                                ? 'AppKey / AccessKey ID'
+                                : 'API Key'));
+                    return 'Please enter $labelText';
                   }
                   if (config.apiKeyPrefix != null &&
                       !value.startsWith(config.apiKeyPrefix!)) {
@@ -270,6 +303,65 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
                 },
               ),
               const SizedBox(height: 16),
+              // AppKey input for providers that require it (e.g., Tingwu)
+              if (config.requiresAppId) ...[
+                TextFormField(
+                  controller: _appIdController,
+                  obscureText: !_isAppIdVisible,
+                  decoration: InputDecoration(
+                    labelText: config.appIdLabel ?? config.appIdDescription ?? 'App Key',
+                    hintText: config.appIdHint ?? 'Enter your App Key',
+                    helperText: config.appIdDescription,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isAppIdVisible ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isAppIdVisible = !_isAppIdVisible;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: (value) {
+                    if (config.requiresAppId &&
+                        (value == null || value.isEmpty)) {
+                      return 'Please enter ${config.appIdLabel ?? 'App Key'}';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (config.requiresAccessKeySecret) ...[
+                TextFormField(
+                  controller: _accessKeySecretController,
+                  obscureText: !_isAccessKeySecretVisible,
+                  decoration: InputDecoration(
+                    labelText: config.accessKeySecretLabel ?? config.accessKeySecretDescription ?? 'AccessKey Secret',
+                    hintText: config.accessKeySecretHint ?? 'Enter your AccessKey Secret',
+                    helperText: config.accessKeySecretDescription,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isAccessKeySecretVisible ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isAccessKeySecretVisible = !_isAccessKeySecretVisible;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: (value) {
+                    if (config.requiresAccessKeySecret &&
+                        (value == null || value.isEmpty)) {
+                      return 'Please enter ${config.accessKeySecretLabel ?? 'AccessKey Secret'}';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
               if (_selectedProvider == AiProvider.custom) ...[
                 TextFormField(
                   controller: _baseUrlController,
@@ -872,6 +964,8 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
         return Icons.mic;
       case AiProvider.grok:
         return Icons.bolt;
+      case AiProvider.tingwu:
+        return Icons.hearing;
       case AiProvider.custom:
         return Icons.settings;
     }

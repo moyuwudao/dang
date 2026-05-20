@@ -7,7 +7,7 @@ import '../models/tool_output_model.dart';
 import 'record_repository.dart';
 
 final toolOutputRepositoryProvider = Provider<ToolOutputRepository>((ref) {
-  return ToolOutputRepository(ref.watch(databaseProvider));
+  return ToolOutputRepository(ref.watch(appDatabaseProvider));
 });
 
 class ToolOutputRepository {
@@ -25,12 +25,12 @@ class ToolOutputRepository {
     return outputs.map(_mapToModel).toList();
   }
 
-  Future<ToolOutputModel?> getToolOutputById(String id) async {
+  Future<ToolOutputModel?> getToolOutputById(int id) async {
     final output = await _database.getToolOutputById(id);
     return output != null ? _mapToModel(output) : null;
   }
 
-  Future<String> createToolOutput({
+  Future<int> createToolOutput({
     required String toolId,
     required String title,
     required String content,
@@ -39,9 +39,7 @@ class ToolOutputRepository {
     String? templateId,
   }) async {
     final now = DateTime.now();
-    final id = _generateId();
     final companion = ToolOutputsCompanion(
-      id: Value(id),
       toolId: Value(toolId),
       title: Value(title),
       content: Value(content),
@@ -52,12 +50,11 @@ class ToolOutputRepository {
       templateId: Value(templateId),
       usageCount: const Value(0),
     );
-    await _database.insertToolOutput(companion);
-    return id;
+    return await _database.insertToolOutput(companion);
   }
 
   Future<void> updateToolOutput({
-    required String id,
+    required int id,
     String? title,
     String? content,
     List<String>? tags,
@@ -84,21 +81,26 @@ class ToolOutputRepository {
     await _database.updateToolOutput(companion);
   }
 
-  Future<void> incrementUsageCount(String id) async {
+  Future<void> incrementUsageCount(int id) async {
     await _database.updateToolOutputUsageCount(id);
   }
 
-  Future<void> deleteToolOutput(String id) async {
-    await _database.deleteToolOutput(id);
+  Future<void> deleteToolOutput(int id) async {
+    await _database.deleteToolOutputById(id);
   }
 
   Future<List<ToolOutputModel>> searchToolOutputs(String query) async {
-    final outputs = await _database.searchToolOutputs(query);
-    return outputs.map(_mapToModel).toList();
+    final outputs = await getAllToolOutputs();
+    final lowerQuery = query.toLowerCase();
+    return outputs.where((o) =>
+      o.title.toLowerCase().contains(lowerQuery) ||
+      o.content.toLowerCase().contains(lowerQuery)
+    ).toList();
   }
 
   Future<int> getToolOutputCount() async {
-    return await _database.getToolOutputCount();
+    final outputs = await getAllToolOutputs();
+    return outputs.length;
   }
 
   Future<List<ToolOutputModel>> queryToolOutputs(ToolOutputQuery query) async {
@@ -148,8 +150,24 @@ class ToolOutputRepository {
     );
   }
 
-  Future<void> updateFavorite(String id, bool isFavorite) async {
-    await _database.updateToolOutputFavorite(id, isFavorite);
+  Future<void> updateFavorite(int id, bool isFavorite) async {
+    final existing = await _database.getToolOutputById(id);
+    if (existing == null) return;
+    
+    final companion = ToolOutputsCompanion(
+      id: Value(id),
+      toolId: Value(existing.toolId),
+      title: Value(existing.title),
+      content: Value(existing.content),
+      createdAt: Value(existing.createdAt),
+      updatedAt: Value(DateTime.now()),
+      tags: Value(existing.tags),
+      sourceRecordIds: Value(existing.sourceRecordIds),
+      templateId: Value(existing.templateId),
+      usageCount: Value(existing.usageCount),
+      isFavorite: Value(isFavorite),
+    );
+    await _database.updateToolOutput(companion);
   }
 
   List<String> _parseTags(String tagsString) {
@@ -176,9 +194,4 @@ class ToolOutputRepository {
     return [];
   }
 
-  String _generateId() {
-    return DateTime.now().millisecondsSinceEpoch.toString() + 
-           '_' + 
-           (DateTime.now().microsecondsSinceEpoch % 1000000).toString();
-  }
 }

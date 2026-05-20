@@ -19,7 +19,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
   List<ToolOutputModel> _outputs = [];
   List<ToolOutputModel> _filteredOutputs = [];
   bool _isLoading = true;
-  String? _editingId;
+  int? _editingId;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
@@ -68,7 +68,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
     setState(() => _filteredOutputs = result);
   }
 
-  Future<void> _deleteOutput(String id) async {
+  Future<void> _deleteOutput(int id) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -103,7 +103,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
     }
   }
 
-  Future<void> _updateOutput(String id, List<String> tags) async {
+  Future<void> _updateOutput(int id, List<String> tags) async {
     final repository = ref.read(toolOutputRepositoryProvider);
     await repository.updateToolOutput(
       id: id,
@@ -123,13 +123,13 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
     }
   }
 
-  Future<void> _toggleFavorite(String id, bool current) async {
+  Future<void> _toggleFavorite(int id, bool current) async {
     final repository = ref.read(toolOutputRepositoryProvider);
     await repository.updateFavorite(id, !current);
     await _loadData();
   }
 
-  Future<void> _showTagSelector(String id, List<String> currentTags) async {
+  Future<void> _showTagSelector(int id, List<String> currentTags) async {
     final recordRepo = ref.read(recordRepositoryProvider);
     final allExistingTags = await recordRepo.getAllTags();
     final localAllTags = {...allExistingTags, ...currentTags}.toList();

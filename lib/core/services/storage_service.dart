@@ -42,10 +42,12 @@ class StorageService {
         'id': config.id,
         'provider': config.provider,
         'apiKey': config.apiKey,
+        'appId': config.appId,
         'baseUrl': config.baseUrl,
         'model': config.model,
         'createdAt': config.createdAt.toIso8601String(),
         'updatedAt': config.updatedAt.toIso8601String(),
+        'accessKeySecret': config.accessKeySecret,
       });
 
       debugPrint(
@@ -74,12 +76,14 @@ class StorageService {
         id: configMap['id'] ?? 1,
         provider: configMap['provider'] ?? 'openai',
         apiKey: configMap['apiKey'] ?? '',
+        appId: configMap['appId'],
         baseUrl: configMap['baseUrl'],
         model: configMap['model'] ?? 'whisper-1',
         createdAt:
             DateTime.tryParse(configMap['createdAt'] ?? '') ?? DateTime.now(),
         updatedAt:
             DateTime.tryParse(configMap['updatedAt'] ?? '') ?? DateTime.now(),
+        accessKeySecret: configMap['accessKeySecret'],
       );
     } catch (e) {
       debugPrint('Failed to get API config: $e');
@@ -125,6 +129,7 @@ class StorageService {
                 apiKey: oldConfig.apiKey,
                 baseUrl: oldConfig.baseUrl,
                 model: oldConfig.model,
+                accessKeySecret: oldConfig.accessKeySecret,
                 functions: const [
                   ApiFunctionType.text,
                   ApiFunctionType.voice,
@@ -172,10 +177,12 @@ class StorageService {
         'id': config.id,
         'provider': config.provider,
         'apiKey': config.apiKey,
+        'appId': config.appId,
         'baseUrl': config.baseUrl,
         'model': config.model,
         'createdAt': config.createdAt.toIso8601String(),
         'updatedAt': config.updatedAt.toIso8601String(),
+        'accessKeySecret': config.accessKeySecret,
       });
       await prefs.setString(_transcriptionConfigKey, configJson);
     } catch (e) {
@@ -195,12 +202,14 @@ class StorageService {
         id: configMap['id'] ?? 2,
         provider: configMap['provider'] ?? 'qwen',
         apiKey: configMap['apiKey'] ?? '',
+        appId: configMap['appId'],
         baseUrl: configMap['baseUrl'],
         model: configMap['model'] ?? 'qwen3-asr-flash',
         createdAt:
             DateTime.tryParse(configMap['createdAt'] ?? '') ?? DateTime.now(),
         updatedAt:
             DateTime.tryParse(configMap['updatedAt'] ?? '') ?? DateTime.now(),
+        accessKeySecret: configMap['accessKeySecret'],
       );
     } catch (e) {
       debugPrint('Failed to get transcription config: $e');

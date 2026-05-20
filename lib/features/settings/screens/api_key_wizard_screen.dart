@@ -788,6 +788,8 @@ class _ApiKeyWizardScreenState extends ConsumerState<ApiKeyWizardScreen> {
         return Icons.mic;
       case AiProvider.grok:
         return Icons.bolt;
+      case AiProvider.tingwu:
+        return Icons.hearing;
       case AiProvider.custom:
         return Icons.settings;
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/audio_processor.dart';
 import '../../../core/theme/app_colors.dart';
 
 class ChunkSelectionDialog extends StatefulWidget {

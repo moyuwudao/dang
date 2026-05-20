@@ -89,6 +89,19 @@ class TranscriptionProgressNotifier extends StateNotifier<Map<int, Transcription
     };
   }
 
+  void updatePartialContent(int recordId, String content) {
+    final current = state[recordId];
+    if (current == null) return;
+
+    final existingContent = current.partialContent ?? '';
+    final newContent = existingContent.isEmpty ? content : '$existingContent\n$content';
+
+    state = {
+      ...state,
+      recordId: current.copyWith(partialContent: newContent),
+    };
+  }
+
   void clear(int recordId) {
     final newState = Map<int, TranscriptionProgress>.from(state);
     newState.remove(recordId);

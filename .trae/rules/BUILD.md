@@ -18,13 +18,15 @@ description: 构建流程规范 - APK 构建、测试构建、清理缓存
 
 **使用 WSL 构建**，已验证可用，可直接生成 APK。
 
-### ⚠️ 重要前提：代码同步
+### ⚠️ 重要前提：代码必须同步
 
 **本项目使用 WSL 环境构建，但代码编辑在 Windows 端完成。**
 
 Windows 的 `D:\trae_projects\dang\` 和 WSL 的 `/home/mayn/dang/` 是两个独立的文件系统，**不会自动同步**。
 
-**构建前必须先同步代码到 WSL！**
+**⚠️ 构建前必须先同步代码到 WSL，否则 APK 会包含旧代码！**
+
+> **实际教训（2026-05-16）**：修复 Qwen ASR URL 后直接构建 APK，但安装后仍报错。原因是 WSL 中的代码是旧版本，构建使用的是旧代码。
 
 ### 方案优势
 | 方面 | 说明 |
@@ -34,47 +36,78 @@ Windows 的 `D:\trae_projects\dang\` 和 WSL 的 `/home/mayn/dang/` 是两个独
 | **一键完成** | 一条命令完成构建和复制 |
 | **无需额外安装** | 无需安装 Docker 或其他工具 |
 
-### 完整构建流程（含同步）
+### 标准构建流程（唯一流程）
+
+> **本文件只定义一套构建流程。所有构建操作必须遵循此流程。**
+> 详细红线见 [BUILD_RED_LINES.md](BUILD_RED_LINES.md)
 
 ```powershell
 # 第1步：同步代码到 WSL（必须！）
 wsl -d dang bash -c "rsync -av --delete /mnt/d/trae_projects/dang/lib/ /home/mayn/dang/lib/"
 
-# 第2步：构建 APK
-wsl -d dang bash -c "export PUB_HOSTED_URL=https://pub.flutter-io.cn && export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn && export PATH=/home/mayn/flutter/bin:/usr/bin:/bin:/usr/local/bin:\$PATH && cd /home/mayn/dang && flutter clean && flutter pub get && flutter build apk --release"
+# 第2步：WSL 环境构建
+wsl -d dang bash -c "export PUB_HOSTED_URL=https://pub.flutter-io.cn && export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn && export PATH=/home/mayn/flutter/bin:/usr/bin:/bin:/usr/local/bin:\$PATH && cd /home/mayn/dang && flutter clean && flutter build apk --release"
 
-# 第3步：复制 APK 到 Windows
-wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app.apk"
+# 第3步：生成时间戳文件名并复制 APK 到 D:\trae_projects\dang
+$timestamp = Get-Date -Format "yyyyMMdd_HHmm"
+$apkName = "changji_app_${timestamp}.apk"
+wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/${apkName}"
+
+# 第4步：验证 APK
+Get-Item D:\trae_projects\dang\${apkName} | Select-Object Name, LastWriteTime, Length
+
+# 第5步：输出结果
+Write-Host "APK 构建完成！"
+Write-Host "版本：D:\trae_projects\dang\${apkName}"
 ```
 
-### 一键构建命令（简化版）
+### 核心规则
 
-如果确定代码已在 WSL 中：
+1. ✅ 构建前必须先同步代码到 WSL（`rsync`）
+2. ✅ 必须使用 WSL `cp` 命令复制 APK，**禁止** Windows `copy`/`Copy-Item`
+3. ✅ 时间戳命名：`changji_app_YYYYMMDD_HHMM.apk`
+4. ✅ 构建前自动执行 `flutter clean`
+5. ✅ 复制后必须验证 APK 修改时间
+
+### 输出结果确认
+
+```
+✓ Built build/app/outputs/flutter-apk/app-release.apk (XX.XMB)
+APK 构建完成！
+版本：D:\trae_projects\dang\changji_app_20260516_1430.apk
+```
+
+### 📱 安装 APK
 
 ```powershell
-wsl -d dang bash -c "export PUB_HOSTED_URL=https://pub.flutter-io.cn && export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn && export PATH=/home/mayn/flutter/bin:/usr/bin:/bin:/usr/local/bin:\$PATH && cd /home/mayn/dang && flutter clean && flutter pub get && flutter build apk --release && cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app.apk"
+# 覆盖安装（保留数据）
+adb install -r "d:\trae_projects\dang\changji_app_20260518_1430.apk"
+
+# 全新安装
+adb install "d:\trae_projects\dang\changji_app_20260518_1430.apk"
 ```
 
-### ⚠️ APK 复制必须使用 WSL 内部命令
+> **注意**：上述命令中的 `20260518_1430` 需替换为实际的时间戳文件名。
 
-**错误方式**（Windows `copy` 命令会复制 WSL 挂载目录下的旧文件，时间戳不更新）：
-```powershell
-# ❌ 不要这样复制
-Copy-Item D:\trae_projects\dang\build\app\outputs\flutter-apk\app-release.apk D:\trae_projects\dang\changji_app.apk -Force
-```
+---
 
-**正确方式**（使用 WSL `cp` 命令，确保复制的是 WSL 内部新生成的文件）：
-```powershell
-# ✅ 使用 WSL cp 命令
-wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app.apk"
-```
+## ⚠️ 构建关键注意事项
 
-### 构建输出
+### 为什么必须同步代码到 WSL
 
-| 路径 | 说明 |
-|-----|------|
-| `D:\trae_projects\dang\changji_app.apk` | 最终构建产物 |
-| 大小 | ~98.5 MB |
+**实际教训（2026-05-16）**：修复 Qwen ASR URL 后直接构建 APK，安装后仍报错。
+
+**原因**：Windows 的 `D:\trae_projects\dang\` 和 WSL 的 `/home/mayn/dang/` 是两个独立的文件系统，**不会自动同步**。WSL 中的代码是旧版本。
+
+**解决**：构建前必须执行 `rsync` 同步代码。
+
+### 为什么必须使用 WSL cp 命令
+
+**原因**：WSL 挂载到 Windows 的 `D:\trae_projects\dang\build\...` 有缓存延迟。Windows `copy` 命令读取的是缓存中的旧文件，时间戳不更新。
+
+**解决**：使用 WSL 内部的 `cp` 命令，直接操作 WSL 内部的文件系统。
+
+详见 [BUILD_TROUBLESHOOTING.md](BUILD_TROUBLESHOOTING.md) CASE-001
 
 ---
 
@@ -253,28 +286,44 @@ wsl -d dang bash /mnt/d/trae_projects/dang/build_wsl.sh
 ### 一键构建命令（代码更新后执行）
 
 ```powershell
+# ⚠️ 第0步：验证代码已同步到 WSL（新增！）
+# 构建前必须先同步，否则 APK 会包含旧代码！
+wsl -d dang bash -c "rsync -av --delete /mnt/d/trae_projects/dang/lib/ /home/mayn/dang/lib/"
+
 # 第1步：一键构建（在 WSL 内部完成）
 wsl -d dang bash -c "export PUB_HOSTED_URL=https://pub.flutter-io.cn && export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn && export PATH=/home/mayn/flutter/bin:/usr/bin:/bin:/usr/local/bin:\$PATH && cd /home/mayn/dang && flutter clean && flutter build apk --release"
 
-# 第2步：使用 WSL cp 命令复制 APK（禁止使用 Windows copy / Copy-Item）
-wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app.apk"
+# 第2步：生成带时间戳的 APK 文件名（格式：changji_app_YYYYMMDD_HHMM.apk）
+$timestamp = Get-Date -Format "yyyyMMdd_HHmm"
+$apkName = "changji_app_${timestamp}.apk"
 
-# 第3步：验证 APK 时间戳已更新
-Get-Item D:\trae_projects\dang\changji_app.apk | Select-Object Name, LastWriteTime, Length
+# 第3步：使用 WSL cp 命令复制 APK（禁止使用 Windows copy / Copy-Item）
+wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/${apkName}"
 
-# 第4步：输出构建结果
+# 第4步：验证 APK 时间戳已更新
+Get-Item D:\trae_projects\dang\${apkName} | Select-Object Name, LastWriteTime, Length
+
+# 第5步：输出构建结果
 Write-Host "APK 构建完成！"
-Write-Host "输出路径：D:\trae_projects\dang\changji_app.apk"
+Write-Host "时间戳版本：D:\trae_projects\dang\${apkName}"
 ```
 
 ### 规则要求
 
-1. ✅ 代码修改完成后，**必须**先同步代码到 WSL，再执行构建
-2. ✅ 构建成功后，**必须**使用 **WSL `cp` 命令**复制 APK 到 Windows（`cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app.apk`）
-3. ✅ **禁止**使用 Windows `copy` / `Copy-Item` 命令复制 APK（会复制 WSL 挂载目录下的旧缓存文件）
+1. ✅ **代码修改完成后，必须先同步代码到 WSL**（使用 `rsync` 命令）
+2. ✅ 构建成功后，**必须使用 WSL `cp` 命令**复制 APK 到 Windows
+3. ✅ **禁止**使用 Windows `copy` / `Copy-Item` 命令复制 APK
 4. ✅ 确保使用 WSL 环境构建，**禁止**在本地构建
 5. ✅ 构建前自动执行 `flutter clean` 确保完整重新编译
-6. ✅ 复制后**必须**验证 APK 修改时间已更新（`Get-Item` 检查 `LastWriteTime`）
+6. ✅ 复制后**必须**验证 APK 修改时间已更新
+
+### ⚠️ 同步问题（必须重视）
+
+**常见错误**：修改代码后直接构建，APK 包含旧代码
+
+**原因**：Windows 和 WSL 是两个独立文件系统，不自动同步
+
+**教训**：2026-05-16 修复 Qwen ASR URL 后直接构建，安装后仍报错，原因是 WSL 中是旧代码
 
 ### ⚠️ 重要提示
 
@@ -291,7 +340,7 @@ Write-Host "输出路径：D:\trae_projects\dang\changji_app.apk"
 ```
 ✓ Built build/app/outputs/flutter-apk/app-release.apk (XX.XMB)
 APK 构建完成！
-输出路径：D:\trae_projects\dang\changji_app.apk
+时间戳版本：D:\trae_projects\dang\changji_app_20260516_1430.apk
 ```
 
 ### ⚠️ APK 复制路径注意事项
@@ -299,7 +348,12 @@ APK 构建完成！
 **正确路径**（必须使用 WSL 内部命令复制）：
 ```powershell
 # ✅ 使用 WSL cp 命令（确保复制的是 WSL 内部新生成的文件）
-wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app.apk"
+# 生成带时间戳的文件名
+$timestamp = Get-Date -Format "yyyyMMdd_HHmm"
+$apkName = "changji_app_${timestamp}.apk"
+
+# 复制时间戳版本
+wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/${apkName}"
 ```
 
 **错误方式**（Windows 命令会复制旧文件）：
@@ -309,105 +363,61 @@ copy D:\trae_projects\dang\build\app\outputs\flutter-apk\app-release.apk D:\trae
 Copy-Item D:\trae_projects\dang\build\app\outputs\flutter-apk\app-release.apk D:\trae_projects\dang\changji_app.apk -Force
 ```
 
-**错误路径**（Windows 无法访问）：
-```bash
-# ❌ WSL 内部路径，Windows 无法直接访问
-/home/mayn/dang/changji_app.apk
-```
-
 **验证复制成功**（必须检查时间戳）：
 ```powershell
-# 检查文件修改时间和大小
-Get-Item D:\trae_projects\dang\changji_app.apk | Select-Object Name, LastWriteTime, Length
+# 检查时间戳版本
+Get-Item D:\trae_projects\dang\changji_app_*.apk | Select-Object Name, LastWriteTime, Length | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 # 预期：LastWriteTime 应该是当前时间，不是昨天或更早
 ```
 
 ---
 
-## � APK 复制防错指南（必读）
+## 🔧 构建异常处理
 
-### 问题现象
-多次出现"复制的 APK 不是最新版本"的问题：
-- 构建日志显示 `✓ Built build/app/outputs/flutter-apk/app-release.apk`
-- 但复制后的 `changji_app.apk` 时间戳仍是旧的（如昨天或更早）
-- 安装后代码没有更新
+### 构建失败时
 
-### 根本原因
+1. **查看错误日志**，找到关键错误信息
+2. **查阅 [BUILD_TROUBLESHOOTING.md](BUILD_TROUBLESHOOTING.md)** 案例集锦
+3. **按案例方案修复**
+4. **重新构建验证**
 
-Windows 和 WSL 是**两个独立的文件系统**：
+### 常见异常案例（详见案例集锦）
 
-```
-Windows 路径：D:\trae_projects\dang\build\app\outputs\flutter-apk\app-release.apk
-                    ↑ 这是 WSL 挂载到 Windows 的"视图"，有缓存延迟！
+| 案例编号 | 问题类型 | 关键错误信息 |
+|---------|---------|------------|
+| CASE-001 | APK 复制后不是最新 | 时间戳未更新 |
+| CASE-002 | NDK 版本不匹配 | `requires Android NDK X` |
+| CASE-003 | 资源文件缺失 | `error: resource xml/xxx not found` |
+| CASE-004 | FlutterLifecycleAdapter 找不到 | `cannot find symbol class FlutterLifecycleAdapter` |
+| CASE-005 | 类路径快照缺失 | `shrunk-classpath-snapshot.bin (No such file or directory)` |
 
-WSL 内部路径：/home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk
-                    ↑ 这是真正的构建产物，实时更新
-```
+### 发现新案例时
 
-**关键点**：
-- `flutter build` 在 WSL 内部执行，写入 `/home/mayn/dang/build/...`
-- Windows 看到的 `D:\trae_projects\dang\build\...` 是 WSL 的**挂载视图**
-- 这个视图有**缓存延迟**，Windows `copy` 命令读取的是缓存中的旧文件
-- 即使文件大小变了，内容可能还是旧的
-
-### 正确复制流程（强制遵循）
-
-```powershell
-# 第1步：构建 APK（在 WSL 内部执行）
-wsl -d dang bash -c "export PUB_HOSTED_URL=https://pub.flutter-io.cn && export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn && export PATH=/home/mayn/flutter/bin:/usr/bin:/bin:/usr/local/bin:\$PATH && cd /home/mayn/dang && flutter clean && flutter build apk --release"
-
-# 第2步：在 WSL 内部验证 APK 是最新的
-wsl -d dang bash -c "ls -la /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk"
-# 预期输出：时间应该是刚刚（如 May 13 15:17）
-
-# 第3步：使用 WSL cp 命令复制（从 WSL 内部路径到 Windows 路径）
-wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app.apk"
-# 注意：源路径是 WSL 内部路径 /home/mayn/...，目标路径是 /mnt/d/...（Windows D盘）
-
-# 第4步：在 Windows 验证复制成功
-Get-Item D:\trae_projects\dang\changji_app.apk | Select-Object Name, LastWriteTime, Length
-# 预期：LastWriteTime 应该是当前时间
-```
-
-### 一键构建+复制命令（推荐）
-
-```powershell
-wsl -d dang bash -c "export PUB_HOSTED_URL=https://pub.flutter-io.cn && export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn && export PATH=/home/mayn/flutter/bin:/usr/bin:/bin:/usr/local/bin:\$PATH && cd /home/mayn/dang && flutter clean && flutter build apk --release && echo 'Build time:' && ls -la build/app/outputs/flutter-apk/app-release.apk && cp build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app.apk && echo 'Copy done' && ls -la /mnt/d/trae_projects/dang/changji_app.apk"
-```
-
-### 防错检查清单
-
-复制 APK 前必须确认：
-- [ ] 构建命令在 WSL 内部执行（`wsl -d dang bash -c "..."`）
-- [ ] 构建日志显示 `✓ Built build/app/outputs/flutter-apk/app-release.apk`
-- [ ] 使用 `ls -la /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk` 验证 WSL 内部文件时间是最新的
-- [ ] 复制命令使用 WSL `cp`（源路径是 `/home/mayn/...`，不是 `D:\...`）
-- [ ] 复制后使用 `Get-Item` 验证 Windows 文件时间已更新
-- [ ] 如果 Windows 文件时间仍是旧的，**删除后重新复制**
-
-### 如果还是复制了旧版本
-
-```powershell
-# 强制删除旧文件
-Remove-Item D:\trae_projects\dang\changji_app.apk -Force
-
-# 重新从 WSL 复制
-wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app.apk"
-
-# 再次验证
-Get-Item D:\trae_projects\dang\changji_app.apk | Select-Object Name, LastWriteTime, Length
-```
+1. 按格式添加到 [BUILD_TROUBLESHOOTING.md](BUILD_TROUBLESHOOTING.md)
+2. 包含：问题现象、根本原因、解决方案、验证方法
+3. 更新案例索引表
 
 ---
 
 ## �📊 构建输出规范
 
-### APK 文件命名
+### APK 文件命名与路径
 
-| 文件 | 路径 | 用途 |
-|-----|------|-----|
-| `app-release.apk` | `build/app/outputs/flutter-apk/` | 原始构建产物 |
-| `changji_app.apk` | 项目根目录 | 工作副本，用于测试安装 |
+**标准输出路径**：`D:\trae_projects\dang`
+
+| 文件 | 完整路径 | 用途 |
+|-----|---------|------|
+| `app-release.apk` | `build/app/outputs/flutter-apk/` | 原始构建产物（WSL 内部） |
+| `changji_app_YYYYMMDD_HHMM.apk` | `D:\trae_projects\dang\` | 带时间戳的版本，用于交付和测试 |
+
+**时间戳格式**：`changji_app_20260516_1430.apk`
+- `20260516` - 年月日
+- `1430` - 时分
+
+**优势**：
+- 避免交付错误版本（通过时间戳区分）
+- 保留历史版本（可追溯）
+- 唯一文件名，防止覆盖
 
 ### 版本标识
 

@@ -53,6 +53,7 @@ class _RecordListState extends ConsumerState<RecordList> {
           },
           child: ListView.builder(
             controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             itemCount: records.length + 1,
             itemBuilder: (context, index) {

@@ -25,6 +25,7 @@ class TranscriptionProgress {
   final List<TranscriptionStep> steps;
   String? currentAction;
   String? error;
+  String? partialContent;
 
   TranscriptionProgress({
     this.totalChunks = 1,
@@ -32,6 +33,7 @@ class TranscriptionProgress {
     List<TranscriptionStep>? steps,
     this.currentAction,
     this.error,
+    this.partialContent,
   }) : steps = steps ?? [];
 
   double get progressPercent => totalChunks > 0 ? completedChunks / totalChunks : 0;
@@ -44,6 +46,7 @@ class TranscriptionProgress {
     List<TranscriptionStep>? steps,
     String? currentAction,
     String? error,
+    String? partialContent,
   }) {
     return TranscriptionProgress(
       totalChunks: totalChunks ?? this.totalChunks,
@@ -51,6 +54,7 @@ class TranscriptionProgress {
       steps: steps ?? this.steps,
       currentAction: currentAction ?? this.currentAction,
       error: error ?? this.error,
+      partialContent: partialContent ?? this.partialContent,
     );
   }
 }

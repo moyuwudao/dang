@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ToolOutputModel {
-  final String id;
+  final int id;
   final String toolId;
   final String title;
   final String content;
@@ -28,7 +28,7 @@ class ToolOutputModel {
   });
 
   ToolOutputModel copyWith({
-    String? id,
+    int? id,
     String? toolId,
     String? title,
     String? content,
@@ -73,7 +73,7 @@ class ToolOutputModel {
 
   factory ToolOutputModel.fromJson(Map<String, dynamic> json) {
     return ToolOutputModel(
-      id: json['id'] as String,
+      id: json['id'] as int,
       toolId: json['toolId'] as String,
       title: json['title'] as String,
       content: json['content'] as String,

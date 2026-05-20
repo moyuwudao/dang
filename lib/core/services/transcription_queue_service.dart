@@ -27,8 +27,32 @@ class TranscriptionQueueService {
   TranscriptionQueueService(this._transcriptionService, this._recordRepository, this._ref);
 
   void start() {
+    _resetStuckRecords();
     _listenForPendingRecords();
     _processNext();
+  }
+
+  /// 重置卡住的记录（上次异常退出遗留的 processing 状态）
+  Future<void> _resetStuckRecords() async {
+    try {
+      final records = await _recordRepository.getAllRecords();
+      final stuckRecords = records.where((r) =>
+        r.transcriptionStatus == TranscriptionStatus.processing
+      ).toList();
+
+      if (stuckRecords.isNotEmpty) {
+        debugPrint('Found ${stuckRecords.length} stuck records, resetting to pending');
+        for (final record in stuckRecords) {
+          await _recordRepository.updateTranscriptionStatus(
+            record.id,
+            TranscriptionStatus.pending,
+            null,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to reset stuck records: $e');
+    }
   }
 
   void stop() {
@@ -74,9 +98,30 @@ class TranscriptionQueueService {
       await _recordRepository.updateTranscriptionStatus(
         recordId,
         TranscriptionStatus.processing,
+        null,
       );
 
-      await _transcriptionService.transcribeRecord(recordId);
+      final record = await _recordRepository.getRecordById(recordId);
+      if (record == null) {
+        throw Exception('记录不存在');
+      }
+      if (record.audioPath == null || record.audioPath!.isEmpty) {
+        throw Exception('音频文件路径不存在');
+      }
+
+      final result = await _transcriptionService.transcribeAudio(
+        record.audioPath!,
+        onProgress: (step, detail) {
+          debugPrint('Queue progress [$step]: $detail');
+        },
+      );
+
+      await _recordRepository.updateRecordContent(recordId, result);
+      await _recordRepository.updateTranscriptionStatus(
+        recordId,
+        TranscriptionStatus.success,
+        null,
+      );
       
       debugPrint('Transcription completed: recordId=$recordId');
 
@@ -88,7 +133,7 @@ class TranscriptionQueueService {
       await _recordRepository.updateTranscriptionStatus(
         recordId,
         TranscriptionStatus.failed,
-        error: e.toString(),
+        e.toString(),
       );
     } finally {
       _isProcessing = false;

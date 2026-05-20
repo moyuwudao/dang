@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 enum RecordType {
   audio,
   ocr,
@@ -212,18 +214,22 @@ class ApiConfigModel {
   final int id;
   final String provider;
   final String apiKey;
+  final String? appId;
   final String? baseUrl;
   final String model;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? accessKeySecret;
 
   const ApiConfigModel({
     required this.id,
     required this.provider,
     required this.apiKey,
+    this.appId,
     this.baseUrl,
     this.model = 'whisper-1',
     required this.createdAt,
     required this.updatedAt,
+    this.accessKeySecret,
   });
 }

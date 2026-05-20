@@ -38,9 +38,9 @@ class QuickNoteNotifier extends StateNotifier<QuickNoteState> {
     }
     state = state.copyWith(isSaving: true, error: null);
     try {
-      await _repository.createRecord(
+      await _repository.createRecordFromFields(
         type: RecordType.text,
-        content: content.trim(),
+        content: content,
         tags: tags,
         transcriptionStatus: TranscriptionStatus.none,
       );

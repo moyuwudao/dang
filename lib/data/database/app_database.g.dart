@@ -97,6 +97,16 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('[]'));
+  static const VerificationMeta _isRealtimeMeta =
+      const VerificationMeta('isRealtime');
+  @override
+  late final GeneratedColumn<bool> isRealtime = GeneratedColumn<bool>(
+      'is_realtime', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_realtime" IN (0, 1))'),
+      defaultValue: const Constant(false));
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -111,7 +121,8 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
         transcriptionError,
         isFavorite,
         aiAnalysis,
-        supplements
+        supplements,
+        isRealtime
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -190,6 +201,12 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
           supplements.isAcceptableOrUnknown(
               data['supplements']!, _supplementsMeta));
     }
+    if (data.containsKey('is_realtime')) {
+      context.handle(
+          _isRealtimeMeta,
+          isRealtime.isAcceptableOrUnknown(
+              data['is_realtime']!, _isRealtimeMeta));
+    }
     return context;
   }
 
@@ -225,6 +242,8 @@ class $RecordsTable extends Records with TableInfo<$RecordsTable, Record> {
           .read(DriftSqlType.string, data['${effectivePrefix}ai_analysis']),
       supplements: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}supplements'])!,
+      isRealtime: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_realtime'])!,
     );
   }
 
@@ -248,6 +267,7 @@ class Record extends DataClass implements Insertable<Record> {
   final bool isFavorite;
   final String? aiAnalysis;
   final String supplements;
+  final bool isRealtime;
   const Record(
       {required this.id,
       required this.type,
@@ -261,7 +281,8 @@ class Record extends DataClass implements Insertable<Record> {
       this.transcriptionError,
       required this.isFavorite,
       this.aiAnalysis,
-      required this.supplements});
+      required this.supplements,
+      required this.isRealtime});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -288,6 +309,7 @@ class Record extends DataClass implements Insertable<Record> {
       map['ai_analysis'] = Variable<String>(aiAnalysis);
     }
     map['supplements'] = Variable<String>(supplements);
+    map['is_realtime'] = Variable<bool>(isRealtime);
     return map;
   }
 
@@ -316,6 +338,7 @@ class Record extends DataClass implements Insertable<Record> {
           ? const Value.absent()
           : Value(aiAnalysis),
       supplements: Value(supplements),
+      isRealtime: Value(isRealtime),
     );
   }
 
@@ -338,6 +361,7 @@ class Record extends DataClass implements Insertable<Record> {
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       aiAnalysis: serializer.fromJson<String?>(json['aiAnalysis']),
       supplements: serializer.fromJson<String>(json['supplements']),
+      isRealtime: serializer.fromJson<bool>(json['isRealtime']),
     );
   }
   @override
@@ -357,6 +381,7 @@ class Record extends DataClass implements Insertable<Record> {
       'isFavorite': serializer.toJson<bool>(isFavorite),
       'aiAnalysis': serializer.toJson<String?>(aiAnalysis),
       'supplements': serializer.toJson<String>(supplements),
+      'isRealtime': serializer.toJson<bool>(isRealtime),
     };
   }
 
@@ -373,7 +398,8 @@ class Record extends DataClass implements Insertable<Record> {
           Value<String?> transcriptionError = const Value.absent(),
           bool? isFavorite,
           Value<String?> aiAnalysis = const Value.absent(),
-          String? supplements}) =>
+          String? supplements,
+          bool? isRealtime}) =>
       Record(
         id: id ?? this.id,
         type: type ?? this.type,
@@ -390,6 +416,7 @@ class Record extends DataClass implements Insertable<Record> {
         isFavorite: isFavorite ?? this.isFavorite,
         aiAnalysis: aiAnalysis.present ? aiAnalysis.value : this.aiAnalysis,
         supplements: supplements ?? this.supplements,
+        isRealtime: isRealtime ?? this.isRealtime,
       );
   Record copyWithCompanion(RecordsCompanion data) {
     return Record(
@@ -413,6 +440,8 @@ class Record extends DataClass implements Insertable<Record> {
           data.aiAnalysis.present ? data.aiAnalysis.value : this.aiAnalysis,
       supplements:
           data.supplements.present ? data.supplements.value : this.supplements,
+      isRealtime:
+          data.isRealtime.present ? data.isRealtime.value : this.isRealtime,
     );
   }
 
@@ -431,7 +460,8 @@ class Record extends DataClass implements Insertable<Record> {
           ..write('transcriptionError: $transcriptionError, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('aiAnalysis: $aiAnalysis, ')
-          ..write('supplements: $supplements')
+          ..write('supplements: $supplements, ')
+          ..write('isRealtime: $isRealtime')
           ..write(')'))
         .toString();
   }
@@ -450,7 +480,8 @@ class Record extends DataClass implements Insertable<Record> {
       transcriptionError,
       isFavorite,
       aiAnalysis,
-      supplements);
+      supplements,
+      isRealtime);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -467,7 +498,8 @@ class Record extends DataClass implements Insertable<Record> {
           other.transcriptionError == this.transcriptionError &&
           other.isFavorite == this.isFavorite &&
           other.aiAnalysis == this.aiAnalysis &&
-          other.supplements == this.supplements);
+          other.supplements == this.supplements &&
+          other.isRealtime == this.isRealtime);
 }
 
 class RecordsCompanion extends UpdateCompanion<Record> {
@@ -484,6 +516,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
   final Value<bool> isFavorite;
   final Value<String?> aiAnalysis;
   final Value<String> supplements;
+  final Value<bool> isRealtime;
   const RecordsCompanion({
     this.id = const Value.absent(),
     this.type = const Value.absent(),
@@ -498,6 +531,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     this.isFavorite = const Value.absent(),
     this.aiAnalysis = const Value.absent(),
     this.supplements = const Value.absent(),
+    this.isRealtime = const Value.absent(),
   });
   RecordsCompanion.insert({
     this.id = const Value.absent(),
@@ -513,6 +547,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     this.isFavorite = const Value.absent(),
     this.aiAnalysis = const Value.absent(),
     this.supplements = const Value.absent(),
+    this.isRealtime = const Value.absent(),
   })  : type = Value(type),
         createdAt = Value(createdAt),
         updatedAt = Value(updatedAt);
@@ -530,6 +565,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     Expression<bool>? isFavorite,
     Expression<String>? aiAnalysis,
     Expression<String>? supplements,
+    Expression<bool>? isRealtime,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -546,6 +582,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (aiAnalysis != null) 'ai_analysis': aiAnalysis,
       if (supplements != null) 'supplements': supplements,
+      if (isRealtime != null) 'is_realtime': isRealtime,
     });
   }
 
@@ -562,7 +599,8 @@ class RecordsCompanion extends UpdateCompanion<Record> {
       Value<String?>? transcriptionError,
       Value<bool>? isFavorite,
       Value<String?>? aiAnalysis,
-      Value<String>? supplements}) {
+      Value<String>? supplements,
+      Value<bool>? isRealtime}) {
     return RecordsCompanion(
       id: id ?? this.id,
       type: type ?? this.type,
@@ -577,6 +615,7 @@ class RecordsCompanion extends UpdateCompanion<Record> {
       isFavorite: isFavorite ?? this.isFavorite,
       aiAnalysis: aiAnalysis ?? this.aiAnalysis,
       supplements: supplements ?? this.supplements,
+      isRealtime: isRealtime ?? this.isRealtime,
     );
   }
 
@@ -622,6 +661,9 @@ class RecordsCompanion extends UpdateCompanion<Record> {
     if (supplements.present) {
       map['supplements'] = Variable<String>(supplements.value);
     }
+    if (isRealtime.present) {
+      map['is_realtime'] = Variable<bool>(isRealtime.value);
+    }
     return map;
   }
 
@@ -640,7 +682,8 @@ class RecordsCompanion extends UpdateCompanion<Record> {
           ..write('transcriptionError: $transcriptionError, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('aiAnalysis: $aiAnalysis, ')
-          ..write('supplements: $supplements')
+          ..write('supplements: $supplements, ')
+          ..write('isRealtime: $isRealtime')
           ..write(')'))
         .toString();
   }
@@ -681,10 +724,8 @@ class $ApiConfigsTable extends ApiConfigs
   static const VerificationMeta _modelMeta = const VerificationMeta('model');
   @override
   late final GeneratedColumn<String> model = GeneratedColumn<String>(
-      'model', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: false,
-      defaultValue: const Constant('whisper-1'));
+      'model', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -763,7 +804,7 @@ class $ApiConfigsTable extends ApiConfigs
       baseUrl: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}base_url']),
       model: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}model'])!,
+          .read(DriftSqlType.string, data['${effectivePrefix}model']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -782,7 +823,7 @@ class ApiConfig extends DataClass implements Insertable<ApiConfig> {
   final String provider;
   final String apiKey;
   final String? baseUrl;
-  final String model;
+  final String? model;
   final DateTime createdAt;
   final DateTime updatedAt;
   const ApiConfig(
@@ -790,7 +831,7 @@ class ApiConfig extends DataClass implements Insertable<ApiConfig> {
       required this.provider,
       required this.apiKey,
       this.baseUrl,
-      required this.model,
+      this.model,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -802,7 +843,9 @@ class ApiConfig extends DataClass implements Insertable<ApiConfig> {
     if (!nullToAbsent || baseUrl != null) {
       map['base_url'] = Variable<String>(baseUrl);
     }
-    map['model'] = Variable<String>(model);
+    if (!nullToAbsent || model != null) {
+      map['model'] = Variable<String>(model);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -816,7 +859,8 @@ class ApiConfig extends DataClass implements Insertable<ApiConfig> {
       baseUrl: baseUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(baseUrl),
-      model: Value(model),
+      model:
+          model == null && nullToAbsent ? const Value.absent() : Value(model),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -830,7 +874,7 @@ class ApiConfig extends DataClass implements Insertable<ApiConfig> {
       provider: serializer.fromJson<String>(json['provider']),
       apiKey: serializer.fromJson<String>(json['apiKey']),
       baseUrl: serializer.fromJson<String?>(json['baseUrl']),
-      model: serializer.fromJson<String>(json['model']),
+      model: serializer.fromJson<String?>(json['model']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -843,7 +887,7 @@ class ApiConfig extends DataClass implements Insertable<ApiConfig> {
       'provider': serializer.toJson<String>(provider),
       'apiKey': serializer.toJson<String>(apiKey),
       'baseUrl': serializer.toJson<String?>(baseUrl),
-      'model': serializer.toJson<String>(model),
+      'model': serializer.toJson<String?>(model),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -854,7 +898,7 @@ class ApiConfig extends DataClass implements Insertable<ApiConfig> {
           String? provider,
           String? apiKey,
           Value<String?> baseUrl = const Value.absent(),
-          String? model,
+          Value<String?> model = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt}) =>
       ApiConfig(
@@ -862,7 +906,7 @@ class ApiConfig extends DataClass implements Insertable<ApiConfig> {
         provider: provider ?? this.provider,
         apiKey: apiKey ?? this.apiKey,
         baseUrl: baseUrl.present ? baseUrl.value : this.baseUrl,
-        model: model ?? this.model,
+        model: model.present ? model.value : this.model,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -913,7 +957,7 @@ class ApiConfigsCompanion extends UpdateCompanion<ApiConfig> {
   final Value<String> provider;
   final Value<String> apiKey;
   final Value<String?> baseUrl;
-  final Value<String> model;
+  final Value<String?> model;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const ApiConfigsCompanion({
@@ -962,7 +1006,7 @@ class ApiConfigsCompanion extends UpdateCompanion<ApiConfig> {
       Value<String>? provider,
       Value<String>? apiKey,
       Value<String?>? baseUrl,
-      Value<String>? model,
+      Value<String?>? model,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt}) {
     return ApiConfigsCompanion(
@@ -1026,9 +1070,13 @@ class $ToolOutputsTable extends ToolOutputs
   $ToolOutputsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
       'id', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
   static const VerificationMeta _toolIdMeta = const VerificationMeta('toolId');
   @override
   late final GeneratedColumn<String> toolId = GeneratedColumn<String>(
@@ -1045,25 +1093,6 @@ class $ToolOutputsTable extends ToolOutputs
   late final GeneratedColumn<String> content = GeneratedColumn<String>(
       'content', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _createdAtMeta =
-      const VerificationMeta('createdAt');
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-      'created_at', aliasedName, false,
-      type: DriftSqlType.dateTime, requiredDuringInsert: true);
-  static const VerificationMeta _updatedAtMeta =
-      const VerificationMeta('updatedAt');
-  @override
-  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
-      'updated_at', aliasedName, false,
-      type: DriftSqlType.dateTime, requiredDuringInsert: true);
-  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
-  @override
-  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
-      'tags', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: false,
-      defaultValue: const Constant('[]'));
   static const VerificationMeta _sourceRecordIdsMeta =
       const VerificationMeta('sourceRecordIds');
   @override
@@ -1078,14 +1107,13 @@ class $ToolOutputsTable extends ToolOutputs
   late final GeneratedColumn<String> templateId = GeneratedColumn<String>(
       'template_id', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _usageCountMeta =
-      const VerificationMeta('usageCount');
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
   @override
-  late final GeneratedColumn<int> usageCount = GeneratedColumn<int>(
-      'usage_count', aliasedName, false,
-      type: DriftSqlType.int,
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+      'tags', aliasedName, false,
+      type: DriftSqlType.string,
       requiredDuringInsert: false,
-      defaultValue: const Constant(0));
+      defaultValue: const Constant('[]'));
   static const VerificationMeta _isFavoriteMeta =
       const VerificationMeta('isFavorite');
   @override
@@ -1096,19 +1124,39 @@ class $ToolOutputsTable extends ToolOutputs
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_favorite" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _usageCountMeta =
+      const VerificationMeta('usageCount');
+  @override
+  late final GeneratedColumn<int> usageCount = GeneratedColumn<int>(
+      'usage_count', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
   @override
   List<GeneratedColumn> get $columns => [
         id,
         toolId,
         title,
         content,
-        createdAt,
-        updatedAt,
-        tags,
         sourceRecordIds,
         templateId,
+        tags,
+        isFavorite,
         usageCount,
-        isFavorite
+        createdAt,
+        updatedAt
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1122,8 +1170,6 @@ class $ToolOutputsTable extends ToolOutputs
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
     }
     if (data.containsKey('tool_id')) {
       context.handle(_toolIdMeta,
@@ -1143,22 +1189,6 @@ class $ToolOutputsTable extends ToolOutputs
     } else if (isInserting) {
       context.missing(_contentMeta);
     }
-    if (data.containsKey('created_at')) {
-      context.handle(_createdAtMeta,
-          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
-    } else if (isInserting) {
-      context.missing(_createdAtMeta);
-    }
-    if (data.containsKey('updated_at')) {
-      context.handle(_updatedAtMeta,
-          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
-    } else if (isInserting) {
-      context.missing(_updatedAtMeta);
-    }
-    if (data.containsKey('tags')) {
-      context.handle(
-          _tagsMeta, tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta));
-    }
     if (data.containsKey('source_record_ids')) {
       context.handle(
           _sourceRecordIdsMeta,
@@ -1171,11 +1201,9 @@ class $ToolOutputsTable extends ToolOutputs
           templateId.isAcceptableOrUnknown(
               data['template_id']!, _templateIdMeta));
     }
-    if (data.containsKey('usage_count')) {
+    if (data.containsKey('tags')) {
       context.handle(
-          _usageCountMeta,
-          usageCount.isAcceptableOrUnknown(
-              data['usage_count']!, _usageCountMeta));
+          _tagsMeta, tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta));
     }
     if (data.containsKey('is_favorite')) {
       context.handle(
@@ -1183,37 +1211,55 @@ class $ToolOutputsTable extends ToolOutputs
           isFavorite.isAcceptableOrUnknown(
               data['is_favorite']!, _isFavoriteMeta));
     }
+    if (data.containsKey('usage_count')) {
+      context.handle(
+          _usageCountMeta,
+          usageCount.isAcceptableOrUnknown(
+              data['usage_count']!, _usageCountMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => const {};
+  Set<GeneratedColumn> get $primaryKey => {id};
   @override
   ToolOutput map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return ToolOutput(
       id: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
       toolId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}tool_id'])!,
       title: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}title'])!,
       content: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}content'])!,
-      createdAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
-      updatedAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
-      tags: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}tags'])!,
       sourceRecordIds: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}source_record_ids'])!,
       templateId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}template_id']),
-      usageCount: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}usage_count'])!,
+      tags: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tags'])!,
       isFavorite: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_favorite'])!,
+      usageCount: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}usage_count'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
     );
   }
 
@@ -1224,45 +1270,45 @@ class $ToolOutputsTable extends ToolOutputs
 }
 
 class ToolOutput extends DataClass implements Insertable<ToolOutput> {
-  final String id;
+  final int id;
   final String toolId;
   final String title;
   final String content;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final String tags;
   final String sourceRecordIds;
   final String? templateId;
-  final int usageCount;
+  final String tags;
   final bool isFavorite;
+  final int usageCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
   const ToolOutput(
       {required this.id,
       required this.toolId,
       required this.title,
       required this.content,
-      required this.createdAt,
-      required this.updatedAt,
-      required this.tags,
       required this.sourceRecordIds,
       this.templateId,
+      required this.tags,
+      required this.isFavorite,
       required this.usageCount,
-      required this.isFavorite});
+      required this.createdAt,
+      required this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
+    map['id'] = Variable<int>(id);
     map['tool_id'] = Variable<String>(toolId);
     map['title'] = Variable<String>(title);
     map['content'] = Variable<String>(content);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    map['updated_at'] = Variable<DateTime>(updatedAt);
-    map['tags'] = Variable<String>(tags);
     map['source_record_ids'] = Variable<String>(sourceRecordIds);
     if (!nullToAbsent || templateId != null) {
       map['template_id'] = Variable<String>(templateId);
     }
-    map['usage_count'] = Variable<int>(usageCount);
+    map['tags'] = Variable<String>(tags);
     map['is_favorite'] = Variable<bool>(isFavorite);
+    map['usage_count'] = Variable<int>(usageCount);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
 
@@ -1272,15 +1318,15 @@ class ToolOutput extends DataClass implements Insertable<ToolOutput> {
       toolId: Value(toolId),
       title: Value(title),
       content: Value(content),
-      createdAt: Value(createdAt),
-      updatedAt: Value(updatedAt),
-      tags: Value(tags),
       sourceRecordIds: Value(sourceRecordIds),
       templateId: templateId == null && nullToAbsent
           ? const Value.absent()
           : Value(templateId),
-      usageCount: Value(usageCount),
+      tags: Value(tags),
       isFavorite: Value(isFavorite),
+      usageCount: Value(usageCount),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
     );
   }
 
@@ -1288,61 +1334,61 @@ class ToolOutput extends DataClass implements Insertable<ToolOutput> {
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return ToolOutput(
-      id: serializer.fromJson<String>(json['id']),
+      id: serializer.fromJson<int>(json['id']),
       toolId: serializer.fromJson<String>(json['toolId']),
       title: serializer.fromJson<String>(json['title']),
       content: serializer.fromJson<String>(json['content']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
-      tags: serializer.fromJson<String>(json['tags']),
       sourceRecordIds: serializer.fromJson<String>(json['sourceRecordIds']),
       templateId: serializer.fromJson<String?>(json['templateId']),
-      usageCount: serializer.fromJson<int>(json['usageCount']),
+      tags: serializer.fromJson<String>(json['tags']),
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
+      usageCount: serializer.fromJson<int>(json['usageCount']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
   @override
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
+      'id': serializer.toJson<int>(id),
       'toolId': serializer.toJson<String>(toolId),
       'title': serializer.toJson<String>(title),
       'content': serializer.toJson<String>(content),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-      'updatedAt': serializer.toJson<DateTime>(updatedAt),
-      'tags': serializer.toJson<String>(tags),
       'sourceRecordIds': serializer.toJson<String>(sourceRecordIds),
       'templateId': serializer.toJson<String?>(templateId),
-      'usageCount': serializer.toJson<int>(usageCount),
+      'tags': serializer.toJson<String>(tags),
       'isFavorite': serializer.toJson<bool>(isFavorite),
+      'usageCount': serializer.toJson<int>(usageCount),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
 
   ToolOutput copyWith(
-          {String? id,
+          {int? id,
           String? toolId,
           String? title,
           String? content,
-          DateTime? createdAt,
-          DateTime? updatedAt,
-          String? tags,
           String? sourceRecordIds,
           Value<String?> templateId = const Value.absent(),
+          String? tags,
+          bool? isFavorite,
           int? usageCount,
-          bool? isFavorite}) =>
+          DateTime? createdAt,
+          DateTime? updatedAt}) =>
       ToolOutput(
         id: id ?? this.id,
         toolId: toolId ?? this.toolId,
         title: title ?? this.title,
         content: content ?? this.content,
-        createdAt: createdAt ?? this.createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-        tags: tags ?? this.tags,
         sourceRecordIds: sourceRecordIds ?? this.sourceRecordIds,
         templateId: templateId.present ? templateId.value : this.templateId,
-        usageCount: usageCount ?? this.usageCount,
+        tags: tags ?? this.tags,
         isFavorite: isFavorite ?? this.isFavorite,
+        usageCount: usageCount ?? this.usageCount,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
       );
   ToolOutput copyWithCompanion(ToolOutputsCompanion data) {
     return ToolOutput(
@@ -1350,18 +1396,18 @@ class ToolOutput extends DataClass implements Insertable<ToolOutput> {
       toolId: data.toolId.present ? data.toolId.value : this.toolId,
       title: data.title.present ? data.title.value : this.title,
       content: data.content.present ? data.content.value : this.content,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
-      tags: data.tags.present ? data.tags.value : this.tags,
       sourceRecordIds: data.sourceRecordIds.present
           ? data.sourceRecordIds.value
           : this.sourceRecordIds,
       templateId:
           data.templateId.present ? data.templateId.value : this.templateId,
-      usageCount:
-          data.usageCount.present ? data.usageCount.value : this.usageCount,
+      tags: data.tags.present ? data.tags.value : this.tags,
       isFavorite:
           data.isFavorite.present ? data.isFavorite.value : this.isFavorite,
+      usageCount:
+          data.usageCount.present ? data.usageCount.value : this.usageCount,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -1372,20 +1418,20 @@ class ToolOutput extends DataClass implements Insertable<ToolOutput> {
           ..write('toolId: $toolId, ')
           ..write('title: $title, ')
           ..write('content: $content, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt, ')
-          ..write('tags: $tags, ')
           ..write('sourceRecordIds: $sourceRecordIds, ')
           ..write('templateId: $templateId, ')
+          ..write('tags: $tags, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('usageCount: $usageCount, ')
-          ..write('isFavorite: $isFavorite')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, toolId, title, content, createdAt,
-      updatedAt, tags, sourceRecordIds, templateId, usageCount, isFavorite);
+  int get hashCode => Object.hash(id, toolId, title, content, sourceRecordIds,
+      templateId, tags, isFavorite, usageCount, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1394,117 +1440,109 @@ class ToolOutput extends DataClass implements Insertable<ToolOutput> {
           other.toolId == this.toolId &&
           other.title == this.title &&
           other.content == this.content &&
-          other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt &&
-          other.tags == this.tags &&
           other.sourceRecordIds == this.sourceRecordIds &&
           other.templateId == this.templateId &&
+          other.tags == this.tags &&
+          other.isFavorite == this.isFavorite &&
           other.usageCount == this.usageCount &&
-          other.isFavorite == this.isFavorite);
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
 }
 
 class ToolOutputsCompanion extends UpdateCompanion<ToolOutput> {
-  final Value<String> id;
+  final Value<int> id;
   final Value<String> toolId;
   final Value<String> title;
   final Value<String> content;
-  final Value<DateTime> createdAt;
-  final Value<DateTime> updatedAt;
-  final Value<String> tags;
   final Value<String> sourceRecordIds;
   final Value<String?> templateId;
-  final Value<int> usageCount;
+  final Value<String> tags;
   final Value<bool> isFavorite;
-  final Value<int> rowid;
+  final Value<int> usageCount;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
   const ToolOutputsCompanion({
     this.id = const Value.absent(),
     this.toolId = const Value.absent(),
     this.title = const Value.absent(),
     this.content = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-    this.tags = const Value.absent(),
     this.sourceRecordIds = const Value.absent(),
     this.templateId = const Value.absent(),
-    this.usageCount = const Value.absent(),
+    this.tags = const Value.absent(),
     this.isFavorite = const Value.absent(),
-    this.rowid = const Value.absent(),
+    this.usageCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   });
   ToolOutputsCompanion.insert({
-    required String id,
+    this.id = const Value.absent(),
     required String toolId,
     required String title,
     required String content,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    this.tags = const Value.absent(),
     this.sourceRecordIds = const Value.absent(),
     this.templateId = const Value.absent(),
-    this.usageCount = const Value.absent(),
+    this.tags = const Value.absent(),
     this.isFavorite = const Value.absent(),
-    this.rowid = const Value.absent(),
-  })  : id = Value(id),
-        toolId = Value(toolId),
+    this.usageCount = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+  })  : toolId = Value(toolId),
         title = Value(title),
         content = Value(content),
         createdAt = Value(createdAt),
         updatedAt = Value(updatedAt);
   static Insertable<ToolOutput> custom({
-    Expression<String>? id,
+    Expression<int>? id,
     Expression<String>? toolId,
     Expression<String>? title,
     Expression<String>? content,
-    Expression<DateTime>? createdAt,
-    Expression<DateTime>? updatedAt,
-    Expression<String>? tags,
     Expression<String>? sourceRecordIds,
     Expression<String>? templateId,
-    Expression<int>? usageCount,
+    Expression<String>? tags,
     Expression<bool>? isFavorite,
-    Expression<int>? rowid,
+    Expression<int>? usageCount,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (toolId != null) 'tool_id': toolId,
       if (title != null) 'title': title,
       if (content != null) 'content': content,
-      if (createdAt != null) 'created_at': createdAt,
-      if (updatedAt != null) 'updated_at': updatedAt,
-      if (tags != null) 'tags': tags,
       if (sourceRecordIds != null) 'source_record_ids': sourceRecordIds,
       if (templateId != null) 'template_id': templateId,
-      if (usageCount != null) 'usage_count': usageCount,
+      if (tags != null) 'tags': tags,
       if (isFavorite != null) 'is_favorite': isFavorite,
-      if (rowid != null) 'rowid': rowid,
+      if (usageCount != null) 'usage_count': usageCount,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
 
   ToolOutputsCompanion copyWith(
-      {Value<String>? id,
+      {Value<int>? id,
       Value<String>? toolId,
       Value<String>? title,
       Value<String>? content,
-      Value<DateTime>? createdAt,
-      Value<DateTime>? updatedAt,
-      Value<String>? tags,
       Value<String>? sourceRecordIds,
       Value<String?>? templateId,
-      Value<int>? usageCount,
+      Value<String>? tags,
       Value<bool>? isFavorite,
-      Value<int>? rowid}) {
+      Value<int>? usageCount,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt}) {
     return ToolOutputsCompanion(
       id: id ?? this.id,
       toolId: toolId ?? this.toolId,
       title: title ?? this.title,
       content: content ?? this.content,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      tags: tags ?? this.tags,
       sourceRecordIds: sourceRecordIds ?? this.sourceRecordIds,
       templateId: templateId ?? this.templateId,
-      usageCount: usageCount ?? this.usageCount,
+      tags: tags ?? this.tags,
       isFavorite: isFavorite ?? this.isFavorite,
-      rowid: rowid ?? this.rowid,
+      usageCount: usageCount ?? this.usageCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -1512,7 +1550,7 @@ class ToolOutputsCompanion extends UpdateCompanion<ToolOutput> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     if (id.present) {
-      map['id'] = Variable<String>(id.value);
+      map['id'] = Variable<int>(id.value);
     }
     if (toolId.present) {
       map['tool_id'] = Variable<String>(toolId.value);
@@ -1523,29 +1561,26 @@ class ToolOutputsCompanion extends UpdateCompanion<ToolOutput> {
     if (content.present) {
       map['content'] = Variable<String>(content.value);
     }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (updatedAt.present) {
-      map['updated_at'] = Variable<DateTime>(updatedAt.value);
-    }
-    if (tags.present) {
-      map['tags'] = Variable<String>(tags.value);
-    }
     if (sourceRecordIds.present) {
       map['source_record_ids'] = Variable<String>(sourceRecordIds.value);
     }
     if (templateId.present) {
       map['template_id'] = Variable<String>(templateId.value);
     }
-    if (usageCount.present) {
-      map['usage_count'] = Variable<int>(usageCount.value);
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
     }
     if (isFavorite.present) {
       map['is_favorite'] = Variable<bool>(isFavorite.value);
     }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
+    if (usageCount.present) {
+      map['usage_count'] = Variable<int>(usageCount.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
     return map;
   }
@@ -1557,14 +1592,13 @@ class ToolOutputsCompanion extends UpdateCompanion<ToolOutput> {
           ..write('toolId: $toolId, ')
           ..write('title: $title, ')
           ..write('content: $content, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt, ')
-          ..write('tags: $tags, ')
           ..write('sourceRecordIds: $sourceRecordIds, ')
           ..write('templateId: $templateId, ')
-          ..write('usageCount: $usageCount, ')
+          ..write('tags: $tags, ')
           ..write('isFavorite: $isFavorite, ')
-          ..write('rowid: $rowid')
+          ..write('usageCount: $usageCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -1598,6 +1632,7 @@ typedef $$RecordsTableCreateCompanionBuilder = RecordsCompanion Function({
   Value<bool> isFavorite,
   Value<String?> aiAnalysis,
   Value<String> supplements,
+  Value<bool> isRealtime,
 });
 typedef $$RecordsTableUpdateCompanionBuilder = RecordsCompanion Function({
   Value<int> id,
@@ -1613,6 +1648,7 @@ typedef $$RecordsTableUpdateCompanionBuilder = RecordsCompanion Function({
   Value<bool> isFavorite,
   Value<String?> aiAnalysis,
   Value<String> supplements,
+  Value<bool> isRealtime,
 });
 
 class $$RecordsTableFilterComposer
@@ -1664,6 +1700,9 @@ class $$RecordsTableFilterComposer
 
   ColumnFilters<String> get supplements => $composableBuilder(
       column: $table.supplements, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isRealtime => $composableBuilder(
+      column: $table.isRealtime, builder: (column) => ColumnFilters(column));
 }
 
 class $$RecordsTableOrderingComposer
@@ -1715,6 +1754,9 @@ class $$RecordsTableOrderingComposer
 
   ColumnOrderings<String> get supplements => $composableBuilder(
       column: $table.supplements, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isRealtime => $composableBuilder(
+      column: $table.isRealtime, builder: (column) => ColumnOrderings(column));
 }
 
 class $$RecordsTableAnnotationComposer
@@ -1764,6 +1806,9 @@ class $$RecordsTableAnnotationComposer
 
   GeneratedColumn<String> get supplements => $composableBuilder(
       column: $table.supplements, builder: (column) => column);
+
+  GeneratedColumn<bool> get isRealtime => $composableBuilder(
+      column: $table.isRealtime, builder: (column) => column);
 }
 
 class $$RecordsTableTableManager extends RootTableManager<
@@ -1802,6 +1847,7 @@ class $$RecordsTableTableManager extends RootTableManager<
             Value<bool> isFavorite = const Value.absent(),
             Value<String?> aiAnalysis = const Value.absent(),
             Value<String> supplements = const Value.absent(),
+            Value<bool> isRealtime = const Value.absent(),
           }) =>
               RecordsCompanion(
             id: id,
@@ -1817,6 +1863,7 @@ class $$RecordsTableTableManager extends RootTableManager<
             isFavorite: isFavorite,
             aiAnalysis: aiAnalysis,
             supplements: supplements,
+            isRealtime: isRealtime,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -1832,6 +1879,7 @@ class $$RecordsTableTableManager extends RootTableManager<
             Value<bool> isFavorite = const Value.absent(),
             Value<String?> aiAnalysis = const Value.absent(),
             Value<String> supplements = const Value.absent(),
+            Value<bool> isRealtime = const Value.absent(),
           }) =>
               RecordsCompanion.insert(
             id: id,
@@ -1847,6 +1895,7 @@ class $$RecordsTableTableManager extends RootTableManager<
             isFavorite: isFavorite,
             aiAnalysis: aiAnalysis,
             supplements: supplements,
+            isRealtime: isRealtime,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -1872,7 +1921,7 @@ typedef $$ApiConfigsTableCreateCompanionBuilder = ApiConfigsCompanion Function({
   required String provider,
   required String apiKey,
   Value<String?> baseUrl,
-  Value<String> model,
+  Value<String?> model,
   required DateTime createdAt,
   required DateTime updatedAt,
 });
@@ -1881,7 +1930,7 @@ typedef $$ApiConfigsTableUpdateCompanionBuilder = ApiConfigsCompanion Function({
   Value<String> provider,
   Value<String> apiKey,
   Value<String?> baseUrl,
-  Value<String> model,
+  Value<String?> model,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
 });
@@ -2006,7 +2055,7 @@ class $$ApiConfigsTableTableManager extends RootTableManager<
             Value<String> provider = const Value.absent(),
             Value<String> apiKey = const Value.absent(),
             Value<String?> baseUrl = const Value.absent(),
-            Value<String> model = const Value.absent(),
+            Value<String?> model = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
           }) =>
@@ -2024,7 +2073,7 @@ class $$ApiConfigsTableTableManager extends RootTableManager<
             required String provider,
             required String apiKey,
             Value<String?> baseUrl = const Value.absent(),
-            Value<String> model = const Value.absent(),
+            Value<String?> model = const Value.absent(),
             required DateTime createdAt,
             required DateTime updatedAt,
           }) =>
@@ -2058,33 +2107,31 @@ typedef $$ApiConfigsTableProcessedTableManager = ProcessedTableManager<
     PrefetchHooks Function()>;
 typedef $$ToolOutputsTableCreateCompanionBuilder = ToolOutputsCompanion
     Function({
-  required String id,
+  Value<int> id,
   required String toolId,
   required String title,
   required String content,
-  required DateTime createdAt,
-  required DateTime updatedAt,
-  Value<String> tags,
   Value<String> sourceRecordIds,
   Value<String?> templateId,
-  Value<int> usageCount,
+  Value<String> tags,
   Value<bool> isFavorite,
-  Value<int> rowid,
+  Value<int> usageCount,
+  required DateTime createdAt,
+  required DateTime updatedAt,
 });
 typedef $$ToolOutputsTableUpdateCompanionBuilder = ToolOutputsCompanion
     Function({
-  Value<String> id,
+  Value<int> id,
   Value<String> toolId,
   Value<String> title,
   Value<String> content,
-  Value<DateTime> createdAt,
-  Value<DateTime> updatedAt,
-  Value<String> tags,
   Value<String> sourceRecordIds,
   Value<String?> templateId,
-  Value<int> usageCount,
+  Value<String> tags,
   Value<bool> isFavorite,
-  Value<int> rowid,
+  Value<int> usageCount,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
 });
 
 class $$ToolOutputsTableFilterComposer
@@ -2096,7 +2143,7 @@ class $$ToolOutputsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<String> get id => $composableBuilder(
+  ColumnFilters<int> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get toolId => $composableBuilder(
@@ -2108,15 +2155,6 @@ class $$ToolOutputsTableFilterComposer
   ColumnFilters<String> get content => $composableBuilder(
       column: $table.content, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-      column: $table.createdAt, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
-      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get tags => $composableBuilder(
-      column: $table.tags, builder: (column) => ColumnFilters(column));
-
   ColumnFilters<String> get sourceRecordIds => $composableBuilder(
       column: $table.sourceRecordIds,
       builder: (column) => ColumnFilters(column));
@@ -2124,11 +2162,20 @@ class $$ToolOutputsTableFilterComposer
   ColumnFilters<String> get templateId => $composableBuilder(
       column: $table.templateId, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<int> get usageCount => $composableBuilder(
-      column: $table.usageCount, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get tags => $composableBuilder(
+      column: $table.tags, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get isFavorite => $composableBuilder(
       column: $table.isFavorite, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get usageCount => $composableBuilder(
+      column: $table.usageCount, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
 }
 
 class $$ToolOutputsTableOrderingComposer
@@ -2140,7 +2187,7 @@ class $$ToolOutputsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<String> get id => $composableBuilder(
+  ColumnOrderings<int> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get toolId => $composableBuilder(
@@ -2152,15 +2199,6 @@ class $$ToolOutputsTableOrderingComposer
   ColumnOrderings<String> get content => $composableBuilder(
       column: $table.content, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
-      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get tags => $composableBuilder(
-      column: $table.tags, builder: (column) => ColumnOrderings(column));
-
   ColumnOrderings<String> get sourceRecordIds => $composableBuilder(
       column: $table.sourceRecordIds,
       builder: (column) => ColumnOrderings(column));
@@ -2168,11 +2206,20 @@ class $$ToolOutputsTableOrderingComposer
   ColumnOrderings<String> get templateId => $composableBuilder(
       column: $table.templateId, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<int> get usageCount => $composableBuilder(
-      column: $table.usageCount, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get tags => $composableBuilder(
+      column: $table.tags, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<bool> get isFavorite => $composableBuilder(
       column: $table.isFavorite, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get usageCount => $composableBuilder(
+      column: $table.usageCount, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
 }
 
 class $$ToolOutputsTableAnnotationComposer
@@ -2184,7 +2231,7 @@ class $$ToolOutputsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<String> get id =>
+  GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
   GeneratedColumn<String> get toolId =>
@@ -2196,26 +2243,26 @@ class $$ToolOutputsTableAnnotationComposer
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get updatedAt =>
-      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
-
-  GeneratedColumn<String> get tags =>
-      $composableBuilder(column: $table.tags, builder: (column) => column);
-
   GeneratedColumn<String> get sourceRecordIds => $composableBuilder(
       column: $table.sourceRecordIds, builder: (column) => column);
 
   GeneratedColumn<String> get templateId => $composableBuilder(
       column: $table.templateId, builder: (column) => column);
 
-  GeneratedColumn<int> get usageCount => $composableBuilder(
-      column: $table.usageCount, builder: (column) => column);
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
 
   GeneratedColumn<bool> get isFavorite => $composableBuilder(
       column: $table.isFavorite, builder: (column) => column);
+
+  GeneratedColumn<int> get usageCount => $composableBuilder(
+      column: $table.usageCount, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$ToolOutputsTableTableManager extends RootTableManager<
@@ -2241,60 +2288,56 @@ class $$ToolOutputsTableTableManager extends RootTableManager<
           createComputedFieldComposer: () =>
               $$ToolOutputsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
-            Value<String> id = const Value.absent(),
+            Value<int> id = const Value.absent(),
             Value<String> toolId = const Value.absent(),
             Value<String> title = const Value.absent(),
             Value<String> content = const Value.absent(),
-            Value<DateTime> createdAt = const Value.absent(),
-            Value<DateTime> updatedAt = const Value.absent(),
-            Value<String> tags = const Value.absent(),
             Value<String> sourceRecordIds = const Value.absent(),
             Value<String?> templateId = const Value.absent(),
-            Value<int> usageCount = const Value.absent(),
+            Value<String> tags = const Value.absent(),
             Value<bool> isFavorite = const Value.absent(),
-            Value<int> rowid = const Value.absent(),
+            Value<int> usageCount = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
           }) =>
               ToolOutputsCompanion(
             id: id,
             toolId: toolId,
             title: title,
             content: content,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-            tags: tags,
             sourceRecordIds: sourceRecordIds,
             templateId: templateId,
-            usageCount: usageCount,
+            tags: tags,
             isFavorite: isFavorite,
-            rowid: rowid,
+            usageCount: usageCount,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
           ),
           createCompanionCallback: ({
-            required String id,
+            Value<int> id = const Value.absent(),
             required String toolId,
             required String title,
             required String content,
-            required DateTime createdAt,
-            required DateTime updatedAt,
-            Value<String> tags = const Value.absent(),
             Value<String> sourceRecordIds = const Value.absent(),
             Value<String?> templateId = const Value.absent(),
-            Value<int> usageCount = const Value.absent(),
+            Value<String> tags = const Value.absent(),
             Value<bool> isFavorite = const Value.absent(),
-            Value<int> rowid = const Value.absent(),
+            Value<int> usageCount = const Value.absent(),
+            required DateTime createdAt,
+            required DateTime updatedAt,
           }) =>
               ToolOutputsCompanion.insert(
             id: id,
             toolId: toolId,
             title: title,
             content: content,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-            tags: tags,
             sourceRecordIds: sourceRecordIds,
             templateId: templateId,
-            usageCount: usageCount,
+            tags: tags,
             isFavorite: isFavorite,
-            rowid: rowid,
+            usageCount: usageCount,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

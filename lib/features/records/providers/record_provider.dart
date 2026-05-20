@@ -13,7 +13,11 @@ final favoriteRecordsProvider = StreamProvider<List<RecordModel>>((ref) {
 });
 
 final paginatedRecordsProvider = StateNotifierProvider<PaginatedRecordsNotifier, AsyncValue<List<RecordModel>>>((ref) {
-  return PaginatedRecordsNotifier(ref.watch(recordRepositoryProvider));
+  final notifier = PaginatedRecordsNotifier(ref.watch(recordRepositoryProvider));
+  ref.listen(recordsProvider, (_, __) {
+    notifier.reset();
+  });
+  return notifier;
 });
 
 class PaginatedRecordsNotifier extends StateNotifier<AsyncValue<List<RecordModel>>> {
@@ -97,7 +101,7 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> createAudioRecord(String audioPath) async {
     state = const AsyncValue.loading();
     try {
-      await _repository.createRecord(
+      await _repository.createRecordFromFields(
         type: RecordType.audio,
         audioPath: audioPath,
       );
@@ -110,7 +114,7 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> createOCRRecord(String imagePath, String content) async {
     state = const AsyncValue.loading();
     try {
-      await _repository.createRecord(
+      await _repository.createRecordFromFields(
         type: RecordType.ocr,
         imagePath: imagePath,
         content: content,
