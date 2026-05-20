@@ -1,0 +1,8 @@
+# Admin Deploy - Build Outputs
+admin/node_modules
+admin/.next
+admin/out/*.map
+admin/out/*.txt
+
+# Keep the actual build files
+!admin/out/
