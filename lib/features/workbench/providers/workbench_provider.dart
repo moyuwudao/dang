@@ -427,24 +427,24 @@ class WorkbenchNotifier extends StateNotifier<WorkbenchState> {
     }
   }
 
-  void toggleLayoutMode() {
+  Future<void> toggleLayoutMode() async {
     final newMode = state.layoutConfig.layoutMode == ToolLayoutMode.grid
         ? ToolLayoutMode.list
         : ToolLayoutMode.grid;
     state = state.copyWith(
       layoutConfig: state.layoutConfig.copyWith(layoutMode: newMode),
     );
-    _saveLayout();
+    await _saveLayout();
   }
 
-  void setLayoutMode(ToolLayoutMode mode) {
+  Future<void> setLayoutMode(ToolLayoutMode mode) async {
     state = state.copyWith(
       layoutConfig: state.layoutConfig.copyWith(layoutMode: mode),
     );
-    _saveLayout();
+    await _saveLayout();
   }
 
-  void reorderTools(int oldIndex, int newIndex) {
+  Future<void> reorderTools(int oldIndex, int newIndex) async {
     final tools = [...state.tools];
     if (oldIndex < newIndex) {
       newIndex -= 1;
@@ -457,29 +457,29 @@ class WorkbenchNotifier extends StateNotifier<WorkbenchState> {
       tools: tools,
       layoutConfig: state.layoutConfig.copyWith(toolOrder: order),
     );
-    _saveTools();
-    _saveLayout();
+    await _saveTools();
+    await _saveLayout();
   }
 
-  void toggleToolVisibility(String toolId) {
+  Future<void> toggleToolVisibility(String toolId) async {
     final visibility = {...state.layoutConfig.toolVisibility};
     visibility[toolId] = !(visibility[toolId] ?? true);
     state = state.copyWith(
       layoutConfig: state.layoutConfig.copyWith(toolVisibility: visibility),
     );
-    _saveLayout();
+    await _saveLayout();
   }
 
-  void toggleShowInHome(String toolId) {
+  Future<void> toggleShowInHome(String toolId) async {
     final showInHome = {...state.layoutConfig.showInHome};
     showInHome[toolId] = !(showInHome[toolId] ?? false);
     state = state.copyWith(
       layoutConfig: state.layoutConfig.copyWith(showInHome: showInHome),
     );
-    _saveLayout();
+    await _saveLayout();
   }
 
-  void openTool(String toolId) {
+  Future<void> openTool(String toolId) async {
     final recent = [...state.layoutConfig.recentToolIds];
     recent.remove(toolId);
     recent.insert(0, toolId);
@@ -489,15 +489,15 @@ class WorkbenchNotifier extends StateNotifier<WorkbenchState> {
     state = state.copyWith(
       layoutConfig: state.layoutConfig.copyWith(recentToolIds: recent),
     );
-    _saveLayout();
+    await _saveLayout();
   }
 
-  void resetToDefault() {
+  Future<void> resetToDefault() async {
     state = state.copyWith(
       tools: defaultTools,
       layoutConfig: const WorkbenchLayoutConfig(),
     );
-    _saveTools();
-    _saveLayout();
+    await _saveTools();
+    await _saveLayout();
   }
 }

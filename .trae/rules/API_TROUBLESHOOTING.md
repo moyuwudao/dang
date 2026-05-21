@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/api/**, lib/**/service/**
 description: API 异常案例集锦 - 收集所有 API 调用问题及解决方案
 ---
 

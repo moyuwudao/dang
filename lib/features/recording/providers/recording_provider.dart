@@ -69,11 +69,15 @@ class RecordingState {
     Duration? duration,
     List<double>? amplitudes,
     String? currentRecordingPath,
+    bool clearCurrentRecordingPath = false,
     String? error,
+    bool clearError = false,
     bool? isTranscribing,
     String? transcriptionProgress,
+    bool clearTranscriptionProgress = false,
     bool? isRealtimeEnabled,
     String? realtimeText,
+    bool clearRealtimeText = false,
     List<String>? realtimeSentences,
     bool? isRealtimeAvailable,
   }) {
@@ -82,12 +86,12 @@ class RecordingState {
       isPaused: isPaused ?? this.isPaused,
       duration: duration ?? this.duration,
       amplitudes: amplitudes ?? this.amplitudes,
-      currentRecordingPath: currentRecordingPath ?? this.currentRecordingPath,
-      error: error ?? this.error,
+      currentRecordingPath: clearCurrentRecordingPath ? null : (currentRecordingPath ?? this.currentRecordingPath),
+      error: clearError ? null : (error ?? this.error),
       isTranscribing: isTranscribing ?? this.isTranscribing,
-      transcriptionProgress: transcriptionProgress ?? this.transcriptionProgress,
+      transcriptionProgress: clearTranscriptionProgress ? null : (transcriptionProgress ?? this.transcriptionProgress),
       isRealtimeEnabled: isRealtimeEnabled ?? this.isRealtimeEnabled,
-      realtimeText: realtimeText ?? this.realtimeText,
+      realtimeText: clearRealtimeText ? null : (realtimeText ?? this.realtimeText),
       realtimeSentences: realtimeSentences ?? this.realtimeSentences,
       isRealtimeAvailable: isRealtimeAvailable ?? this.isRealtimeAvailable,
     );
@@ -145,18 +149,18 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
             accessKeySecret: realtimeConfig.accessKeySecret,
           );
           AppLogger().i('Realtime', 'HttpClient configured for realtime from multi config');
-          state = state.copyWith(isRealtimeAvailable: true, error: null);
+          state = state.copyWith(isRealtimeAvailable: true, clearError: true);
           AppLogger().i('Realtime', 'isRealtimeAvailable set to TRUE');
           return true;
         }
       }
-      
+
       // 检查单一配置
       AppLogger().i('Realtime', 'Now checking single config...');
       final singleConfig = await StorageService.getApiConfig();
       AppLogger().i('Realtime', 'Single config provider: ${singleConfig?.provider}');
       AppLogger().i('Realtime', 'Single config has API key: ${singleConfig?.apiKey.isNotEmpty}');
-      
+
       if (singleConfig != null && singleConfig.apiKey.isNotEmpty) {
         try {
           AppLogger().i('Realtime', 'Single config not null and has key');
@@ -165,10 +169,10 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
             orElse: () => AiProvider.openAI,
           );
           AppLogger().i('Realtime', 'Matched provider: ${provider.name}');
-          
+
           final providerConfig = AiModelConfig.getConfig(provider);
           AppLogger().i('Realtime', 'Provider supportsRealtimeTranscription: ${providerConfig.supportsRealtimeTranscription}');
-          
+
           if (providerConfig.supportsRealtimeTranscription) {
             // 配置 HttpClient 用于实时转写
             _httpClient.configure(
@@ -179,7 +183,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
               accessKeySecret: singleConfig.accessKeySecret,
             );
             AppLogger().i('Realtime', 'HttpClient configured for realtime from single config');
-            state = state.copyWith(isRealtimeAvailable: true, error: null);
+            state = state.copyWith(isRealtimeAvailable: true, clearError: true);
             AppLogger().i('Realtime', 'isRealtimeAvailable set to TRUE');
             return true;
           }
@@ -209,7 +213,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
     }
     state = state.copyWith(
       isRealtimeEnabled: enabled,
-      error: enabled ? null : state.error,
+      clearError: enabled,
     );
   }
 
@@ -237,19 +241,21 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
         duration: Duration.zero,
         amplitudes: const [],
         currentRecordingPath: path,
-        error: null,
+        clearError: true,
         isTranscribing: false,
-        transcriptionProgress: null,
-        realtimeText: null,
+        clearTranscriptionProgress: true,
+        clearRealtimeText: true,
         realtimeSentences: const [],
       );
 
-      // 监听振幅
+      // 监听振幅（先取消旧订阅，防止快速连续调用导致泄漏）
+      _amplitudeSubscription?.cancel();
       _amplitudeSubscription = _recordingService.amplitudeStream.listen((amplitudes) {
         state = state.copyWith(amplitudes: amplitudes);
       });
 
       // 监听时长
+      _durationSubscription?.cancel();
       _durationSubscription = _recordingService.durationStream.listen((duration) {
         state = state.copyWith(duration: duration);
       });
@@ -326,9 +332,9 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
 
   Future<void> stopRecording({List<String> tags = const []}) async {
     try {
-      _amplitudeSubscription?.cancel();
-      _durationSubscription?.cancel();
-      _realtimeSubscription?.cancel();
+      await _amplitudeSubscription?.cancel();
+      await _durationSubscription?.cancel();
+      await _realtimeSubscription?.cancel();
 
       final path = await _recordingService.stopRecording();
       
@@ -336,7 +342,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
         state = state.copyWith(
           isRecording: false,
           isPaused: false,
-          currentRecordingPath: null,
+          clearCurrentRecordingPath: true,
           isTranscribing: false,
           transcriptionProgress: '录音已保存',
         );
@@ -349,7 +355,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
           isRealtime: state.isRealtimeEnabled,
         );
 
-        debugPrint('Record saved with ID: $recordId, tags: $tags, isRealtime: ${state.isRealtimeEnabled}, added to transcription queue');
+        AppLogger().i('Recording', 'Record saved with ID: $recordId, added to transcription queue');
 
         // 如果开启了实时转写，保存实时转写结果到记录
         if (state.isRealtimeEnabled && state.realtimeText != null && state.realtimeText!.isNotEmpty) {
@@ -365,7 +371,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
           isTranscribing: false,
           transcriptionProgress: '等待转写中...',
           isRealtimeEnabled: false,
-          realtimeText: null,
+          clearRealtimeText: true,
           realtimeSentences: const [],
         );
       }

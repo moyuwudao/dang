@@ -44,7 +44,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _navigateByAction(String action) {
-    debugPrint('Widget launch action: $action');
     switch (action) {
       case 'start_recording':
         context.push('/recording');
@@ -66,7 +65,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _navigateByAction(action);
       }
     } catch (e) {
-      debugPrint('Failed to get widget launch action: $e');
+      // Widget launch action not available
     }
   }
 

@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive.dart';
-import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/database/app_database.dart';
 import '../../data/repositories/record_repository.dart';
+import 'app_logger.dart';
 
 enum BackupContentType {
   records,
@@ -193,7 +193,7 @@ class BackupService {
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     } catch (e) {
-      debugPrint('Failed to get backup list: $e');
+      AppLogger().e('Backup', 'Failed to get backup list: $e');
       return [];
     }
   }
@@ -293,9 +293,13 @@ class BackupService {
 
       final zipEncoder = ZipEncoder();
       final zipData = zipEncoder.encode(archive);
+      if (zipData == null) {
+        await tempDir.delete(recursive: true);
+        return BackupResult(success: false, error: '备份压缩失败');
+      }
 
       final zipFile = File('${backupDir.path}/$backupId.zip');
-      await zipFile.writeAsBytes(zipData!);
+      await zipFile.writeAsBytes(zipData);
 
       await tempDir.delete(recursive: true);
 
@@ -315,8 +319,7 @@ class BackupService {
 
       return BackupResult(success: true, backupInfo: backupInfo);
     } catch (e, stack) {
-      debugPrint('Failed to create backup: $e');
-      debugPrint('Stack: $stack');
+      AppLogger().e('Backup', 'Failed to create backup: $e');
       return BackupResult(success: false, error: e.toString());
     }
   }
@@ -385,7 +388,7 @@ class BackupService {
           jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
       final version = manifest['version'] as String?;
       if (version == null || version != _backupVersion) {
-        debugPrint('Warning: Backup version mismatch: $version vs $_backupVersion');
+        AppLogger().w('Backup', 'Version mismatch: $version vs $_backupVersion');
       }
 
       final manifestOptions = manifest['options'] as Map<String, dynamic>?;
@@ -472,8 +475,7 @@ class BackupService {
         restoredRecordCount: restoredCount,
       );
     } catch (e, stack) {
-      debugPrint('Failed to restore backup: $e');
-      debugPrint('Stack: $stack');
+      AppLogger().e('Backup', 'Failed to restore backup: $e');
       return RestoreResult(success: false, error: e.toString());
     }
   }
@@ -492,7 +494,7 @@ class BackupService {
 
       return true;
     } catch (e) {
-      debugPrint('Failed to delete backup: $e');
+      AppLogger().e('Backup', 'Failed to delete backup: $e');
       return false;
     }
   }
@@ -505,7 +507,7 @@ class BackupService {
 
       return zipFile.path;
     } catch (e) {
-      debugPrint('Failed to export backup: $e');
+      AppLogger().e('Backup', 'Failed to export backup: $e');
       return null;
     }
   }
@@ -581,8 +583,7 @@ class BackupService {
         error: '无效的备份文件',
       );
     } catch (e, stack) {
-      debugPrint('Failed to import backup: $e');
-      debugPrint('Stack: $stack');
+      AppLogger().e('Backup', 'Failed to import backup: $e');
       return RestoreResult(success: false, error: e.toString());
     }
   }

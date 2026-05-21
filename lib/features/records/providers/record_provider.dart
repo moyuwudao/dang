@@ -60,12 +60,12 @@ class PaginatedRecordsNotifier extends StateNotifier<AsyncValue<List<RecordModel
   bool get hasMore => _hasMore;
   bool get isLoading => _isLoading;
 
-  void reset() {
+  Future<void> reset() async {
     _currentPage = 0;
     _hasMore = true;
     _isLoading = false;
     state = const AsyncValue.data([]);
-    loadMore();
+    await loadMore();
   }
 }
 

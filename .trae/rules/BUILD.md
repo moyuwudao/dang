@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: android/**, ios/**, pubspec.yaml, build.gradle.kts
 description: 构建流程规范 - APK 构建、测试构建、清理缓存
 ---
 

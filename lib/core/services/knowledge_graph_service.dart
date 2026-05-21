@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import 'app_logger.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
 
@@ -73,7 +74,9 @@ class KnowledgeGraphService {
               .toList();
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger().e('KnowledgeGraph', '加载关键词数据失败: $e');
+    }
   }
 
   Future<void> _persistKeywords() async {
@@ -85,7 +88,9 @@ class KnowledgeGraphService {
             entry.value.map((k) => k.toJson()).toList();
       }
       await prefs.setString(_storageKey, jsonEncode(data));
-    } catch (_) {}
+    } catch (e) {
+      AppLogger().e('KnowledgeGraph', '持久化关键词数据失败: $e');
+    }
   }
 
   Future<List<Keyword>> extractKeywords(String content) async {
@@ -170,8 +175,8 @@ $content
           recordKeywords.map((k) => k.text.toLowerCase()).toSet();
 
       final shared = currentKeywordSet.intersection(recordKeywordSet).toList();
-      final similarity = shared.length /
-          (currentKeywordSet.length + recordKeywordSet.length - shared.length);
+      final unionSize = currentKeywordSet.length + recordKeywordSet.length - shared.length;
+      final similarity = unionSize == 0 ? 0.0 : shared.length / unionSize;
 
       if (similarity > 0 && shared.isNotEmpty) {
         related.add(RelatedRecord(

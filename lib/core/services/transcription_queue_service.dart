@@ -1,18 +1,22 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/record_model.dart';
 import '../../data/repositories/record_repository.dart';
 import '../services/transcription_service.dart';
+import 'app_logger.dart';
 import 'storage_service.dart';
 import 'role_service.dart';
 
 final transcriptionQueueProvider = Provider<TranscriptionQueueService>((ref) {
-  return TranscriptionQueueService(
+  final service = TranscriptionQueueService(
     ref.watch(transcriptionServiceProvider),
     ref.watch(recordRepositoryProvider),
     ref,
   );
+  ref.onDispose(() {
+    service.dispose();
+  });
+  return service;
 });
 
 class TranscriptionQueueService {
@@ -41,7 +45,7 @@ class TranscriptionQueueService {
       ).toList();
 
       if (stuckRecords.isNotEmpty) {
-        debugPrint('Found ${stuckRecords.length} stuck records, resetting to pending');
+        AppLogger().w('TranscriptionQueue', 'Found ${stuckRecords.length} stuck records, resetting to pending');
         for (final record in stuckRecords) {
           await _recordRepository.updateTranscriptionStatus(
             record.id,
@@ -51,13 +55,21 @@ class TranscriptionQueueService {
         }
       }
     } catch (e) {
-      debugPrint('Failed to reset stuck records: $e');
+      AppLogger().e('TranscriptionQueue', 'Failed to reset stuck records: $e');
     }
   }
 
   void stop() {
     _pendingRecordsSubscription?.cancel();
+    _pendingRecordsSubscription = null;
     _isProcessing = false;
+  }
+
+  void dispose() {
+    _pendingRecordsSubscription?.cancel();
+    _pendingRecordsSubscription = null;
+    _isProcessing = false;
+    _queue.clear();
   }
 
   void _listenForPendingRecords() {
@@ -93,7 +105,7 @@ class TranscriptionQueueService {
     final recordId = _queue.removeAt(0);
 
     try {
-      debugPrint('Processing transcription queue: recordId=$recordId');
+      AppLogger().i('TranscriptionQueue', 'Processing: recordId=$recordId');
       
       await _recordRepository.updateTranscriptionStatus(
         recordId,
@@ -112,7 +124,7 @@ class TranscriptionQueueService {
       final result = await _transcriptionService.transcribeAudio(
         record.audioPath!,
         onProgress: (step, detail) {
-          debugPrint('Queue progress [$step]: $detail');
+          AppLogger().d('TranscriptionQueue', 'Progress [$step]: $detail');
         },
       );
 
@@ -122,13 +134,13 @@ class TranscriptionQueueService {
         TranscriptionStatus.success,
         null,
       );
-      
-      debugPrint('Transcription completed: recordId=$recordId');
+
+      AppLogger().i('TranscriptionQueue', 'Transcription completed: recordId=$recordId');
 
       // 转写成功后，检查是否需要自动AI分析
       await _triggerAutoAnalysis(recordId);
     } catch (e) {
-      debugPrint('Transcription failed in queue: recordId=$recordId, error=$e');
+      AppLogger().e('TranscriptionQueue', 'Transcription failed: recordId=$recordId, error=$e');
       
       await _recordRepository.updateTranscriptionStatus(
         recordId,
@@ -145,21 +157,20 @@ class TranscriptionQueueService {
     try {
       final config = await StorageService.getAutoAnalysisConfig();
       if (!config.enabled || config.defaultRoleId.isEmpty) {
-        debugPrint('Auto analysis skipped: enabled=${config.enabled}, roleId=${config.defaultRoleId}');
         return;
       }
 
       final roles = await RoleService.getAllRoles();
+      if (roles.isEmpty) {
+        return;
+      }
       final role = roles.firstWhere(
         (r) => r.id == config.defaultRoleId,
         orElse: () => roles.first,
       );
 
-      debugPrint('Auto analyzing record $recordId with role ${role.name}');
-
       final record = await _recordRepository.getRecordById(recordId);
       if (record == null || (record.content ?? '').isEmpty) {
-        debugPrint('Auto analysis skipped: no content');
         return;
       }
 
@@ -194,9 +205,9 @@ class TranscriptionQueueService {
       );
 
       await _recordRepository.addAiAnalysis(recordId, analysisResult);
-      debugPrint('Auto analysis completed for record $recordId');
+      AppLogger().i('TranscriptionQueue', 'Auto analysis completed for record $recordId');
     } catch (e) {
-      debugPrint('Auto analysis failed for record $recordId: $e');
+      AppLogger().e('TranscriptionQueue', 'Auto analysis failed for record $recordId: $e');
     }
   }
 

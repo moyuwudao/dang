@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/api/**, test/**/api/**
 description: API 测试规范 - 本地测试优先原则，确保 API 集成前验证通过
 ---
 

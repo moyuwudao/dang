@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/ai_model_config.dart';
+import '../../../core/services/app_logger.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../providers/settings_provider.dart';
@@ -63,7 +64,7 @@ class _ApiKeyConfigScreenState extends ConsumerState<ApiKeyConfigScreen> {
         });
       }
     } catch (e) {
-      debugPrint('加载API配置失败: $e');
+      AppLogger().e('ApiKeyConfig', '加载API配置失败: $e');
       if (mounted) {
         setState(() {
           _selectedProvider = AiProvider.openAI;

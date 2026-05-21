@@ -169,6 +169,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
+    if (!RegExp(r'^1\d{10}$').hasMatch(_phoneController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入正确的11位手机号')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       await ref.read(authNotifierProvider.notifier).login(
@@ -181,7 +188,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('登录失败: $e')),
+          const SnackBar(content: Text('登录失败，请检查手机号和密码')),
         );
       }
     } finally {

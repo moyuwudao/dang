@@ -157,13 +157,14 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
           // 图片预览
           LayoutBuilder(
             builder: (context, constraints) {
+              final cacheWidth = (constraints.maxWidth * MediaQuery.of(context).devicePixelRatio).toInt().clamp(100, 1920);
               return ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.file(
                   _selectedImage!,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  cacheWidth: (constraints.maxWidth * 2).toInt(),
+                  cacheWidth: cacheWidth,
                 ),
               );
             },

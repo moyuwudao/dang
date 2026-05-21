@@ -44,7 +44,7 @@ class AppLogger {
   factory AppLogger() => _instance;
   AppLogger._internal();
 
-  static const int _maxEntries = 500;
+  static const int _maxEntries = 100;
   final List<LogEntry> _entries = [];
   final List<void Function(LogEntry)> _listeners = [];
 
@@ -62,7 +62,9 @@ class AppLogger {
     for (final listener in _listeners) {
       try {
         listener(entry);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('AppLogger: 监听器回调异常: $e');
+      }
     }
   }
 

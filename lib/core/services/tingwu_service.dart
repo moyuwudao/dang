@@ -40,7 +40,7 @@ class TingwuService {
         accessKeyId: accessKeyId,
         accessKeySecret: accessKeySecret,
       );
-      _log('Signer auto-initialized with AccessKeyId: ${accessKeyId.substring(0, accessKeyId.length > 8 ? 8 : accessKeyId.length)}...');
+      _log('Signer auto-initialized');
     } else {
       _signer = null;
       if (config != null) {
@@ -62,7 +62,7 @@ class TingwuService {
       accessKeyId: accessKeyId,
       accessKeySecret: accessKeySecret,
     );
-    _log('Credentials set for AccessKeyId: $accessKeyId');
+    _log('Credentials set for AccessKeyId: ${accessKeyId.substring(0, accessKeyId.length > 4 ? 4 : accessKeyId.length)}...');
   }
 
   /// 提交离线文件转写任务

@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
 
 class AudioChunkInfo {
   final int index;
@@ -66,7 +65,6 @@ class AudioProcessor {
 
     final riff = String.fromCharCodes(wavBytes.sublist(0, 4));
     if (riff != 'RIFF') {
-      debugPrint('Invalid WAV file: missing RIFF header');
       return [];
     }
 
@@ -123,8 +121,6 @@ class AudioProcessor {
           wavBytes, originalDataStart + offset);
 
       chunks.add(chunk);
-      debugPrint(
-          'Chunk ${chunkIndex + 1}: ${currentChunkSize ~/ byteRate}s, ${(chunk.length / 1024).toStringAsFixed(0)}KB');
 
       offset += currentChunkSize;
       chunkIndex++;
@@ -133,15 +129,12 @@ class AudioProcessor {
     if (chunks.isEmpty) {
       throw Exception('音频分片失败: 文件有效但分片后为空，可能是文件太小或格式异常');
     }
-    debugPrint('Split WAV into ${chunks.length} chunks');
     return chunks;
   }
 
   List<Uint8List> splitAudioByBytes(Uint8List audioBytes, String mimeType) {
     if (audioBytes.isEmpty) return [];
 
-    debugPrint(
-        'Non-WAV file detected ($mimeType), cannot split compressed audio');
     return [audioBytes];
   }
 

@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: android/**, ios/**, pubspec.yaml
 description: APK 构建异常案例集锦 - 收集所有构建问题及解决方案
 ---
 

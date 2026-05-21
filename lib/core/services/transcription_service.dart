@@ -545,7 +545,7 @@ class TranscriptionService {
     try {
       _log('Qwen ASR: about to call dio.post');
       final apiKey = _httpClient.apiKey;
-      _log('Qwen ASR: apiKey=${apiKey != null ? apiKey.substring(0, apiKey.length > 8 ? 8 : apiKey.length) : 'null'}...');
+      _log('Qwen ASR: apiKey configured=${apiKey != null && apiKey.isNotEmpty}');
 
       final dio = Dio(
         BaseOptions(
@@ -964,42 +964,48 @@ class TranscriptionService {
     int recordId, {
     void Function(String step, String detail)? onProgress,
   }) async {
-    final recordRepository = RecordRepository(AppDatabase());
-    final record = await recordRepository.getRecord(recordId);
-
-    if (record == null) {
-      throw Exception('记录不存在');
-    }
-
-    if (record.audioPath == null || record.audioPath!.isEmpty) {
-      throw Exception('音频文件路径不存在');
-    }
-
-    await recordRepository.updateTranscriptionStatus(
-      recordId,
-      TranscriptionStatus.processing,
-      null,
-    );
+    final db = AppDatabase();
+    final recordRepository = RecordRepository(db);
 
     try {
-      final result = await transcribeAudio(
-        record.audioPath!,
-        onProgress: onProgress,
-      );
+      final record = await recordRepository.getRecord(recordId);
 
-      await recordRepository.updateRecordContent(recordId, result);
+      if (record == null) {
+        throw Exception('记录不存在');
+      }
+
+      if (record.audioPath == null || record.audioPath!.isEmpty) {
+        throw Exception('音频文件路径不存在');
+      }
+
       await recordRepository.updateTranscriptionStatus(
         recordId,
-        TranscriptionStatus.success,
+        TranscriptionStatus.processing,
         null,
       );
-    } catch (e) {
-      await recordRepository.updateTranscriptionStatus(
-        recordId,
-        TranscriptionStatus.failed,
-        e.toString(),
-      );
-      rethrow;
+
+      try {
+        final result = await transcribeAudio(
+          record.audioPath!,
+          onProgress: onProgress,
+        );
+
+        await recordRepository.updateRecordContent(recordId, result);
+        await recordRepository.updateTranscriptionStatus(
+          recordId,
+          TranscriptionStatus.success,
+          null,
+        );
+      } catch (e) {
+        await recordRepository.updateTranscriptionStatus(
+          recordId,
+          TranscriptionStatus.failed,
+          e.toString(),
+        );
+        rethrow;
+      }
+    } finally {
+      await db.close();
     }
   }
 
@@ -1038,7 +1044,10 @@ class TranscriptionService {
         },
       );
 
-      result = response.data['choices'][0]['message']['content'];
+      result = (response.data['choices'] as List?)
+              ?.cast<Map<String, dynamic>>()
+              .firstOrNull?['message']?['content'] as String? ??
+          '';
       
       await StorageService.incrementUsageStat(
           config.name, 'text_analysis',
@@ -1140,18 +1149,24 @@ class TranscriptionService {
   }
 
   Future<void> retryAllFailed() async {
-    final recordRepository = RecordRepository(AppDatabase());
-    final records = await recordRepository.getAllRecords();
-    final failedRecords = records.where(
-      (r) => r.transcriptionStatus == TranscriptionStatus.failed
-    ).toList();
+    final db = AppDatabase();
+    final recordRepository = RecordRepository(db);
 
-    for (final record in failedRecords) {
-      try {
-        await transcribeRecord(record.id);
-      } catch (e) {
-        _logger.e('Transcription', 'Retry failed for record ${record.id}: $e');
+    try {
+      final records = await recordRepository.getAllRecords();
+      final failedRecords = records.where(
+        (r) => r.transcriptionStatus == TranscriptionStatus.failed
+      ).toList();
+
+      for (final record in failedRecords) {
+        try {
+          await transcribeRecord(record.id);
+        } catch (e) {
+          _logger.e('Transcription', 'Retry failed for record ${record.id}: $e');
+        }
       }
+    } finally {
+      await db.close();
     }
   }
 }

@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/*.dart
 description: 项目命名约定 - 代码文件、类、变量、函数的命名规范
 ---
 # NAMING_CONVENTIONS.md - 命名约定

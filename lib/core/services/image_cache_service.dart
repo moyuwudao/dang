@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'app_logger.dart';
 
 class ImageCacheService {
   static final ImageCacheService _instance = ImageCacheService._internal();
@@ -90,7 +90,7 @@ class ImageCacheService {
         }
       }
     } catch (e) {
-      debugPrint('Failed to clean cache: $e');
+      AppLogger().e('ImageCache', 'Failed to clean cache: $e');
     }
   }
 
@@ -106,7 +106,7 @@ class ImageCacheService {
         }
       }
     } catch (e) {
-      debugPrint('Failed to clear cache: $e');
+      AppLogger().e('ImageCache', 'Failed to clear cache: $e');
     }
   }
 
@@ -124,7 +124,7 @@ class ImageCacheService {
       
       return totalBytes;
     } catch (e) {
-      debugPrint('Failed to get cache size: $e');
+      AppLogger().e('ImageCache', 'Failed to get cache size: $e');
       return 0;
     }
   }

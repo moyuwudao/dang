@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webdav_client/webdav_client.dart' as webdav;
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
+import 'app_logger.dart';
 
 final webdavSyncServiceProvider = Provider((ref) => WebDAVSyncService(ref));
 
@@ -226,7 +227,10 @@ class WebDAVSyncService {
     try {
       await client.mkdirAll(_config!.remotePath);
     } catch (e) {
-      // Directory may already exist, ignore error
+      final msg = e.toString().toLowerCase();
+      if (!msg.contains('already exist') && !msg.contains('405') && !msg.contains('409')) {
+        AppLogger().e('WebDAV', '创建远程目录失败: $e');
+      }
     }
   }
 

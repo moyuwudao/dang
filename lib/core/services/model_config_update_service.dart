@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ai_model_config.dart';
+import 'app_logger.dart';
 
 class ModelConfigUpdateService extends ChangeNotifier {
   static const String _remoteConfigUrl = 'https://api.example.com/changji/model-config';
@@ -31,7 +32,7 @@ class ModelConfigUpdateService extends ChangeNotifier {
       try {
         _cachedConfigs = _parseConfigJson(cached);
       } catch (e) {
-        debugPrint('Failed to parse cached config: $e');
+        AppLogger().e('ModelConfig', 'Failed to parse cached config: $e');
         _cachedConfigs = AiModelConfig.allProviders;
       }
     }
@@ -70,7 +71,7 @@ class ModelConfigUpdateService extends ChangeNotifier {
         await _saveLastUpdateTime();
       }
     } catch (e) {
-      debugPrint('Failed to fetch remote config: $e');
+      AppLogger().e('ModelConfig', 'Failed to fetch remote config: $e');
     } finally {
       _isUpdating = false;
       notifyListeners();

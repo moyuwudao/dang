@@ -3,12 +3,12 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:web_socket_channel/io.dart';
 import '../models/ai_model_config.dart';
 import '../models/realtime_transcription_result.dart';
+import 'app_logger.dart';
 import 'http_client.dart';
 import 'transcription_service.dart';
 import 'realtime_transcription_service.dart';
@@ -131,7 +131,6 @@ class ApiService {
 
     final config = _httpClient.currentConfig!;
     final useModel = model ?? config.defaultModel;
-    debugPrint('CompleteChat: provider=${config.name}, model=$useModel');
 
     if (!config.supportsChat) {
       throw Exception('${config.displayName} 不支持对话');
@@ -203,7 +202,7 @@ class ApiService {
           tokens: result.length);
       return result;
     } catch (e) {
-      debugPrint('CompleteChat error: $e');
+      AppLogger().e('ApiService', 'CompleteChat error: $e');
       rethrow;
     }
   }

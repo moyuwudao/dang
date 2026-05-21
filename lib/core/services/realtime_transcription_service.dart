@@ -74,6 +74,8 @@ class RealtimeTranscriptionService {
     final sessionId = const Uuid().v4();
     final completer = Completer<void>();
     final controller = StreamController<RealtimeTranscriptionResult>();
+    StreamSubscription? wsSubscription;
+    StreamSubscription? audioSubscription;
 
     // 发送 session.update 事件
     final sessionUpdate = {
@@ -97,7 +99,7 @@ class RealtimeTranscriptionService {
     channel.sink.add(jsonEncode(sessionUpdate));
 
     // 监听 WebSocket 消息
-    channel.stream.listen(
+    wsSubscription = channel.stream.listen(
       (message) {
         try {
           final data = jsonDecode(message as String);
@@ -186,7 +188,7 @@ class RealtimeTranscriptionService {
     );
 
     // 发送音频数据
-    audioStream.listen(
+    audioSubscription = audioStream.listen(
       (chunk) {
         if (chunk.isNotEmpty) {
           // 发送音频数据
@@ -212,10 +214,15 @@ class RealtimeTranscriptionService {
       },
     );
 
-    yield* controller.stream;
-
-    await completer.future;
-    await controller.close();
+    try {
+      yield* controller.stream;
+      await completer.future;
+    } finally {
+      await audioSubscription?.cancel();
+      await wsSubscription?.cancel();
+      await channel.sink.close();
+      await controller.close();
+    }
   }
 
   String _getQwenRealtimeWsUrl() {
@@ -291,9 +298,10 @@ class RealtimeTranscriptionService {
       final controller = StreamController<RealtimeTranscriptionResult>();
       var isTaskStarted = false;
       StreamSubscription? audioSubscription;
+      StreamSubscription? wsSubscription;
 
       // 监听 WebSocket 消息
-      channel.stream.listen(
+      wsSubscription = channel.stream.listen(
         (message) {
           try {
             final data = jsonDecode(message as String);
@@ -314,7 +322,7 @@ class RealtimeTranscriptionService {
                 AppLogger().i('Realtime', 'Transcription started successfully');
                 isTaskStarted = true;
                 // 开始发送音频数据
-                _startAudioStream(audioStream, channel, taskId, controller, completer);
+                audioSubscription = _startAudioStream(audioStream, channel, taskId, controller, completer);
               } else if (eventName == 'TranscriptionCompleted') {
                 AppLogger().i('Realtime', 'Transcription completed');
                 onStatusChange?.call('complete', '转写完成');
@@ -374,9 +382,15 @@ class RealtimeTranscriptionService {
         },
       );
 
-      yield* controller.stream;
-      await completer.future;
-      await controller.close();
+      try {
+        yield* controller.stream;
+        await completer.future;
+      } finally {
+        await audioSubscription?.cancel();
+        await wsSubscription?.cancel();
+        await channel.sink.close();
+        await controller.close();
+      }
     } catch (e) {
       AppLogger().e('Realtime', 'Tingwu realtime error: $e');
       onStatusChange?.call('error', '通义听悟实时转写失败: $e');
@@ -384,7 +398,7 @@ class RealtimeTranscriptionService {
     }
   }
 
-  void _startAudioStream(
+  StreamSubscription _startAudioStream(
     Stream<List<int>> audioStream,
     IOWebSocketChannel channel,
     String taskId,
@@ -392,11 +406,11 @@ class RealtimeTranscriptionService {
     Completer<void> completer,
   ) {
     AppLogger().i('Realtime', 'Starting audio stream...');
-    
+
     // 注意：web_socket_channel 会自动处理 WebSocket ping-pong
     // 不需要手动发送心跳包
-    
-    audioStream.listen(
+
+    return audioStream.listen(
       (chunk) {
         if (chunk.isNotEmpty) {
           // 直接发送音频数据 - 使用二进制帧

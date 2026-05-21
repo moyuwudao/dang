@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'app_logger.dart';
 
 enum PermissionStatus {
   granted,
@@ -48,7 +48,7 @@ class PermissionService {
     try {
       await openAppSettings();
     } catch (e) {
-      debugPrint('Failed to open app settings: $e');
+      AppLogger().e('Permission', 'Failed to open app settings: $e');
     }
   }
 

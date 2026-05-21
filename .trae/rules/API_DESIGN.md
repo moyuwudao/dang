@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/api/**, lib/**/service/**, lib/**/repository/**
 description: API 调用规范总纲 - 定义 API 文档索引和设计原则
 ---
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/ai_model_config.dart';
 import '../../../core/models/api_config.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/app_logger.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../data/models/record_model.dart';
 
@@ -91,7 +92,7 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
       final isValid = await _apiService.validateApiKey();
       return isValid;
     } catch (e) {
-      debugPrint('API Key验证失败: $e');
+      AppLogger().e('Settings', 'API Key验证失败: $e');
       return false;
     }
   }
@@ -106,8 +107,6 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
   }) async {
     state = const AsyncValue.loading();
     try {
-      debugPrint('Saving API config: provider=$provider, model=$model, baseUrl=$baseUrl');
-      
       final config = ApiConfigModel(
         id: 1,
         provider: provider,
@@ -121,11 +120,10 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
       );
 
       await StorageService.saveApiConfig(config);
-      
+
       // Verify save
       final savedConfig = await StorageService.getApiConfig();
-      debugPrint('Saved config verified: provider=${savedConfig?.provider}, model=${savedConfig?.model}');
-      
+
       // 配置API服务
       final providerConfig = AiModelConfig.getConfigByName(provider);
       if (providerConfig != null) {
@@ -179,15 +177,15 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
           defaultConfigId: entryId,
         );
         await StorageService.saveMultiApiConfig(updatedMultiConfig);
-        debugPrint('Synced to MultiApiConfig: ${updatedConfigs.length} configs');
+        AppLogger().i('Settings', 'Synced to MultiApiConfig: ${updatedConfigs.length} configs');
       } catch (e) {
-        debugPrint('Failed to sync to MultiApiConfig: $e');
+        AppLogger().e('Settings', 'Failed to sync to MultiApiConfig: $e');
       }
 
       state = const AsyncValue.data(null);
       return true;
     } catch (e, stack) {
-      debugPrint('Save API config failed: $e');
+      AppLogger().e('Settings', 'Save API config failed: $e');
       state = AsyncValue.error(e, stack);
       return false;
     }

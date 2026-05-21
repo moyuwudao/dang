@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/asr/**, lib/**/transcription/**
 description: 阿里云通义千问 ASR API 详细调用规范 - 严禁随意修改
 ---
 

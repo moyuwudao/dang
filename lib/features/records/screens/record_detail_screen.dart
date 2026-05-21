@@ -64,6 +64,7 @@ class _RecordDetailView extends ConsumerStatefulWidget {
 }
 
 class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
+  static const int _maxDebugLogs = 200;
   bool _isRetrying = false;
   bool _isAnalyzing = false;
   AiRole? _selectedRole;
@@ -81,10 +82,16 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   void _setupLogListener() {
     final existingLogs = AppLogger().filterByTag('Transcription');
     _debugLogs.addAll(existingLogs);
+    if (_debugLogs.length > _maxDebugLogs) {
+      _debugLogs.removeRange(0, _debugLogs.length - _maxDebugLogs);
+    }
     _logListener = (entry) {
       if (entry.tag == 'Transcription') {
         setState(() {
           _debugLogs.add(entry);
+          if (_debugLogs.length > _maxDebugLogs) {
+            _debugLogs.removeAt(0);
+          }
         });
       }
     };
@@ -1457,12 +1464,15 @@ class _RelatedRecordsSectionState
   }
 
   Future<List<RecordModel>> _findRelatedRecords(WidgetRef ref) async {
+    const int maxRecords = 500;
     final repository = ref.read(recordRepositoryProvider);
     final hiddenIds = await StorageServiceHiddenRecords.getHiddenRelatedRecords(
         widget.record.id);
 
     final allRecords = await repository.getAllRecords();
+    // 限制处理数量，避免大量记录时内存和性能问题
     final candidateRecords = allRecords
+        .take(maxRecords)
         .where((r) => r.tags.any((tag) => widget.record.tags.contains(tag)))
         .toList();
 

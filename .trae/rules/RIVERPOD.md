@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/*.dart
 description: 状态管理规范 - Riverpod 的使用约定和最佳实践
 ---
 # RIVERPOD.md - 状态管理规范

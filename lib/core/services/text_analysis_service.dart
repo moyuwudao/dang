@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import '../models/ai_model_config.dart';
+import 'app_logger.dart';
 import 'http_client.dart';
 import 'storage_service.dart';
 
@@ -19,7 +19,6 @@ class TextAnalysisService {
 
     final config = _httpClient.currentConfig!;
     final useModel = model ?? config.defaultModel;
-    debugPrint('SummarizeText: provider=${config.name}, model=$useModel');
 
     if (!config.supportsChat) {
       throw Exception('${config.displayName} 不支持文本分析');
@@ -59,7 +58,7 @@ class TextAnalysisService {
           tokens: result.length);
       return result;
     } catch (e) {
-      debugPrint('SummarizeText error: $e');
+      AppLogger().e('TextAnalysis', 'SummarizeText error: $e');
       rethrow;
     }
   }
@@ -71,7 +70,6 @@ class TextAnalysisService {
 
     final config = _httpClient.currentConfig!;
     final useModel = model ?? config.defaultModel;
-    debugPrint('GenerateTitle: provider=${config.name}, model=$useModel');
 
     if (!config.supportsChat) {
       throw Exception('${config.displayName} 不支持文本分析');
@@ -111,7 +109,7 @@ class TextAnalysisService {
           tokens: result.length);
       return result;
     } catch (e) {
-      debugPrint('GenerateTitle error: $e');
+      AppLogger().e('TextAnalysis', 'GenerateTitle error: $e');
       rethrow;
     }
   }
@@ -123,7 +121,6 @@ class TextAnalysisService {
 
     final config = _httpClient.currentConfig!;
     final useModel = model ?? config.defaultModel;
-    debugPrint('ChatCompletion: provider=${config.name}, model=$useModel');
 
     if (!config.supportsChat) {
       throw Exception('${config.displayName} 不支持对话');
@@ -158,7 +155,7 @@ class TextAnalysisService {
           tokens: result.length);
       return result;
     } catch (e) {
-      debugPrint('ChatCompletion error: $e');
+      AppLogger().e('TextAnalysis', 'ChatCompletion error: $e');
       rethrow;
     }
   }
@@ -174,8 +171,6 @@ class TextAnalysisService {
 
     final config = _httpClient.currentConfig!;
     final useModel = model ?? config.defaultModel;
-    debugPrint(
-        'ChatCompletionWithSystem: provider=${config.name}, model=$useModel');
 
     if (!config.supportsChat) {
       throw Exception('${config.displayName} 不支持对话');
@@ -213,7 +208,7 @@ class TextAnalysisService {
           tokens: result.length);
       return result;
     } catch (e) {
-      debugPrint('ChatCompletionWithSystem error: $e');
+      AppLogger().e('TextAnalysis', 'ChatCompletionWithSystem error: $e');
       rethrow;
     }
   }

@@ -7,7 +7,11 @@ import type {
   LoginResponse,
   ApiResponse,
   DashboardStats,
-  ChartDataPoint
+  ChartDataPoint,
+  PaginatedResponse,
+  RechargeRecord,
+  SystemInfo,
+  ServiceStatus,
 } from '@/types';
 
 const API_URL = process.env.API_URL || 'http://101.133.238.249/api/v1';
@@ -53,7 +57,7 @@ export const authAPI = {
   },
   
   getProfile: async (): Promise<User> => {
-    const response = await axiosInstance.get<ApiResponse<User>>('/auth/profile');
+    const response = await axiosInstance.get<ApiResponse<User>>('/auth/me');
     return response.data.data;
   },
 };
@@ -115,25 +119,98 @@ export const apiKeyAPI = {
 };
 
 export const adminAPI = {
-  getUsers: async (): Promise<User[]> => {
-    const response = await axiosInstance.get<ApiResponse<User[]>>('/auth/users');
-    return response.data.data;
-  },
-  
   getStats: async (): Promise<DashboardStats> => {
     const response = await axiosInstance.get<ApiResponse<DashboardStats>>('/admin/stats');
     return response.data.data;
   },
   
-  getUserSubscriptions: async (): Promise<{ userId: string; phone: string; planId: string; planName: string; status: string; expiresAt: string | null; totalQuota: number; usedQuota: number; remainingQuota: number }[]> => {
-    const response = await axiosInstance.get<ApiResponse<{ userId: string; phone: string; planId: string; planName: string; status: string; expiresAt: string | null; totalQuota: number; usedQuota: number; remainingQuota: number }[]>>(
-      '/admin/subscriptions'
-    );
+  getUsers: async (page = 1, limit = 20, search?: string): Promise<PaginatedResponse<User>> => {
+    const response = await axiosInstance.get<ApiResponse<PaginatedResponse<User>>>('/admin/users', {
+      params: { page, limit, search },
+    });
     return response.data.data;
   },
   
-  getActivityLog: async (): Promise<ChartDataPoint[]> => {
-    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/activity');
+  updateUser: async (id: string, data: Partial<User>): Promise<User> => {
+    const response = await axiosInstance.put<ApiResponse<User>>(`/admin/users/${id}`, data);
+    return response.data.data;
+  },
+  
+  deleteUser: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`/admin/users/${id}`);
+  },
+  
+  getPlans: async (): Promise<Plan[]> => {
+    const response = await axiosInstance.get<ApiResponse<Plan[]>>('/admin/plans');
+    return response.data.data;
+  },
+  
+  createPlan: async (plan: Partial<Plan>): Promise<Plan> => {
+    const response = await axiosInstance.post<ApiResponse<Plan>>('/admin/plans', plan);
+    return response.data.data;
+  },
+  
+  updatePlan: async (id: string, data: Partial<Plan>): Promise<Plan> => {
+    const response = await axiosInstance.put<ApiResponse<Plan>>(`/admin/plans/${id}`, data);
+    return response.data.data;
+  },
+  
+  deletePlan: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`/admin/plans/${id}`);
+  },
+  
+  getSubscriptions: async (page = 1, limit = 20, status?: string): Promise<PaginatedResponse<Subscription>> => {
+    const response = await axiosInstance.get<ApiResponse<PaginatedResponse<Subscription>>>('/admin/subscriptions', {
+      params: { page, limit, status },
+    });
+    return response.data.data;
+  },
+  
+  updateSubscription: async (id: string, data: Partial<Subscription>): Promise<Subscription> => {
+    const response = await axiosInstance.put<ApiResponse<Subscription>>(`/admin/subscriptions/${id}`, data);
+    return response.data.data;
+  },
+  
+  getRechargeRecords: async (page = 1, limit = 20): Promise<PaginatedResponse<RechargeRecord>> => {
+    const response = await axiosInstance.get<ApiResponse<PaginatedResponse<RechargeRecord>>>('/admin/recharge-records', {
+      params: { page, limit },
+    });
+    return response.data.data;
+  },
+  
+  getUserGrowth: async (days = 7): Promise<ChartDataPoint[]> => {
+    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/user-growth', {
+      params: { days },
+    });
+    return response.data.data;
+  },
+  
+  getRevenueTrend: async (days = 7): Promise<ChartDataPoint[]> => {
+    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/revenue-trend', {
+      params: { days },
+    });
+    return response.data.data;
+  },
+};
+
+export const monitorAPI = {
+  getSystemInfo: async (): Promise<SystemInfo> => {
+    const response = await axiosInstance.get<ApiResponse<SystemInfo>>('/monitor/system');
+    return response.data.data;
+  },
+  
+  getServices: async (): Promise<ServiceStatus[]> => {
+    const response = await axiosInstance.get<ApiResponse<ServiceStatus[]>>('/monitor/services');
+    return response.data.data;
+  },
+  
+  getLogs: async (service: string, lines = 100): Promise<{ logs: string }> => {
+    const response = await axiosInstance.post<ApiResponse<{ logs: string }>>('/monitor/logs', { service, lines });
+    return response.data.data;
+  },
+  
+  executeCommand: async (command: string, timeout = 30): Promise<{ output: string }> => {
+    const response = await axiosInstance.post<ApiResponse<{ output: string }>>('/monitor/execute', { command, timeout });
     return response.data.data;
   },
 };

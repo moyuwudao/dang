@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'app_logger.dart';
 
 class ExceptionHandlerService {
   static final ExceptionHandlerService _instance = ExceptionHandlerService._internal();
@@ -58,17 +59,7 @@ class ExceptionHandlerService {
   }
 
   void _logError(ErrorReport report) {
-    debugPrint('=== ERROR REPORT ===');
-    debugPrint('Timestamp: ${report.timestamp}');
-    debugPrint('Error: ${report.error}');
-    if (report.context != null) {
-      debugPrint('Context: ${report.context}');
-    }
-    if (report.library != null) {
-      debugPrint('Library: ${report.library}');
-    }
-    debugPrint('Stack Trace:\n${report.stackTrace}');
-    debugPrint('====================');
+    AppLogger().e('ExceptionHandler', '${report.error}\nStack: ${report.stackTrace}');
   }
 
   void handleException(Object error, {StackTrace? stackTrace, String? context}) {

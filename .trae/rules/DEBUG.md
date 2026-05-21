@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/*.dart
 description: Flutter 开发调试规范 - 热重载、设备选择、日志查看等日常操作
 ---
 

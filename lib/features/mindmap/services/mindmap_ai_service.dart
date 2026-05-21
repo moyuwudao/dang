@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../core/services/app_logger.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/services/transcription_service.dart';
 import '../../../data/models/record_model.dart';
@@ -211,8 +211,7 @@ class MindMapAiService {
 
       return rootNodes;
     } catch (e) {
-      debugPrint('Failed to parse AI mind map result: $e');
-      debugPrint('Raw result: $result');
+      AppLogger().e('MindMap', 'Failed to parse AI mind map result: $e');
       return [];
     }
   }

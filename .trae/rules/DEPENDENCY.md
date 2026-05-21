@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: pubspec.yaml, pubspec.lock
 description: 依赖管理规范 - pub 添加/更新依赖的流程和注意事项
 ---
 

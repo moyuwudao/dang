@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/*.dart, pubspec.yaml
 description: 项目感知规则 - 如何快速理解项目结构、技术栈、现有约定
 ---
 # PROJECT_SENSE.md - 项目感知规则

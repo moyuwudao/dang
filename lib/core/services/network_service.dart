@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'app_logger.dart';
 
 enum NetworkStatus {
   connected,
@@ -26,7 +26,7 @@ class NetworkService extends ChangeNotifier {
       final result = await _connectivity.checkConnectivity();
       _updateStatus(result);
     } catch (e) {
-      debugPrint('Failed to check connectivity: $e');
+      AppLogger().e('Network', 'Failed to check connectivity: $e');
       _status = NetworkStatus.disconnected;
     }
     notifyListeners();
@@ -53,7 +53,7 @@ class NetworkService extends ChangeNotifier {
       final result = await _connectivity.checkConnectivity();
       return result != ConnectivityResult.none;
     } catch (e) {
-      debugPrint('Failed to check connection: $e');
+      AppLogger().e('Network', 'Failed to check connection: $e');
       return false;
     }
   }
@@ -100,5 +100,9 @@ class NetworkService extends ChangeNotifier {
 }
 
 final networkServiceProvider = Provider<NetworkService>((ref) {
-  return NetworkService();
+  final service = NetworkService();
+  ref.onDispose(() {
+    service.dispose();
+  });
+  return service;
 });

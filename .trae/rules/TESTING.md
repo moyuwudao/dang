@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: test/**/*.dart, lib/**/*.dart
 description: 测试规范 - 单元测试、集成测试的编写要求和约定
 ---
 # TESTING.md - 测试规范

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'app_logger.dart';
 
 class AudioPlayerService {
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -20,7 +21,7 @@ class AudioPlayerService {
       await _audioPlayer.setFilePath(filePath);
       _listenToPlayerState();
     } catch (e) {
-      debugPrint('初始化音频播放器失败: $e');
+      AppLogger().e('AudioPlayer', '初始化音频播放器失败: $e');
       throw Exception('无法加载音频文件');
     }
   }
@@ -29,7 +30,8 @@ class AudioPlayerService {
     try {
       await _audioPlayer.play();
     } catch (e) {
-      debugPrint('播放失败: $e');
+      AppLogger().e('AudioPlayer', '播放失败: $e');
+      rethrow;
     }
   }
 
@@ -37,7 +39,8 @@ class AudioPlayerService {
     try {
       await _audioPlayer.pause();
     } catch (e) {
-      debugPrint('暂停失败: $e');
+      AppLogger().e('AudioPlayer', '暂停失败: $e');
+      rethrow;
     }
   }
 
@@ -45,7 +48,8 @@ class AudioPlayerService {
     try {
       await _audioPlayer.seek(position);
     } catch (e) {
-      debugPrint('拖动进度失败: $e');
+      AppLogger().e('AudioPlayer', '拖动进度失败: $e');
+      rethrow;
     }
   }
 
@@ -53,7 +57,8 @@ class AudioPlayerService {
     try {
       await _audioPlayer.stop();
     } catch (e) {
-      debugPrint('停止失败: $e');
+      AppLogger().e('AudioPlayer', '停止失败: $e');
+      rethrow;
     }
   }
 

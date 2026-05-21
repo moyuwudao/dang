@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../core/services/app_logger.dart';
 import '../../../core/theme/app_colors.dart';
 
 class AudioPlayerWidget extends ConsumerStatefulWidget {
@@ -47,7 +48,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
             _errorMessage = '音频文件不存在: ${widget.audioPath}';
           });
         }
-        debugPrint('AudioPlayer: 文件不存在: ${widget.audioPath}');
+        AppLogger().e('AudioPlayer', '文件不存在: ${widget.audioPath}');
         return;
       }
 
@@ -60,7 +61,6 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
 
       final stat = await file.stat();
       _fileSize = stat.size;
-      debugPrint('AudioPlayer: 文件存在，大小: $stat.size bytes');
 
       if (stat.size < 44) {
         if (mounted) {
@@ -69,13 +69,10 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
             _errorMessage = '音频文件无效(太小: ${stat.size} bytes)';
           });
         }
-        debugPrint('AudioPlayer: 文件太小，不是有效的WAV文件');
         return;
       }
 
-      debugPrint('AudioPlayer: 开始设置音频源...');
       final duration = await _audioPlayer.setFilePath(widget.audioPath);
-      debugPrint('AudioPlayer: 音频源设置成功，时长: $duration');
 
       _durationSub = _audioPlayer.durationStream.listen(
         (duration) {
@@ -86,20 +83,20 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
           }
         },
         onError: (e) {
-          debugPrint('AudioPlayer durationStream error: $e');
+          AppLogger().e('AudioPlayer', 'durationStream error: $e');
         },
       );
 
       _positionSub = _audioPlayer.positionStream.listen(
         (position) {
-          if (mounted && !_isDragging) {
+          if (mounted && !_isDragging && position.inSeconds != _position.inSeconds) {
             setState(() {
               _position = position;
             });
           }
         },
         onError: (e) {
-          debugPrint('AudioPlayer positionStream error: $e');
+          AppLogger().e('AudioPlayer', 'positionStream error: $e');
         },
       );
 
@@ -116,7 +113,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
           }
         },
         onError: (e) {
-          debugPrint('AudioPlayer playerStateStream error: $e');
+          AppLogger().e('AudioPlayer', 'playerStateStream error: $e');
         },
       );
 
@@ -125,10 +122,8 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
           _isLoading = false;
         });
       }
-      debugPrint('AudioPlayer: 初始化完成');
     } catch (e, stackTrace) {
-      debugPrint('AudioPlayer 初始化失败: $e');
-      debugPrint('StackTrace: $stackTrace');
+      AppLogger().e('AudioPlayer', '初始化失败: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;

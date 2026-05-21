@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ai_model_config.dart';
 import '../models/api_config.dart';
 import '../../data/models/record_model.dart';
+import 'app_logger.dart';
 
 class StorageService {
   static const String _apiConfigKey = 'api_config';
@@ -50,13 +51,9 @@ class StorageService {
         'accessKeySecret': config.accessKeySecret,
       });
 
-      debugPrint(
-          'Saving API config: provider=${config.provider}, model=${config.model}');
       await prefs.setString(_apiConfigKey, configJson);
-      debugPrint('API config saved successfully');
     } catch (e, stack) {
-      debugPrint('Failed to save API config: $e');
-      debugPrint('Stack: $stack');
+      AppLogger().e('Storage', 'Failed to save API config: $e');
       rethrow;
     }
   }
@@ -66,7 +63,6 @@ class StorageService {
       final prefs = await _prefs;
       final configJson = prefs.getString(_apiConfigKey);
       if (configJson == null) {
-        debugPrint('No API config found');
         return null;
       }
 
@@ -86,7 +82,7 @@ class StorageService {
         accessKeySecret: configMap['accessKeySecret'],
       );
     } catch (e) {
-      debugPrint('Failed to get API config: $e');
+      AppLogger().e('Storage', 'Failed to get API config: $e');
       return null;
     }
   }
@@ -101,10 +97,8 @@ class StorageService {
     try {
       final prefs = await _prefs;
       await prefs.setString(_multiApiConfigKey, jsonEncode(config.toJson()));
-      debugPrint('Multi-API config saved: ${config.configs.length} configs');
     } catch (e, stack) {
-      debugPrint('Failed to save multi-API config: $e');
-      debugPrint('Stack: $stack');
+      AppLogger().e('Storage', 'Failed to save multi-API config: $e');
       rethrow;
     }
   }
@@ -160,7 +154,7 @@ class StorageService {
       }
       return MultiApiConfig.fromJson(jsonDecode(configJson));
     } catch (e) {
-      debugPrint('Failed to get multi-API config: $e');
+      AppLogger().e('Storage', 'Failed to get multi-API config: $e');
       return const MultiApiConfig();
     }
   }
@@ -186,7 +180,7 @@ class StorageService {
       });
       await prefs.setString(_transcriptionConfigKey, configJson);
     } catch (e) {
-      debugPrint('Failed to save transcription config: $e');
+      AppLogger().e('Storage', 'Failed to save transcription config: $e');
       rethrow;
     }
   }
@@ -212,7 +206,7 @@ class StorageService {
         accessKeySecret: configMap['accessKeySecret'],
       );
     } catch (e) {
-      debugPrint('Failed to get transcription config: $e');
+      AppLogger().e('Storage', 'Failed to get transcription config: $e');
       return null;
     }
   }
@@ -297,7 +291,7 @@ class StorageService {
         try {
           stats = jsonDecode(statsJson) as Map<String, dynamic>;
         } catch (e) {
-          debugPrint('解析用量统计失败: $e');
+          AppLogger().e('Storage', '解析用量统计失败: $e');
         }
       }
 
@@ -326,7 +320,7 @@ class StorageService {
 
       await prefs.setString(_usageStatsKey, jsonEncode(stats));
     } catch (e) {
-      debugPrint('保存用量统计失败: $e');
+      AppLogger().e('Storage', '保存用量统计失败: $e');
     }
   }
 
@@ -339,7 +333,7 @@ class StorageService {
     try {
       return jsonDecode(statsJson) as Map<String, dynamic>;
     } catch (e) {
-      debugPrint('解析用量统计失败: $e');
+      AppLogger().e('Storage', '解析用量统计失败: $e');
       return {};
     }
   }

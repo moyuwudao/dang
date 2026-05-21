@@ -186,7 +186,10 @@ class RecordModel {
   factory RecordModel.fromJson(Map<String, dynamic> json) {
     return RecordModel(
       id: json['id'] as int,
-      type: RecordType.values.firstWhere((e) => e.name == json['type']),
+      type: RecordType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => RecordType.audio,
+      ),
       content: json['content'] as String?,
       audioPath: json['audioPath'] as String?,
       imagePath: json['imagePath'] as String?,

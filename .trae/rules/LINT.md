@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/*.dart, analysis_options.yaml
 description: Lint 检查规范 - 代码分析和检查的要求
 ---
 # LINT.md - Lint 检查规范

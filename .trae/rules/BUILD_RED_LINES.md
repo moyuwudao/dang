@@ -18,12 +18,12 @@ description: 构建红线规则 - 构建前必须遵守的强制要求
 
 | 检查项 | 说明 | 验证方式 |
 |-------|------|---------|
-| 1. 阅读 BUILD.md | 非 alwaysApply 规则，必须主动读取 | 确认已了解构建流程 |
-| 2. 同步代码到 WSL | Windows 和 WSL 文件系统不自动同步 | 执行 rsync 命令 |
-| 3. WSL 环境构建 | 必须在 WSL `dang` 实例中构建 | 使用 wsl -d dang 命令 |
-| 4. WSL cp 复制 | 必须使用 WSL cp 命令复制 APK | 禁止使用 Windows copy |
-| 5. 时间戳命名 | 必须生成 changji_app_YYYYMMDD_HHMM.apk | 验证文件名 |
-| 6. 验证 APK | 必须检查文件修改时间 | Get-Item 验证 |
+| 1. 阅读 BUILD.md | 非 alwaysApply 规则，必须主动读取 | 读取后复述关键步骤：rsync → flutter clean → build → cp → 验证 |
+| 2. 同步代码到 WSL | Windows 和 WSL 文件系统不自动同步 | 执行 `rsync -av --delete /mnt/d/trae_projects/dang/lib/ /home/mayn/dang/lib/`，确认输出含 `sent` 和 `total size` |
+| 3. WSL 环境构建 | 必须在 WSL `dang` 实例中构建 | 执行 `wsl -d dang bash -c "flutter clean && flutter build apk --release"`，确认输出含 `✓ Built build/app/outputs/flutter-apk/app-release.apk` |
+| 4. WSL cp 复制 | 必须使用 WSL cp 命令复制 APK | 执行 `wsl -d dang bash -c "cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/changji_app_$(date +%Y%m%d_%H%M).apk"`，禁止使用 `Copy-Item` 或 `copy` |
+| 5. 时间戳命名 | 必须生成 `changji_app_YYYYMMDD_HHMM.apk` | 执行 `Get-Item D:\trae_projects\dang\changji_app_*.apk | Select-Object Name`，确认文件名匹配 `changji_app_\d{8}_\d{4}\.apk` |
+| 6. 验证 APK | 必须检查文件修改时间 | 执行 `Get-Item D:\trae_projects\dang\changji_app_*.apk | Select-Object Name, LastWriteTime`，确认 LastWriteTime 为当前时间 ±5 分钟 |
 
 ---
 

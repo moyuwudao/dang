@@ -18,7 +18,7 @@ class NotificationService {
     required int progress,
     required int total,
   }) async {
-    debugPrint('转写进度: $title ($progress/$total)');
+    // Notification handled by system
   }
 
   Future<void> showTranscriptionComplete({
@@ -26,11 +26,11 @@ class NotificationService {
     required String title,
     bool success = true,
   }) async {
-    debugPrint('转写完成: $title - ${success ? "成功" : "失败"}');
+    // Notification handled by system
   }
 
   Future<void> showRecordingNotification() async {
-    debugPrint('正在录音...');
+    // Notification handled by system
   }
 
   Future<void> cancelNotification(int id) async {}

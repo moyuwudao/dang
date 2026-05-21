@@ -3,6 +3,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import 'app_logger.dart';
 
 final promptTemplateServiceProvider =
     Provider((ref) => PromptTemplateService(ref));
@@ -115,7 +116,9 @@ class PromptTemplateService {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger().e('PromptTemplate', '加载自定义模板失败: $e');
+    }
   }
 
   Future<void> _saveCustomTemplates() async {
@@ -124,7 +127,9 @@ class PromptTemplateService {
       final customTemplates = _templates.where((t) => !t.isBuiltIn).toList();
       final jsonList = customTemplates.map((t) => t.toJson()).toList();
       await prefs.setString(_storageKey, jsonEncode(jsonList));
-    } catch (_) {}
+    } catch (e) {
+      AppLogger().e('PromptTemplate', '保存自定义模板失败: $e');
+    }
   }
 
   Future<void> _loadUseCounts() async {
@@ -140,7 +145,9 @@ class PromptTemplateService {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger().e('PromptTemplate', '加载使用次数失败: $e');
+    }
   }
 
   Future<void> _saveUseCounts() async {
@@ -153,7 +160,9 @@ class PromptTemplateService {
         }
       }
       await prefs.setString(_useCountKey, jsonEncode(counts));
-    } catch (_) {}
+    } catch (e) {
+      AppLogger().e('PromptTemplate', '保存使用次数失败: $e');
+    }
   }
 
   Future<void> incrementUseCount(String templateId) async {
@@ -192,26 +201,26 @@ class PromptTemplateService {
     return _templates.firstWhereOrNull((t) => t.id == id);
   }
 
-  void addTemplate(PromptTemplate template) {
+  Future<void> addTemplate(PromptTemplate template) async {
     final existing = _templates.indexWhere((t) => t.id == template.id);
     if (existing >= 0) {
       _templates[existing] = template;
     } else {
       _templates.add(template);
     }
-    _saveCustomTemplates();
+    await _saveCustomTemplates();
   }
 
-  void deleteTemplate(String id) {
+  Future<void> deleteTemplate(String id) async {
     _templates.removeWhere((t) => t.id == id && !t.isBuiltIn);
-    _saveCustomTemplates();
+    await _saveCustomTemplates();
   }
 
-  void updateTemplate(PromptTemplate template) {
+  Future<void> updateTemplate(PromptTemplate template) async {
     final existing = _templates.indexWhere((t) => t.id == template.id);
     if (existing >= 0) {
       _templates[existing] = template;
-      _saveCustomTemplates();
+      await _saveCustomTemplates();
     }
   }
 

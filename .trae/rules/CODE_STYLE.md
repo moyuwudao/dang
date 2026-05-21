@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/*.dart
 description: 代码风格规范 - Dart/Flutter 代码的编写风格和格式
 ---
 # CODE_STYLE.md - 代码风格规范

@@ -16,13 +16,14 @@ class RecordingScreen extends ConsumerStatefulWidget {
 
 class _RecordingScreenState extends ConsumerState<RecordingScreen> {
   final List<String> _tags = [];
+  final NotificationService _notificationService = NotificationService();
 
   @override
   void initState() {
     super.initState();
     AppLogger().i('Realtime', '========== RECORDING SCREEN INIT ==========');
     AppLogger().i('Realtime', 'RecordingScreen initState called');
-    
+
     // 确保在Widget挂载后检查配置
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppLogger().i('Realtime', '========== POST FRAME CALLBACK ==========');
@@ -40,8 +41,9 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
     final recordingState = ref.watch(recordingStateProvider);
     final recordingNotifier = ref.read(recordingStateProvider.notifier);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _handleRecordingNotification(recordingState);
+    // 使用 ref.listen 监听录音状态变化，替代 build 中的 addPostFrameCallback
+    ref.listen<RecordingState>(recordingStateProvider, (prev, next) {
+      _handleRecordingNotification(next);
     });
 
     return Scaffold(
@@ -631,13 +633,12 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
   }
 
   void _handleRecordingNotification(RecordingState state) async {
-    final notificationService = NotificationService();
-    await notificationService.initialize();
+    await _notificationService.initialize();
 
     if (state.isRecording && !state.isPaused) {
-      await notificationService.showRecordingNotification();
+      await _notificationService.showRecordingNotification();
     } else {
-      await notificationService.cancelNotification(0);
+      await _notificationService.cancelNotification(0);
     }
   }
 }

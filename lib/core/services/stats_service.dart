@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/record_model.dart';
+import 'app_logger.dart';
 
 final statsServiceProvider = ChangeNotifierProvider<StatsService>((ref) {
   final service = StatsService();
@@ -201,7 +202,7 @@ class StatsService extends ChangeNotifier {
         final data = jsonDecode(statsJson) as Map<String, dynamic>;
         _stats = UsageStats.fromJson(data);
       } catch (e) {
-        debugPrint('Failed to load stats: $e');
+        AppLogger().e('Stats', 'Failed to load stats: $e');
       }
     }
   }

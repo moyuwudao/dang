@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import '../models/ai_model_config.dart';
 import 'http_client.dart';
+import 'app_logger.dart';
 import 'storage_service.dart';
 
 class ImageRecognitionService {
@@ -20,8 +20,6 @@ class ImageRecognitionService {
 
     final config = _httpClient.currentConfig!;
     final useModel = model ?? config.visionModel;
-    debugPrint(
-        'RecognizeImage: provider=${config.name}, model=$useModel, path=$imagePath');
 
     if (!config.supportsOCR) {
       throw Exception('${config.displayName} 不支持图像识别');
@@ -75,7 +73,7 @@ class ImageRecognitionService {
           tokens: result.length);
       return result;
     } catch (e) {
-      debugPrint('RecognizeImage error: $e');
+      AppLogger().e('ImageRecognition', 'RecognizeImage error: $e');
       rethrow;
     }
   }

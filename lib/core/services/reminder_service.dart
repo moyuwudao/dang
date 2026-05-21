@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/record_model.dart';
+import 'app_logger.dart';
 
 class Reminder {
   final String id;
@@ -86,7 +86,7 @@ class ReminderService {
         
         await _saveReminders();
       } catch (e) {
-        debugPrint('Failed to load reminders: $e');
+        AppLogger().e('Reminder', 'Failed to load reminders: $e');
       }
     }
   }

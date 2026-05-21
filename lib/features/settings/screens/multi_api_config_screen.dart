@@ -777,6 +777,17 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       existingConfig?.functions ?? [ApiFunctionType.text],
     );
 
+    // 封装 dispose 逻辑
+    void disposeControllers() {
+      nameController.dispose();
+      apiKeyController.dispose();
+      appIdController.dispose();
+      accessKeySecretController.dispose();
+      baseUrlController.dispose();
+      customModelController.dispose();
+      customProviderNameController.dispose();
+    }
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -1179,7 +1190,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
           );
         },
       ),
-    );
+    ).then((_) => disposeControllers());
   }
 
   Widget _buildModelCapabilityInfo(AiModelConfig config) {

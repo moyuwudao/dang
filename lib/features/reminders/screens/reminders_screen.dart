@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/app_logger.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 
@@ -99,7 +100,7 @@ class RemindersNotifier extends StateNotifier<List<Reminder>> {
             return b.createdAt.compareTo(a.createdAt);
           });
       } catch (e) {
-        debugPrint('Failed to load reminders: $e');
+        AppLogger().e('Reminders', 'Failed to load reminders: $e');
       }
     }
   }

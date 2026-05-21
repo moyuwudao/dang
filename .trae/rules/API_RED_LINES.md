@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/api/**, lib/**/service/**, lib/**/repository/**
 description: API 调用红线规则 - API 调用时绝对不能违反的强制要求
 ---
 

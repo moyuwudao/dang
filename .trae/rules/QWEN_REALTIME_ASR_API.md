@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: lib/**/asr/**, lib/**/transcription/**, lib/**/realtime/**
 description: 阿里云通义千问实时转写 WebSocket API 规范 - 严禁随意修改
 ---
 

@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:record/record.dart';
+import 'app_logger.dart';
 
 class RecordingService {
   final AudioRecorder _audioRecorder = AudioRecorder();
@@ -68,10 +68,10 @@ class RecordingService {
         _fileSink?.add(data);
       },
       onError: (e) {
-        debugPrint('Audio stream error: $e');
+        AppLogger().e('Recording', 'Audio stream error: $e');
       },
       onDone: () {
-        debugPrint('Audio stream done');
+        // Audio stream completed
       },
     );
 
@@ -105,17 +105,18 @@ class RecordingService {
     final file = File(filePath);
     if (!await file.exists()) return;
 
-    final pcmBytes = await file.readAsBytes();
-    if (pcmBytes.isEmpty) return;
+    final pcmSize = await file.length();
+    if (pcmSize == 0) return;
 
     const sampleRate = 16000;
     const bitsPerSample = 16;
     const numChannels = 1;
     const byteRate = sampleRate * numChannels * (bitsPerSample ~/ 8);
     const blockAlign = numChannels * (bitsPerSample ~/ 8);
-    final dataSize = pcmBytes.length;
+    final dataSize = pcmSize;
     final fileSize = dataSize + 36;
 
+    // 构建 WAV header
     final header = Uint8List(44);
     final headerView = ByteData.sublistView(header);
 
@@ -135,12 +136,36 @@ class RecordingService {
     header.setRange(36, 40, 'data'.codeUnits);
     headerView.setUint32(40, dataSize, Endian.little);
 
-    final wavBytes = Uint8List(header.length + pcmBytes.length);
-    wavBytes.setRange(0, header.length, header);
-    wavBytes.setRange(header.length, wavBytes.length, pcmBytes);
+    // 流式写入：先写 header 到临时文件，再追加 PCM 数据，最后替换原文件
+    final tempPath = '$filePath.tmp';
+    final tempFile = File(tempPath);
+    final tempSink = tempFile.openWrite();
+    try {
+      tempSink.add(header);
+      await tempSink.flush();
+      await tempSink.close();
 
-    await file.writeAsBytes(wavBytes);
-    debugPrint('WAV header added: ${wavBytes.length} bytes, duration ~${dataSize ~/ byteRate}s');
+      // 使用流式追加 PCM 数据，避免将整个 PCM 读入内存
+      final pcmStream = file.openRead();
+      final appendSink = tempFile.openWrite(mode: FileMode.append);
+      try {
+        await pcmStream.pipe(appendSink);
+      } catch (e) {
+        await appendSink.close();
+        rethrow;
+      }
+
+      // 替换原文件
+      await file.delete();
+      await tempFile.rename(filePath);
+      AppLogger().d('Recording', 'WAV header added: ${dataSize + 44} bytes');
+    } catch (e) {
+      // 清理临时文件
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+      }
+      AppLogger().e('Recording', 'WAV header add failed: $e');
+    }
   }
 
   Future<void> pauseRecording() async {
@@ -207,19 +232,20 @@ class RecordingService {
         await file.delete();
       }
     } catch (e) {
-      debugPrint('Failed to delete recording: $e');
+      AppLogger().e('Recording', 'Failed to delete recording: $e');
     }
   }
 
   Future<Duration> getAudioDuration(String filePath) async {
+    final player = AudioPlayer();
     try {
-      final player = AudioPlayer();
       final duration = await player.setFilePath(filePath);
-      await player.dispose();
       return duration ?? Duration.zero;
     } catch (e) {
-      debugPrint('Failed to get audio duration: $e');
+      AppLogger().e('Recording', 'Failed to get audio duration: $e');
       return Duration.zero;
+    } finally {
+      await player.dispose();
     }
   }
 

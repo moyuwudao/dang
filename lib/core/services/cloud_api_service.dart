@@ -15,7 +15,7 @@ class CloudApiService {
   Future<void> initialize() async {
     _baseUrl = await _getBaseUrl();
     _dio = Dio(BaseOptions(
-      baseUrl: _baseUrl ?? 'http://101.133.238.249:3000/api/v1',
+      baseUrl: _baseUrl ?? 'https://101.133.238.249:3000/api/v1',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
       headers: {
@@ -51,18 +51,21 @@ class CloudApiService {
     _dio.options.baseUrl = url;
   }
 
+  // TODO: 迁移到 flutter_secure_storage 存储敏感 token，SharedPreferences 不安全
   Future<void> setToken(String token) async {
     _accessToken = token;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('cloud_access_token', token);
   }
 
+  // TODO: 迁移到 flutter_secure_storage 存储敏感 token，SharedPreferences 不安全
   Future<void> clearToken() async {
     _accessToken = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('cloud_access_token');
   }
 
+  // TODO: 迁移到 flutter_secure_storage 存储敏感 token，SharedPreferences 不安全
   Future<void> loadToken() async {
     final prefs = await SharedPreferences.getInstance();
     _accessToken = prefs.getString('cloud_access_token');

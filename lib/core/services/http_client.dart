@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import '../models/ai_model_config.dart';
 import '../utils/aliyun_signer.dart';
+import 'app_logger.dart';
 
 class HttpClient {
   late Dio _dio;
@@ -53,8 +53,6 @@ class HttpClient {
 
     _dio.options.baseUrl = baseUrl;
     _dio.options.headers = _buildHeaders(config, apiKey);
-
-    debugPrint('API configured: $configInfo');
   }
 
   Map<String, String> _buildHeaders(AiModelConfig config, String apiKey) {
@@ -101,10 +99,7 @@ class HttpClient {
   String extractDioError(DioException e) {
     final response = e.response;
     if (response != null) {
-      debugPrint('Error Response Status: ${response.statusCode}');
-      debugPrint('Error Response Headers: ${response.headers}');
       if (response.data != null) {
-        debugPrint('Error Response Data: ${response.data}');
         try {
           if (response.data is Map) {
             final error = response.data['error'];
@@ -126,11 +121,8 @@ class HttpClient {
 
   Future<bool> validateApiKey() async {
     if (!isConfigured) {
-      debugPrint('API validation failed: not configured');
       return false;
     }
-
-    debugPrint('Validating API: $configInfo');
 
     try {
       Response response;
@@ -149,16 +141,15 @@ class HttpClient {
           response = await _dio.get('/models');
           break;
       }
-      debugPrint('API validation OK: status=${response.statusCode}');
       // 通义听悟返回 400 表示签名正确（缺少 FileUrl），也视为验证成功
       return response.statusCode == 200 ||
           (_currentConfig!.provider == AiProvider.tingwu &&
               response.statusCode == 400);
     } on DioException catch (e) {
-      debugPrint('API validation error: ${extractDioError(e)}');
+      AppLogger().e('HttpClient', 'API validation error: ${extractDioError(e)}');
       return false;
     } catch (e) {
-      debugPrint('API validation error: $e');
+      AppLogger().e('HttpClient', 'API validation error: $e');
       return false;
     }
   }
@@ -199,8 +190,6 @@ class HttpClient {
       body: testBody,
     );
 
-    debugPrint('Tingwu validation: PUT $path?type=offline');
-
     try {
       final dio = Dio();
       final url = '${_dio.options.baseUrl}$path';
@@ -212,7 +201,6 @@ class HttpClient {
       );
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {
-        debugPrint('Tingwu validation: signature OK (400 = valid credentials, missing FileUrl)');
         return e.response!;
       }
       rethrow;

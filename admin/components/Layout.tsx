@@ -13,6 +13,7 @@ import {
   X,
   BarChart3,
   Sparkles,
+  Server,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -26,6 +27,7 @@ const menuItems = [
   { id: 'subscriptions', label: '订阅管理', icon: CreditCard },
   { id: 'api-keys', label: 'API Key管理', icon: Key },
   { id: 'analytics', label: '数据分析', icon: BarChart3 },
+  { id: 'server-monitor', label: '服务器监控', icon: Server },
   { id: 'settings', label: '系统设置', icon: Settings },
 ];
 

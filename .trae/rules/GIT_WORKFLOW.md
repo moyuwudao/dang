@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: .gitignore, .git/**
 description: Git 工作流规范 - 分支命名、提交规范、合并流程
 ---
 
