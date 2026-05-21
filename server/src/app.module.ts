@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { ApiKeyModule } from './api-key/api-key.module';
+import { AdminModule } from './admin/admin.module';
+import { MonitorModule } from './monitor/monitor.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { ApiKeyModule } from './api-key/api-key.module';
     AuthModule,
     SubscriptionModule,
     ApiKeyModule,
+    AdminModule,
+    MonitorModule,
   ],
 })
 export class AppModule {}

@@ -52,6 +52,9 @@ latest/
 admin/node_modules
 admin/.next
 
+# Server - exclude node_modules
+server/node_modules
+
 # Testing files
 test_tingwu_*.py
 upload*.py
@@ -59,3 +62,4 @@ deploy*.py
 start_admin_server.py
 changji_app_*.apk
 
+node_modules
