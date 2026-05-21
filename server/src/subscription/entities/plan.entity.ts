@@ -17,8 +17,9 @@ export class Plan {
   @Column()
   durationDays: number;
 
-  @Column({ default: 'subscription' })
-  type: string; // subscription | package | recharge
+  // 注意：数据库中暂时没有 type 列，先注释掉
+  // @Column({ default: 'subscription' })
+  // type: string; // subscription | package | recharge
 
   @Column('simple-array', { nullable: true })
   features: string[];
