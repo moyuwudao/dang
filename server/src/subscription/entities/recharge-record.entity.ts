@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from '../../auth/entities/user.entity';
 
 @Entity('recharge_records')
 export class RechargeRecord {
@@ -25,6 +26,10 @@ export class RechargeRecord {
 
   @Column({ nullable: true })
   remark: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
   @CreateDateColumn()
   createdAt: Date;

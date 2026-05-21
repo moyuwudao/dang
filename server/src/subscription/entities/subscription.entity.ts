@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from '../../auth/entities/user.entity';
+import { Plan } from './plan.entity';
 
 @Entity('subscriptions')
 export class Subscription {
@@ -25,6 +27,14 @@ export class Subscription {
 
   @Column({ default: 0 })
   usedQuota: number;
+
+  @ManyToOne(() => User, user => user.subscriptions)
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @ManyToOne(() => Plan)
+  @JoinColumn({ name: 'planId' })
+  plan: Plan;
 
   @CreateDateColumn()
   createdAt: Date;
