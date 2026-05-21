@@ -21,7 +21,7 @@ import { MonitorModule } from './monitor/monitor.module';
       password: process.env.DB_PASSWORD || 'AppUser123456',
       database: process.env.DB_NAME || 'appdb',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true, // 临时开启，修复列名映射
+      synchronize: false, // 数据库 schema 已同步，关闭自动同步
       logging: false,
     }),
     AuthModule,
