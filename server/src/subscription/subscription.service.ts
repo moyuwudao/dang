@@ -155,7 +155,7 @@ export class SubscriptionService {
       description: dto.description,
       priceCents: dto.priceCents,
       durationDays: dto.durationDays,
-      type: dto.type || 'subscription',
+      // type: dto.type || 'subscription', // 暂时注释，数据库无此列
       features: dto.features || [],
       isRecommended: dto.isRecommended || false,
       quotaType: dto.quotaType,
