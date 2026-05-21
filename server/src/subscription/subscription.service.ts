@@ -71,9 +71,10 @@ export class SubscriptionService {
 
   async getPlans(type?: string) {
     const where: any = { isActive: true };
-    if (type) {
-      where.type = type;
-    }
+    // 注意：plans 表目前没有 type 列，暂不使用 type 过滤
+    // if (type) {
+    //   where.type = type;
+    // }
 
     const plans = await this.planRepository.find({ where });
 
