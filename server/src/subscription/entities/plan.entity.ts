@@ -17,6 +17,15 @@ export class Plan {
   @Column()
   durationDays: number;
 
+  @Column({ default: 'subscription' })
+  type: string; // subscription | package | recharge
+
+  @Column('simple-array', { nullable: true })
+  features: string[];
+
+  @Column({ default: false })
+  isRecommended: boolean;
+
   @Column()
   quotaType: string;
 

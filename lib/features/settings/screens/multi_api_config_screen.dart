@@ -109,13 +109,19 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '功能分配',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                const Icon(Icons.assignment, color: AppColors.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  '功能分配',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             const Text(
-              '为不同功能选择使用的API配置',
+              '为不同功能选择使用的API配置，仅显示支持该功能的模型',
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -141,6 +147,13 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
             ),
             const Divider(),
             _buildFunctionAssignmentTile(
+              icon: Icons.offline_bolt,
+              title: '离线语音转写',
+              subtitle: '提交音频文件进行离线转写（支持说话人分离）',
+              functionType: ApiFunctionType.offlineVoice,
+            ),
+            const Divider(),
+            _buildFunctionAssignmentTile(
               icon: Icons.image,
               title: '图像识别',
               subtitle: '图片内容识别（OCR）',
@@ -162,19 +175,31 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       (a) => a.functionType == functionType,
       orElse: () => ApiFunctionAssignment(
         functionType: functionType,
-        configId: _config.configs.isNotEmpty ? _config.configs.first.id : null,
+        configId: null,
       ),
     );
 
-    final availableConfigs = _config.activeConfigs;
+    // 只过滤出支持当前功能的活跃配置
+    final compatibleConfigs = _config.activeConfigs.where((config) {
+      return config.isFunctionCompatible(functionType);
+    }).toList();
+
+    // 检查当前分配的配置是否兼容
+    final currentConfigId = assignment.configId;
+    final currentConfig = currentConfigId != null
+        ? _config.getConfigById(currentConfigId)
+        : null;
+    final isCurrentIncompatible = currentConfig != null &&
+        !currentConfig.isFunctionCompatible(functionType);
 
     final dropdownItems = <DropdownMenuItem<String?>>[
       const DropdownMenuItem<String?>(
         value: null,
-        child: Text('使用默认'),
+        child: Text('未配置'),
       ),
     ];
-    for (final config in availableConfigs) {
+
+    for (final config in compatibleConfigs) {
       dropdownItems.add(
         DropdownMenuItem<String?>(
           value: config.id,
@@ -185,41 +210,78 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
     return ListTile(
       leading: Icon(icon, color: AppColors.primary),
-      title: Text(title),
-      subtitle: Text(subtitle),
+      title: Row(
+        children: [
+          Text(title),
+          if (isCurrentIncompatible) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                '不兼容',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: AppColors.error,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(subtitle),
+          if (isCurrentIncompatible && currentConfig != null)
+            Text(
+              AiModelConfig.getUnsupportedReason(
+                  currentConfig.provider, functionType),
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.error,
+              ),
+            ),
+        ],
+      ),
       trailing: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 140),
+        constraints: const BoxConstraints(maxWidth: 160),
         child: DropdownButton<String?>(
-          value: assignment.configId,
+          value: isCurrentIncompatible ? null : assignment.configId,
           hint: const Text('选择配置'),
           underline: const SizedBox.shrink(),
           isDense: true,
           items: dropdownItems,
-          onChanged: (value) async {
-            setState(() {
-              final newAssignments = List<ApiFunctionAssignment>.from(
-                _config.functionAssignments,
-              );
-              final index = newAssignments.indexWhere(
-                (a) => a.functionType == functionType,
-              );
-              if (index >= 0) {
-                newAssignments[index] = ApiFunctionAssignment(
-                  functionType: functionType,
-                  configId: value,
-                );
-              } else {
-                newAssignments.add(ApiFunctionAssignment(
-                  functionType: functionType,
-                  configId: value,
-                ));
-              }
-              _config = _config.copyWith(functionAssignments: newAssignments);
-            });
-            // Auto-save function assignment changes
-            await StorageService.saveMultiApiConfig(_config);
-            await _syncRuntimeConfig();
-          },
+          onChanged: compatibleConfigs.isEmpty
+              ? null
+              : (value) async {
+                  setState(() {
+                    final newAssignments = List<ApiFunctionAssignment>.from(
+                      _config.functionAssignments,
+                    );
+                    final index = newAssignments.indexWhere(
+                      (a) => a.functionType == functionType,
+                    );
+                    if (index >= 0) {
+                      newAssignments[index] = ApiFunctionAssignment(
+                        functionType: functionType,
+                        configId: value,
+                      );
+                    } else {
+                      newAssignments.add(ApiFunctionAssignment(
+                        functionType: functionType,
+                        configId: value,
+                      ));
+                    }
+                    _config = _config.copyWith(functionAssignments: newAssignments);
+                  });
+                  await StorageService.saveMultiApiConfig(_config);
+                  await _syncRuntimeConfig();
+                },
         ),
       ),
     );
@@ -245,6 +307,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   Widget _buildConfigCard(ApiConfigEntry config) {
     final providerConfig = AiModelConfig.getConfig(config.provider);
     final isActive = config.isActive;
+    final hasIncompatible = config.hasIncompatibleFunctions;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -268,13 +331,36 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          config.name,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isActive ? null : Colors.grey,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              config.name,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isActive ? null : Colors.grey,
+                              ),
+                            ),
+                            if (hasIncompatible) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  '功能不匹配',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.error,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         Text(
                           config.isCustomProvider
@@ -305,25 +391,86 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                 ],
               ),
               const SizedBox(height: 8),
+              // 显示模型能力标签
+              _buildCapabilityChips(providerConfig),
+              const SizedBox(height: 8),
+              // 显示用户选择的功能（标记不兼容的）
               Wrap(
                 spacing: 8,
                 children: config.functions.map((f) {
-                  final labels = {
-                    ApiFunctionType.text: '文本',
-                    ApiFunctionType.voice: '语音',
-                    ApiFunctionType.voiceRealtime: '实时语音',
-                    ApiFunctionType.image: '图像',
-                  };
+                  final isCompatible = config.isFunctionCompatible(f);
                   return Chip(
-                    label: Text(
-                      labels[f] ?? f.name,
-                      style: const TextStyle(fontSize: 11),
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!isCompatible)
+                          const Icon(
+                            Icons.warning_amber,
+                            size: 12,
+                            color: AppColors.error,
+                          ),
+                        if (!isCompatible) const SizedBox(width: 4),
+                        Text(
+                          AiModelConfig.getFunctionTypeLabel(f),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isCompatible ? null : AppColors.error,
+                          ),
+                        ),
+                      ],
                     ),
+                    backgroundColor: isCompatible
+                        ? AppColors.primary.withOpacity(0.1)
+                        : AppColors.error.withOpacity(0.1),
                     padding: EdgeInsets.zero,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   );
                 }).toList(),
               ),
+              if (hasIncompatible) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.warning_amber,
+                            size: 14,
+                            color: AppColors.error,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${providerConfig.displayName} 不支持以下功能:',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.error,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      ...config.incompatibleSelectedFunctions.map((f) => Padding(
+                            padding: const EdgeInsets.only(left: 20),
+                            child: Text(
+                              '- ${AiModelConfig.getFunctionTypeLabel(f)}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.error,
+                              ),
+                            ),
+                          )),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 '模型: ${config.model}',
@@ -357,6 +504,64 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
     );
   }
 
+  Widget _buildCapabilityChips(AiModelConfig config) {
+    final capabilities = <Widget>[];
+
+    if (config.supportsTextAnalysis) {
+      capabilities.add(_buildCapabilityChip(Icons.text_fields, '文本分析', AppColors.success));
+    }
+    if (config.supportsTranscription || config.supportsOfflineTranscription) {
+      capabilities.add(_buildCapabilityChip(Icons.mic, '语音转写', AppColors.success));
+    }
+    if (config.supportsRealtimeTranscription) {
+      capabilities.add(_buildCapabilityChip(Icons.record_voice_over, '实时转写', AppColors.success));
+    }
+    if (config.supportsOfflineTranscription) {
+      capabilities.add(_buildCapabilityChip(Icons.offline_bolt, '离线转写', AppColors.primary));
+    }
+    if (config.supportsSpeakerDiarization) {
+      capabilities.add(_buildCapabilityChip(Icons.people_outline, '说话人分离', AppColors.primary));
+    }
+    if (config.supportsOCR) {
+      capabilities.add(_buildCapabilityChip(Icons.image_search, '图像识别', AppColors.success));
+    }
+    if (config.supportsChat) {
+      capabilities.add(_buildCapabilityChip(Icons.chat_bubble_outline, '对话', AppColors.success));
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: capabilities,
+    );
+  }
+
+  Widget _buildCapabilityChip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _testConfig(ApiConfigEntry config) async {
     showDialog(
       context: context,
@@ -384,7 +589,6 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
         ),
       );
 
-      // Set auth header (for non-Tingwu providers)
       if (config.provider != AiProvider.tingwu) {
         dio.options.headers['Authorization'] = 'Bearer ${config.apiKey}';
       }
@@ -396,7 +600,6 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
           queryParameters: {'key': config.apiKey},
         );
       } else if (config.provider == AiProvider.tingwu) {
-        // 通义听悟使用阿里云 V2 ROA 签名
         if (config.accessKeySecret == null || config.accessKeySecret!.isEmpty) {
           throw Exception('通义听悟需要 AccessKey Secret 进行签名');
         }
@@ -429,7 +632,6 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
           );
         } on DioException catch (e) {
           if (e.response?.statusCode == 400) {
-            // 400 表示签名正确，缺少 FileUrl，视为验证成功
             response = e.response!;
           } else {
             rethrow;
@@ -441,7 +643,6 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        // 通义听悟返回 400 表示签名正确（缺少 FileUrl），也视为成功
         final isSuccess = response.statusCode == 200 ||
             (config.provider == AiProvider.tingwu &&
                 response.statusCode == 400);
@@ -570,6 +771,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
     AiProvider selectedProvider = existingConfig?.provider ?? AiProvider.openAI;
     bool isCustomProvider = existingConfig?.isCustomProvider ?? false;
+
+    // 初始化功能选择：只选择模型支持的功能
     final Set<ApiFunctionType> selectedFunctions = Set.from(
       existingConfig?.functions ?? [ApiFunctionType.text],
     );
@@ -579,6 +782,33 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           final providerConfig = AiModelConfig.getConfig(selectedProvider);
+
+          // 获取该模型支持的所有功能
+          final compatibleFunctions = ApiFunctionType.values
+              .where((f) =>
+                  AiModelConfig.providerSupportsFunction(selectedProvider, f))
+              .toList();
+
+          // 过滤掉不兼容的已选功能
+          final validSelectedFunctions = selectedFunctions
+              .where((f) =>
+                  AiModelConfig.providerSupportsFunction(selectedProvider, f))
+              .toSet();
+
+          // 如果有不兼容的功能被移除，更新状态
+          if (validSelectedFunctions.length != selectedFunctions.length) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              setDialogState(() {
+                selectedFunctions
+                  ..clear()
+                  ..addAll(validSelectedFunctions);
+                // 确保至少选中一个
+                if (selectedFunctions.isEmpty && compatibleFunctions.isNotEmpty) {
+                  selectedFunctions.add(compatibleFunctions.first);
+                }
+              });
+            });
+          }
 
           return AlertDialog(
             title: Text(isEditing ? '编辑配置' : '添加配置'),
@@ -614,6 +844,13 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                                   selectedProvider = p.provider;
                                   isCustomProvider = false;
                                   customModelController.text = p.defaultModel;
+                                  // 自动选择该模型支持的所有功能
+                                  selectedFunctions.clear();
+                                  selectedFunctions.addAll(
+                                    ApiFunctionType.values.where((f) =>
+                                        AiModelConfig.providerSupportsFunction(
+                                            p.provider, f)),
+                                  );
                                 });
                               }
                             },
@@ -646,33 +883,100 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Functions
-                  const Text('支持的功能',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  // Functions - 只显示模型支持的功能
+                  Row(
+                    children: [
+                      const Text('支持的功能',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '已自动过滤不兼容功能',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: ApiFunctionType.values.map((f) {
-                      final labels = {
-                        ApiFunctionType.text: '文本分析',
-                        ApiFunctionType.voice: '语音转写',
-                        ApiFunctionType.voiceRealtime: '语音实时转写',
-                        ApiFunctionType.image: '图像识别',
-                      };
-                      return FilterChip(
-                        label: Text(labels[f] ?? f.name),
-                        selected: selectedFunctions.contains(f),
-                        onSelected: (selected) {
-                          setDialogState(() {
-                            if (selected) {
-                              selectedFunctions.add(f);
-                            } else {
-                              selectedFunctions.remove(f);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
+                  if (compatibleFunctions.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber,
+                              size: 16, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${providerConfig.displayName} 暂无可用的功能支持，请选择其他提供商。',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      children: compatibleFunctions.map((f) {
+                        return FilterChip(
+                          label: Text(AiModelConfig.getFunctionTypeLabel(f)),
+                          selected: selectedFunctions.contains(f),
+                          onSelected: (selected) {
+                            setDialogState(() {
+                              if (selected) {
+                                selectedFunctions.add(f);
+                              } else {
+                                if (selectedFunctions.length > 1) {
+                                  selectedFunctions.remove(f);
+                                }
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // 显示模型能力说明
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${providerConfig.displayName} 能力说明',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildModelCapabilityInfo(providerConfig),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 16),
@@ -689,7 +993,6 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 显示 AppID 输入框（如果提供商需要）
                   if (providerConfig.requiresAppId) ...[
                     TextField(
                       controller: appIdController,
@@ -701,7 +1004,6 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                     const SizedBox(height: 12),
                   ],
 
-                  // 显示 AccessKey Secret 输入框（如果提供商需要）
                   if (providerConfig.requiresAccessKeySecret) ...[
                     TextField(
                       controller: accessKeySecretController,
@@ -771,89 +1073,192 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                 child: const Text('取消'),
               ),
               TextButton(
-                onPressed: () async {
-                  final name = nameController.text.trim();
-                  final apiKey = apiKeyController.text.trim();
-                  final model = customModelController.text.trim();
+                onPressed: compatibleFunctions.isEmpty
+                    ? null
+                    : () async {
+                        final name = nameController.text.trim();
+                        final apiKey = apiKeyController.text.trim();
+                        final model = customModelController.text.trim();
 
-                  if (name.isEmpty || apiKey.isEmpty || model.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('请填写所有必填项')),
-                    );
-                    return;
-                  }
+                        if (name.isEmpty || apiKey.isEmpty || model.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('请填写所有必填项')),
+                          );
+                          return;
+                        }
 
-                  if (selectedFunctions.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('至少选择一个功能')),
-                    );
-                    return;
-                  }
+                        if (selectedFunctions.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('至少选择一个功能')),
+                          );
+                          return;
+                        }
 
-                  final newConfig = ApiConfigEntry(
-                    id: isEditing
-                        ? existingConfig.id
-                        : 'config_${DateTime.now().millisecondsSinceEpoch}',
-                    name: name,
-                    provider: selectedProvider,
-                    apiKey: apiKey,
-                    appId: appIdController.text.trim().isEmpty
-                        ? null
-                        : appIdController.text.trim(),
-                    baseUrl: baseUrlController.text.trim().isEmpty
-                        ? null
-                        : baseUrlController.text.trim(),
-                    model: model,
-                    isCustomProvider: isCustomProvider,
-                    customProviderName: isCustomProvider
-                        ? customProviderNameController.text.trim()
-                        : null,
-                    functions: selectedFunctions.toList(),
-                    isActive: true,
-                    createdAt:
-                        isEditing ? existingConfig.createdAt : DateTime.now(),
-                    updatedAt: DateTime.now(),
-                    accessKeySecret: accessKeySecretController.text.trim().isEmpty
-                        ? null
-                        : accessKeySecretController.text.trim(),
-                  );
+                        // 最终校验：确保所有选择的功能都兼容
+                        final incompatible = selectedFunctions
+                            .where((f) => !AiModelConfig.providerSupportsFunction(
+                                selectedProvider, f))
+                            .toList();
+                        if (incompatible.isNotEmpty) {
+                          final reason = incompatible
+                              .map((f) =>
+                                  AiModelConfig.getUnsupportedReason(
+                                      selectedProvider, f))
+                              .join('\n');
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('功能不兼容:\n$reason'),
+                              backgroundColor: AppColors.error,
+                              duration: const Duration(seconds: 5),
+                            ),
+                          );
+                          return;
+                        }
 
-                  final newConfigs = List<ApiConfigEntry>.from(_config.configs);
-                  if (isEditing) {
-                    final index = newConfigs.indexWhere(
-                      (c) => c.id == existingConfig.id,
-                    );
-                    if (index >= 0) {
-                      newConfigs[index] = newConfig;
-                    }
-                  } else {
-                    newConfigs.add(newConfig);
-                  }
-                  final updatedConfig = _config.copyWith(configs: newConfigs);
+                        final newConfig = ApiConfigEntry(
+                          id: isEditing
+                              ? existingConfig.id
+                              : 'config_${DateTime.now().millisecondsSinceEpoch}',
+                          name: name,
+                          provider: selectedProvider,
+                          apiKey: apiKey,
+                          appId: appIdController.text.trim().isEmpty
+                              ? null
+                              : appIdController.text.trim(),
+                          baseUrl: baseUrlController.text.trim().isEmpty
+                              ? null
+                              : baseUrlController.text.trim(),
+                          model: model,
+                          isCustomProvider: isCustomProvider,
+                          customProviderName: isCustomProvider
+                              ? customProviderNameController.text.trim()
+                              : null,
+                          functions: selectedFunctions.toList(),
+                          isActive: true,
+                          createdAt:
+                              isEditing ? existingConfig.createdAt : DateTime.now(),
+                          updatedAt: DateTime.now(),
+                          accessKeySecret: accessKeySecretController.text.trim().isEmpty
+                              ? null
+                              : accessKeySecretController.text.trim(),
+                        );
 
-                  setState(() {
-                    _config = updatedConfig;
-                  });
+                        final newConfigs = List<ApiConfigEntry>.from(_config.configs);
+                        if (isEditing) {
+                          final index = newConfigs.indexWhere(
+                            (c) => c.id == existingConfig.id,
+                          );
+                          if (index >= 0) {
+                            newConfigs[index] = newConfig;
+                          }
+                        } else {
+                          newConfigs.add(newConfig);
+                        }
+                        final updatedConfig = _config.copyWith(configs: newConfigs);
 
-                  // Auto-save to storage immediately
-                  await StorageService.saveMultiApiConfig(updatedConfig);
-                  await _syncRuntimeConfig();
+                        setState(() {
+                          _config = updatedConfig;
+                        });
 
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('配置已保存'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                  }
-                },
+                        await StorageService.saveMultiApiConfig(updatedConfig);
+                        await _syncRuntimeConfig();
+
+                        if (mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('配置已保存'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        }
+                      },
                 child: const Text('保存'),
               ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildModelCapabilityInfo(AiModelConfig config) {
+    final items = <Widget>[];
+
+    if (config.supportsTextAnalysis) {
+      items.add(_buildInfoRow(Icons.check_circle, '文本分析', '支持AI分析、摘要、标题生成'));
+    }
+    if (config.supportsTranscription || config.supportsOfflineTranscription) {
+      items.add(_buildInfoRow(Icons.check_circle, '语音转写', config.asrDescription.isNotEmpty
+          ? config.asrDescription.split('\n').first
+          : '支持录音转文字'));
+    }
+    if (config.supportsRealtimeTranscription) {
+      items.add(_buildInfoRow(Icons.check_circle, '实时转写', config.realtimeAsrDescription.isNotEmpty
+          ? config.realtimeAsrDescription.split('\n').first
+          : '支持实时语音转写'));
+    }
+    if (config.supportsOfflineTranscription) {
+      items.add(_buildInfoRow(Icons.check_circle, '离线转写', '支持提交音频文件进行离线转写'));
+    }
+    if (config.supportsSpeakerDiarization) {
+      items.add(_buildInfoRow(Icons.check_circle, '说话人分离', '支持区分不同发言人'));
+    }
+    if (config.supportsOCR) {
+      items.add(_buildInfoRow(Icons.check_circle, '图像识别', '支持图片内容识别'));
+    }
+    if (config.supportsChat) {
+      items.add(_buildInfoRow(Icons.check_circle, '对话', '支持多轮对话'));
+    }
+
+    if (config.limitationNote.isNotEmpty) {
+      items.add(const SizedBox(height: 8));
+      items.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.warning_amber, size: 14, color: Colors.orange),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                config.limitationNote,
+                style: const TextStyle(fontSize: 11, color: Colors.orange),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: items,
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 12, color: AppColors.success),
+          const SizedBox(width: 6),
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+            ),
+          ),
+        ],
       ),
     );
   }

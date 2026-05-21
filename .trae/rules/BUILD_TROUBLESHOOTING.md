@@ -33,6 +33,7 @@ description: APK 构建异常案例集锦 - 收集所有构建问题及解决方
 | CASE-004 | FlutterLifecycleAdapter 找不到 | `cannot find symbol class FlutterLifecycleAdapter` | ✅ 已解决 |
 | CASE-005 | 类路径快照缺失 | `shrunk-classpath-snapshot.bin (No such file or directory)` | ✅ 已解决 |
 | CASE-007 | 代码未同步到 WSL | APK 包含旧代码 | ✅ 已解决 |
+| CASE-008 | WSL 代理警告导致命令退出 | `wsl: 检测到 localhost 代理配置` | ✅ 已解决 |
 
 ---
 
@@ -186,7 +187,58 @@ wsl -d dang bash -c "cd /home/mayn/dang && git diff --stat"
 
 ---
 
-## 📖 使用指南
+## � CASE-008: WSL 代理警告导致命令提前退出
+
+### 问题现象
+- 执行 WSL 命令后，终端立即返回，没有预期输出
+- 只看到警告信息：`wsl: 检测到 localhost 代理配置，但未镜像到 WSL。NAT 模式下的 WSL 不支持 localhost 代理。`
+- 命令返回码为 0，但实际操作未执行（如 `flutter analyze` 没有运行）
+- 反复执行相同命令，结果一样
+
+### 实际案例（2026-05-21）
+尝试运行 `flutter analyze` 验证代码修改：
+```powershell
+wsl -d dang bash -c 'export PATH="/home/mayn/flutter/bin:$PATH" && cd /home/mayn/dang && flutter analyze lib/core/models/ai_model_config.dart'
+```
+输出只有代理警告，没有 analyze 结果。多次重试均如此。
+
+### 根本原因
+WSL 检测到 Windows 配置了 localhost 代理，但 NAT 模式下无法镜像该代理。这个警告导致 bash 命令在 WSL 初始化阶段异常退出，`flutter analyze` 实际未执行。
+
+**注意**：这与命令执行时间无关，不是"卡住"，而是命令根本没运行。
+
+### 解决方案
+
+**方案 A：使用异步模式执行（推荐用于耗时命令）**
+```powershell
+# 对于 flutter build、flutter analyze 等耗时命令，使用非阻塞模式
+wsl -d dang bash -c '...flutter build apk --release...'
+# 然后使用 CheckCommandStatus 轮询检查进度
+```
+
+**方案 B：直接验证构建结果**
+```powershell
+# 如果 analyze 无法运行，直接运行 flutter build
+# 构建成功 = 代码无编译错误
+wsl -d dang bash -c 'export PATH="/home/mayn/flutter/bin:$PATH" && cd /home/mayn/dang && flutter build apk --release'
+```
+
+**方案 C：检查 WSL 代理配置**
+```powershell
+# 在 WSL 内部禁用代理警告（可选）
+wsl -d dang bash -c 'echo "[wsl2]" > /etc/wsl.conf'
+```
+
+### 验证方法
+```powershell
+# 正确执行后应看到实际输出，而非仅代理警告
+# 例如 flutter build 应看到：
+# ✓ Built build/app/outputs/flutter-apk/app-release.apk (XX.XMB)
+```
+
+---
+
+## � 使用指南
 
 ### 构建失败时
 
@@ -228,3 +280,4 @@ wsl -d dang bash -c "cd /home/mayn/dang && git diff --stat"
 |-----|---------|
 | 2026-05-12 | 初始版本，包含所有案例 |
 | 2026-05-19 | 方案C重构：API 案例拆分到 API_TROUBLESHOOTING.md，保留纯构建案例 |
+| 2026-05-21 | 新增 CASE-008：WSL 代理警告导致命令提前退出 |

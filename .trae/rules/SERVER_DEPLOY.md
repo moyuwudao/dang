@@ -12,7 +12,7 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 **适用范围**：所有对该服务器的部署、配置、维护操作
 **服务器IP**：101.133.238.249（公网）/ 172.24.29.151（内网）
 **操作系统**：Ubuntu 22.04.5 LTS
-**文档版本**：v1.2
+**文档版本**：v1.4
 
 > **安全红线** → 详见 [RED_LINES.md](RED_LINES.md)
 > **构建红线** → 详见 [BUILD_RED_LINES.md](BUILD_RED_LINES.md)
@@ -37,6 +37,10 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 | 22 | TCP | SSH远程管理 | ✅ 开放 |
 | 80 | TCP | HTTP | ✅ 开放 |
 | 443 | TCP | HTTPS | ✅ 开放 |
+| 3000 | TCP | API服务（本地） | ✅ 运行中 |
+| 5432 | TCP | PostgreSQL（本地） | ✅ 运行中 |
+| 6379 | TCP | Redis（本地） | ✅ 运行中 |
+| 8848 | TCP | Server Agent（本地） | ✅ 运行中 |
 
 ### 1.3 必需软件
 
@@ -52,6 +56,8 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 | PostgreSQL | 14.22 | 关系型数据库 |
 | Redis | 6.0.16 | 缓存/消息队列 |
 | Server Agent | 1.0.0 | 服务器管理Agent |
+| PM2 | 5.4.0 | Node.js进程管理 |
+| NestJS API | 1.0.0 | 畅记云服务API |
 
 ---
 
@@ -91,7 +97,7 @@ ssh-copy-id admin@101.133.238.249
 ssh admin@101.133.238.249
 ```
 
-### 2.3 数据库连接方式
+### 2.3 服务连接方式
 
 #### PostgreSQL
 
@@ -127,6 +133,37 @@ curl -H "X-Agent-Token: changji-agent-2026" http://127.0.0.1:8848/info
 curl -u admin:Agent@2026 \
   -H "X-Agent-Token: changji-agent-2026" \
   http://101.133.238.249/agent/info
+```
+
+#### 畅记云 API 服务
+
+```bash
+# 健康检查
+curl http://101.133.238.249/api/v1/health
+
+# 用户注册
+curl -X POST http://101.133.238.249/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"phone":"13800138000","password":"test123456","smsCode":"123456"}'
+
+# 用户登录
+curl -X POST http://101.133.238.249/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"phone":"13800138000","password":"test123456"}'
+
+# 获取用户信息（需要 Token）
+curl http://101.133.238.249/api/v1/auth/profile \
+  -H "Authorization: Bearer <token>"
+```
+
+#### API 服务
+
+```bash
+# 本地访问
+http://127.0.0.1:3000/api/v1/health
+
+# 通过Nginx反向代理访问
+http://101.133.238.249/api/v1/health
 ```
 
 ### 2.4 连接安全规范
@@ -200,7 +237,7 @@ sudo apt install -y fail2ban
 sudo apt install -y unattended-upgrades
 ```
 
-#### 阶段三：服务部署
+#### 阶段三：基础服务部署
 
 ```bash
 # 1. 安装Docker
@@ -246,16 +283,19 @@ sudo sysctl -p
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
 sudo apt install -y nodejs
 
-# 2. 安装 PostgreSQL
+# 2. 安装 PM2
+sudo npm install -g pm2
+
+# 3. 安装 PostgreSQL
 sudo apt install -y postgresql postgresql-contrib
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
 
-# 3. 创建数据库用户
+# 4. 创建数据库用户
 sudo -u postgres psql -c "CREATE USER appuser WITH PASSWORD 'AppUser123456' CREATEDB;"
 sudo -u postgres psql -c "CREATE DATABASE appdb OWNER appuser;"
 
-# 4. 安装 Redis
+# 5. 安装 Redis
 sudo apt install -y redis-server
 # 配置 /etc/redis/redis.conf
 # - supervised systemd
@@ -296,16 +336,132 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-#### 阶段七：备份策略
+#### 阶段七：部署畅记云 API 服务
+
+```bash
+# 1. 创建应用目录
+sudo mkdir -p /opt/changji-cloud/api
+cd /opt/changji-cloud/api
+
+# 2. 上传应用代码（通过 SCP 或 Git）
+# 代码结构：
+# /opt/changji-cloud/api/
+#   ├── src/              # 源代码
+#   ├── dist/             # 编译输出
+#   ├── package.json      # 依赖配置
+#   ├── ecosystem.json    # PM2 配置
+#   └── .env              # 环境变量
+
+# 3. 安装依赖
+npm install
+
+# 4. 安装额外依赖
+npm install @nestjs/jwt
+
+# 5. 构建应用
+npm run build
+
+# 6. 配置环境变量（/opt/changji-cloud/api/.env）
+cat > .env << 'EOF'
+NODE_ENV=production
+PORT=3000
+API_PREFIX=/api/v1
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=appdb
+DB_USER=appuser
+DB_PASSWORD=AppUser123456
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASS=Redis123456
+JWT_SECRET=changji-secret-key-2026-change-in-production
+JWT_ACCESS_EXPIRATION=15m
+JWT_REFRESH_EXPIRATION=7d
+EOF
+
+# 7. 配置 PM2（/opt/changji-cloud/api/ecosystem.json）
+cat > ecosystem.json << 'EOF'
+{
+  "apps": [{
+    "name": "changji-api",
+    "script": "./dist/main.js",
+    "instances": 1,
+    "exec_mode": "fork",
+    "env": {
+      "NODE_ENV": "production"
+    },
+    "log_file": "/var/log/changji-api.log",
+    "error_file": "/var/log/changji-api-error.log",
+    "out_file": "/var/log/changji-api-out.log",
+    "max_memory_restart": "512M",
+    "restart_delay": 3000,
+    "max_restarts": 5,
+    "min_uptime": "10s"
+  }]
+}
+EOF
+
+# 8. 创建日志文件
+sudo touch /var/log/changji-api.log /var/log/changji-api-error.log /var/log/changji-api-out.log
+sudo chown admin:admin /var/log/changji-api*.log
+
+# 9. 启动服务
+pm2 start ecosystem.json
+pm2 save
+pm2 startup
+
+# 10. 配置 Nginx 反向代理（/etc/nginx/sites-available/api）
+cat > /etc/nginx/sites-available/api << 'EOF'
+server {
+    listen 80;
+    server_name 101.133.238.249;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        return 404;
+    }
+}
+EOF
+
+sudo ln -sf /etc/nginx/sites-available/api /etc/nginx/sites-enabled/api
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+#### 阶段八：备份策略
 
 ```bash
 # 创建备份目录
 sudo mkdir -p /backup/scripts /backup/data
 
-# 创建备份脚本 /backup/scripts/backup.sh
+# 创建数据库备份脚本 /backup/scripts/backup-db.sh
+#!/bin/bash
+BACKUP_DIR="/backup/data"
+DATE=$(date +%Y%m%d_%H%M%S)
+
+# 备份 PostgreSQL
+sudo -u postgres pg_dump appdb > "$BACKUP_DIR/appdb_$DATE.sql"
+
+# 备份 Redis
+redis-cli -a Redis123456 BGSAVE
+sleep 2
+cp /var/lib/redis/dump.rdb "$BACKUP_DIR/redis_$DATE.rdb"
+
+# 清理7天前的备份
+find $BACKUP_DIR -mtime +7 -delete
+```
+
 # 设置定时任务
 crontab -e
-# 添加：0 2 * * * /backup/scripts/backup.sh
+# 添加：0 2 * * * /backup/scripts/backup-db.sh
 ```
 
 ### 3.3 部署后验证
@@ -328,17 +484,24 @@ curl -I http://localhost
 node --version
 npm --version
 
+# 检查PM2
+pm2 status
+
 # 检查PostgreSQL
 psql --version
 sudo -u postgres psql -c "\l"
 
 # 检查Redis
 redis-server --version
-redis-cli ping
+redis-cli -a Redis123456 ping
 
 # 检查Agent
 curl http://127.0.0.1:8848/health
 curl -H "X-Agent-Token: changji-agent-2026" http://127.0.0.1:8848/info
+
+# 检查API服务
+curl http://127.0.0.1:3000/api/v1/health
+curl http://101.133.238.249/api/v1/health
 
 # 检查Nginx反向代理
 curl -u admin:Agent@2026 -H "X-Agent-Token: changji-agent-2026" http://101.133.238.249/agent/info
@@ -386,6 +549,8 @@ sudo ss -tlnp
 | Node.js | 24.14.1 | LTS安全更新（每月） |
 | PostgreSQL | 14.22 | 安全更新（每月） |
 | Redis | 6.0.16 | 安全更新（每月） |
+| PM2 | 5.4.0 | 安全更新（每月） |
+| NestJS API | 1.0.0 | 功能更新（按需） |
 
 ### 5.2 配置版本控制
 
@@ -414,22 +579,41 @@ echo "部署时间: $(date)" >> /etc/deploy-version
 # 回滚SSH配置
 sudo cp /etc/ssh/sshd_config.bak.20260520 /etc/ssh/sshd_config
 sudo systemctl restart sshd
+
+# 回滚Nginx配置
+sudo cp /etc/nginx/sites-available/api.bak.20260520 /etc/nginx/sites-available/api
+sudo nginx -t
+sudo systemctl restart nginx
 ```
 
 ### 6.2 服务回滚
 
 ```bash
-# Docker容器回滚
-docker ps -a
-docker stop <container>
-docker start <previous_container>
+# API服务回滚
+pm2 stop changji-api
+# 恢复上一版本代码
+cd /opt/changji-cloud/api && git checkout <previous-tag>
+npm install && npm run build
+pm2 start ecosystem.json
 
 # Nginx配置回滚
 sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-### 6.3 系统级回滚
+### 6.3 数据库回滚
+
+```bash
+# 从备份恢复PostgreSQL
+sudo -u postgres psql -d appdb < /backup/data/appdb_20260520_020000.sql
+
+# 从备份恢复Redis
+sudo systemctl stop redis-server
+cp /backup/data/redis_20260520_020000.rdb /var/lib/redis/dump.rdb
+sudo systemctl start redis-server
+```
+
+### 6.4 系统级回滚
 
 ```bash
 # 使用备份恢复
@@ -438,7 +622,7 @@ sudo tar -xzf /backup/data/20260520_020000.tar.gz -C /
 # 或使用阿里云快照回滚（控制台操作）
 ```
 
-### 6.4 紧急回滚流程
+### 6.5 紧急回滚流程
 
 ```
 1. 停止相关服务
@@ -459,15 +643,28 @@ sudo tar -xzf /backup/data/20260520_020000.tar.gz -C /
 | UFW防火墙 | 仅开放22/80/443 | ✅ 已启用 |
 | Fail2ban | 3次失败封禁1小时 | ✅ 已启用 |
 | SSH | 禁用root登录 | ✅ 已配置 |
+| Nginx | 基础认证 + Token | ✅ 已配置 |
 
-### 7.2 安全审计清单
+### 7.2 API安全
+
+| 措施 | 说明 | 状态 |
+|-----|------|------|
+| JWT认证 | 访问令牌 + 刷新令牌 | ✅ 已启用 |
+| 密码加密 | bcrypt哈希存储 | ✅ 已启用 |
+| 输入验证 | class-validator验证 | ✅ 已启用 |
+| 速率限制 | 待配置 | ⚠️ 待配置 |
+| HTTPS | 待配置SSL证书 | ⚠️ 待配置 |
+
+### 7.3 安全审计清单
 
 ```
 □ 每月检查登录日志
 □ 每月检查Fail2ban封禁记录
+□ 每月检查API访问日志
 □ 每季度更新所有软件
 □ 每季度轮换SSH密钥
 □ 每半年审查用户权限
+□ 每年更换数据库密码
 ```
 
 ---
@@ -481,13 +678,18 @@ sudo tar -xzf /backup/data/20260520_020000.tar.gz -C /
 sudo systemctl status ssh nginx docker postgresql redis-server fail2ban
 sudo df -h
 sudo free -h
+pm2 status
 
 # 每周检查
 sudo apt list --upgradable
 sudo ufw status verbose
 sudo fail2ban-client status sshd
 sudo -u postgres psql -c "SELECT count(*) FROM pg_stat_activity;"
-redis-cli info stats
+redis-cli -a Redis123456 info stats
+
+# 每月检查
+sudo cat /var/log/auth.log | grep "Failed password"
+pm2 logs changji-api --lines 100
 ```
 
 ### 8.2 日志管理
@@ -503,6 +705,9 @@ redis-cli info stats
 | /var/log/postgresql/postgresql-14-main.log | PostgreSQL日志 | 30天 |
 | /var/log/redis/redis-server.log | Redis日志 | 30天 |
 | /var/log/server-agent.log | Agent服务日志 | 30天 |
+| /var/log/changji-api.log | API服务日志 | 30天 |
+| /var/log/changji-api-error.log | API错误日志 | 30天 |
+| /var/log/changji-api-out.log | API输出日志 | 30天 |
 
 ### 8.3 应急响应
 
@@ -521,6 +726,26 @@ sudo systemctl restart <service>
 # 4. 如无法恢复，回滚配置
 ```
 
+#### API服务异常
+
+```bash
+# 1. 检查PM2状态
+pm2 status
+
+# 2. 查看API日志
+pm2 logs changji-api --lines 50
+
+# 3. 检查错误日志
+cat /var/log/changji-api-error.log | tail -50
+
+# 4. 重启API服务
+pm2 restart changji-api
+
+# 5. 检查Nginx配置
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
 #### 安全事件
 
 ```bash
@@ -530,8 +755,11 @@ sudo fail2ban-client set sshd banip <IP>
 # 2. 检查入侵痕迹
 sudo grep <IP> /var/log/auth.log
 
-# 3. 如确认入侵，立即修改所有密码
-# 4. 检查文件完整性
+# 3. 检查API异常访问
+sudo grep <IP> /var/log/nginx/access.log
+
+# 4. 如确认入侵，立即修改所有密码
+# 5. 检查文件完整性
 sudo find /etc -type f -mtime -1
 ```
 
@@ -555,17 +783,410 @@ sudo find /var/log/postgresql -name "*.log" -mtime +7 -delete
 
 # 清理Redis日志
 sudo find /var/log/redis -name "*.log" -mtime +7 -delete
+
+# 清理API日志
+sudo find /var/log/changji-api*.log -mtime +7 -delete
 ```
 
 ---
 
-## 八、相关文档
+## 九、已知问题与解决方案
+
+### 问题1：NestJS模块依赖错误
+
+**现象**：`Nest can't resolve dependencies of the JwtAuthGuard`
+
+**原因**：`JwtAuthGuard` 依赖 `JwtService`，但模块未正确导入/导出
+
+**解决**：
+1. 在 `auth.module.ts` 中导出 `JwtModule`：`exports: [AuthService, JwtModule]`
+2. 在使用 `JwtAuthGuard` 的模块中导入 `AuthModule`
+
+### 问题2：Nginx代理路径错误
+
+**现象**：API请求返回404或路径不匹配
+
+**原因**：`proxy_pass` 路径配置错误，导致 `/api` 前缀丢失
+
+**解决**：
+```nginx
+location /api/ {
+    proxy_pass http://127.0.0.1:3000/api/;  # 注意末尾的 /
+}
+```
+
+### 问题3：环境变量名不匹配
+
+**现象**：数据库连接失败
+
+**原因**：使用 `DB_PASS` 但代码期望 `DB_PASSWORD`
+
+**解决**：统一使用 `DB_PASSWORD` 作为环境变量名
+
+### 问题4：登录返回401
+
+**现象**：注册用户成功，但登录返回401
+
+**原因**：测试用户密码哈希可能有问题
+
+**解决**：重新创建测试用户或重置密码
+
+---
+
+## 十、相关文档
 
 | 文档 | 用途 |
 |-----|------|
 | [SERVER_STATUS.md](SERVER_STATUS.md) | 当前服务器部署状态报告 |
 | [RED_LINES.md](RED_LINES.md) | 通用安全红线 |
 | [BUILD_RED_LINES.md](BUILD_RED_LINES.md) | APK构建红线 |
+| [API_DESIGN.md](API_DESIGN.md) | API设计规范 |
+
+---
+
+## 十一、畅记云 API 接口说明
+
+### 11.1 基础信息
+
+- **Base URL**: `http://101.133.238.249/api/v1`
+- **认证方式**: JWT Bearer Token
+- **数据格式**: JSON
+
+### 11.2 认证接口
+
+#### 用户注册
+```
+POST /auth/register
+Content-Type: application/json
+
+{
+  "phone": "13800138000",
+  "password": "test123456",
+  "smsCode": "123456"
+}
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "accessToken": "eyJhbGc...",
+    "refreshToken": "eyJhb..."
+  }
+}
+```
+
+#### 用户登录
+```
+POST /auth/login
+Content-Type: application/json
+
+{
+  "phone": "13800138000",
+  "password": "test123456"
+}
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "accessToken": "eyJhbGc...",
+    "refreshToken": "eyJhb..."
+  }
+}
+```
+
+#### 获取用户信息
+```
+GET /auth/profile
+Authorization: Bearer <accessToken>
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "uuid",
+    "phone": "13800138000"
+  }
+}
+```
+
+### 11.3 订阅管理接口
+
+#### 获取当前订阅
+```
+GET /subscription
+Authorization: Bearer <accessToken>
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "planId": "free",
+    "planName": "免费版",
+    "status": "active",
+    "expiresAt": null,
+    "totalQuota": 30,
+    "usedQuota": 0,
+    "remainingQuota": 30
+  }
+}
+```
+
+#### 创建订阅
+```
+POST /subscription
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{
+  "planId": "basic"
+}
+
+Response:
+{
+  "code": 200,
+  "message": "订阅创建成功",
+  "data": { ... }
+}
+```
+
+#### 获取套餐列表
+```
+GET /subscription/plans
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": "free",
+      "name": "免费版",
+      "description": "免费体验套餐",
+      "priceCents": 0,
+      "durationDays": 30,
+      "quotaType": "minutes",
+      "quotaValue": 30
+    },
+    {
+      "id": "basic",
+      "name": "基础版",
+      "description": "基础功能套餐",
+      "priceCents": 9900,
+      "durationDays": 30,
+      "quotaType": "minutes",
+      "quotaValue": 300
+    }
+  ]
+}
+```
+
+#### 使用配额
+```
+POST /subscription/quota/use
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{
+  "amount": 5
+}
+
+Response:
+{
+  "code": 200,
+  "message": "配额使用成功",
+  "data": {
+    "planId": "free",
+    "usedQuota": 5,
+    "remainingQuota": 25
+  }
+}
+```
+
+#### 创建套餐（管理员）
+```
+POST /subscription/plans
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{
+  "id": "premium",
+  "name": "高级版",
+  "description": "高级功能套餐",
+  "priceCents": 19900,
+  "durationDays": 30,
+  "quotaType": "minutes",
+  "quotaValue": 500
+}
+```
+
+### 11.4 API Key 分发接口
+
+#### 获取分配的 API Key
+```
+GET /api-key
+Authorization: Bearer <accessToken>
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "provider": "qwen",
+    "apiKey": "sk-xxxxx",
+    "model": "qwen-max",
+    "rateLimitPerMin": 60,
+    "expiresAt": "2026-05-21T10:30:00.000Z"
+  }
+}
+```
+
+#### 刷新 API Key
+```
+POST /api-key/refresh
+Authorization: Bearer <accessToken>
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "provider": "qwen",
+    "apiKey": "sk-yyyyy",
+    "model": "qwen-max",
+    "rateLimitPerMin": 60,
+    "expiresAt": "2026-05-21T10:30:00.000Z"
+  }
+}
+```
+
+#### 获取 API Key 列表（管理员）
+```
+GET /api-key/admin/list
+Authorization: Bearer <accessToken>
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": "uuid",
+      "provider": "qwen",
+      "model": "qwen-max",
+      "isActive": true,
+      "rateLimitPerMin": 60,
+      "createdAt": "2026-05-20T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### 创建 API Key（管理员）
+```
+POST /api-key/admin/create
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{
+  "provider": "qwen",
+  "apiKey": "sk-xxxxx",
+  "model": "qwen-max",
+  "rateLimitPerMin": 60
+}
+
+Response:
+{
+  "code": 200,
+  "message": "API Key 创建成功",
+  "data": {
+    "id": "uuid",
+    "provider": "qwen",
+    "model": "qwen-max",
+    "isActive": true
+  }
+}
+```
+
+#### 删除 API Key（管理员）
+```
+DELETE /api-key/admin/:id
+Authorization: Bearer <accessToken>
+
+Response:
+{
+  "code": 200,
+  "message": "API Key 删除成功"
+}
+```
+
+### 11.5 使用流程
+
+1. 用户注册/登录获取 JWT Token
+2. 用户查看套餐信息并创建订阅
+3. 用户调用 API Key 接口获取 AI 服务密钥
+4. 用户使用获取的 API Key 调用 AI 服务
+5. 系统自动扣除用户配额
+
+---
+
+## 十二、部署步骤
+
+### 12.1 本地开发部署
+
+```bash
+# 1. 进入 server 目录
+cd server
+
+# 2. 安装依赖
+npm install
+
+# 3. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填写数据库等配置
+
+# 4. 启动开发服务器
+npm run start:dev
+```
+
+### 12.2 生产环境部署
+
+```bash
+# 1. 上传代码到服务器
+# 使用提供的 deploy-server.ps1 脚本，或手动上传
+
+# 2. 服务器上执行
+ssh admin@101.133.238.249
+cd /opt/changji-cloud/api
+
+# 3. 初始化数据库（首次部署）
+# 连接 PostgreSQL 并执行 seed-data.sql
+
+# 4. 启动服务
+pm2 start ecosystem.json
+pm2 save
+
+# 5. 检查服务状态
+pm2 status
+pm2 logs changji-api
+```
+
+### 12.3 数据库初始化
+
+```bash
+# 连接数据库
+sudo -u postgres psql -d appdb
+
+# 执行种子数据
+\i /opt/changji-cloud/api/seed-data.sql
+
+# 或直接从本地执行
+cat server/seed-data.sql | ssh admin@101.133.238.249 "sudo -u postgres psql -d appdb"
+```
 
 ---
 
@@ -577,3 +1198,5 @@ sudo find /var/log/redis -name "*.log" -mtime +7 -delete
 | 2026-05-20 | v1.1 | 新增Node.js/PostgreSQL/Redis部署规范 |
 | 2026-05-20 | v1.2 | 新增服务器连接方式章节 |
 | 2026-05-20 | v1.3 | 新增Server Agent和Nginx反向代理配置 |
+| 2026-05-20 | v1.4 | 新增畅记云API服务部署、PM2配置、已知问题与解决方案 |
+| 2026-05-20 | v1.5 | 新增订阅管理、API Key分发、完整API文档 |

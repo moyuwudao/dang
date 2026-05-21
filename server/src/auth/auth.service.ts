@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from './entities/user.entity';
 import { RegisterDto, LoginDto, UpdateProfileDto } from './dto';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
 export class AuthService {
@@ -12,6 +13,7 @@ export class AuthService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -34,6 +36,21 @@ export class AuthService {
     });
 
     await this.userRepository.save(user);
+
+    // 初始化用户余额
+    await this.subscriptionService.initUserBalance(user.id);
+
+    // 创建新手体验订阅（100分钟，7天有效期）
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    await this.subscriptionService.createTrialSubscription(user.id, {
+      planId: 'trial',
+      planName: '新手体验包',
+      totalQuota: 100,
+      usedQuota: 0,
+      expiresAt,
+    });
 
     // 生成 Token
     const tokens = await this.generateTokens(user);

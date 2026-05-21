@@ -47,3 +47,15 @@ app.*.map.json
 # Large files / tools
 cmdline-tools.zip
 latest/
+
+# Admin - exclude node_modules and .next, keep out
+admin/node_modules
+admin/.next
+
+# Testing files
+test_tingwu_*.py
+upload*.py
+deploy*.py
+start_admin_server.py
+changji_app_*.apk
+

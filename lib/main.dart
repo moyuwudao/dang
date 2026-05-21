@@ -6,6 +6,7 @@ import 'core/models/ai_model_config.dart';
 import 'core/models/api_config.dart';
 import 'core/services/api_service.dart';
 import 'core/services/app_logger.dart';
+import 'core/services/cloud_api_service.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/transcription_queue_service.dart';
 import 'core/theme/app_theme.dart';
@@ -74,6 +75,14 @@ class _ChangjiAppState extends ConsumerState<ChangjiApp> {
       }
     } catch (e) {
       AppLogger().e('App', 'API初始化失败: $e');
+    }
+
+    // 初始化云端API服务
+    try {
+      await CloudApiService.instance.initialize();
+      AppLogger().i('App', '云端API服务已初始化');
+    } catch (e) {
+      AppLogger().e('App', '云端API服务初始化失败: $e');
     }
 
     ref.read(transcriptionQueueProvider).start();

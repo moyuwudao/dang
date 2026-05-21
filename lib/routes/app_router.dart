@@ -32,6 +32,12 @@ import '../features/workbench/screens/tool_data_confirm_screen.dart';
 import '../features/workbench/screens/tool_outputs_screen.dart';
 import '../features/workbench/tools/enhanced_ai_tool_screen.dart';
 import '../features/workbench/tools/tool_configs.dart';
+import '../features/auth/screens/login_screen.dart';
+import '../features/auth/screens/register_screen.dart';
+import '../features/auth/screens/profile_screen.dart';
+import '../features/subscription/screens/subscription_store_screen.dart';
+import '../features/subscription/screens/subscription_mine_screen.dart';
+import '../features/subscription/screens/subscription_orders_screen.dart';
 
 enum AppRoute {
   splash,
@@ -57,6 +63,12 @@ enum AppRoute {
   backupManagement,
   recycleBin,
   logs,
+  login,
+  register,
+  profile,
+  subscriptionStore,
+  subscriptionMine,
+  subscriptionOrders,
 }
 
 Page _fadeTransitionPage(Widget child, GoRouterState state) {
@@ -360,6 +372,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             _slideLeftTransitionPage(const ToolOutputsScreen(), state),
       ),
       _toolExecuteRoute(),
+      GoRoute(
+        path: '/login',
+        name: AppRoute.login.name,
+        pageBuilder: (context, state) =>
+            _fadeScaleTransitionPage(const LoginScreen(), state),
+      ),
+      GoRoute(
+        path: '/register',
+        name: AppRoute.register.name,
+        pageBuilder: (context, state) =>
+            _fadeScaleTransitionPage(const RegisterScreen(), state),
+      ),
+      GoRoute(
+        path: '/profile',
+        name: AppRoute.profile.name,
+        pageBuilder: (context, state) =>
+            _slideLeftTransitionPage(const ProfileScreen(), state),
+      ),
+      GoRoute(
+        path: '/subscription/store',
+        name: AppRoute.subscriptionStore.name,
+        pageBuilder: (context, state) =>
+            _slideLeftTransitionPage(const SubscriptionStoreScreen(), state),
+      ),
+      GoRoute(
+        path: '/subscription/mine',
+        name: AppRoute.subscriptionMine.name,
+        pageBuilder: (context, state) =>
+            _slideLeftTransitionPage(const SubscriptionMineScreen(), state),
+      ),
+      GoRoute(
+        path: '/subscription/orders',
+        name: AppRoute.subscriptionOrders.name,
+        pageBuilder: (context, state) =>
+            _slideLeftTransitionPage(const SubscriptionOrdersScreen(), state),
+      ),
     ],
   );
 });

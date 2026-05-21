@@ -390,6 +390,7 @@ Get-Item D:\trae_projects\dang\changji_app_*.apk | Select-Object Name, LastWrite
 | CASE-003 | 资源文件缺失 | `error: resource xml/xxx not found` |
 | CASE-004 | FlutterLifecycleAdapter 找不到 | `cannot find symbol class FlutterLifecycleAdapter` |
 | CASE-005 | 类路径快照缺失 | `shrunk-classpath-snapshot.bin (No such file or directory)` |
+| CASE-008 | WSL 代理警告导致命令退出 | `wsl: 检测到 localhost 代理配置` |
 
 ### 发现新案例时
 

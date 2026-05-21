@@ -179,7 +179,7 @@ description: 规则体系总览 - 快速查找指南和规则层次结构
 
 ## 规则文件清单
 
-### dang 项目特定（26 个）
+### dang 项目特定（28 个）
 
 ```
 .trae/rules/
@@ -207,6 +207,8 @@ description: 规则体系总览 - 快速查找指南和规则层次结构
 ├── API_TESTING.md          ✅ API 测试规范 [alwaysApply: false]
 ├── REALTIME_TRANSCRIPTION_PLAN.md ✅ 实时转写问题分析 [alwaysApply: false] ← 新增
 ├── REALTIME_TRANSCRIPTION_ANALYSIS.md ✅ 实时转写架构分析 [alwaysApply: false] ← 新增
+├── TINGWU_REALTIME_IMPLEMENTATION.md ✅ 通义听悟实时转写实现方案 [alwaysApply: false] ← 新增
+├── TINGWU_OFFLINE_IMPLEMENTATION.md ✅ 通义听悟离线转写方案 [alwaysApply: false] ← 新增
 ├── API_TROUBLESHOOTING.md   ✅ API 异常案例集锦 [alwaysApply: false] ← 方案C新增
 ├── API_RED_LINES.md         ✅ API 调用红线 [alwaysApply: false] ← 方案C新增
 ├── SERVER_DEPLOY.md         ✅ 服务器部署规范 [alwaysApply: false] ← 新增

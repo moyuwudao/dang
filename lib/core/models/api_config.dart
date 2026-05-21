@@ -1,12 +1,5 @@
 import 'ai_model_config.dart';
 
-enum ApiFunctionType {
-  text,
-  voice,
-  voiceRealtime,
-  image,
-}
-
 class ApiConfigEntry {
   final String id;
   final String name;
@@ -132,6 +125,27 @@ class ApiConfigEntry {
   bool get supportsVoice => functions.contains(ApiFunctionType.voice);
   bool get supportsVoiceRealtime => functions.contains(ApiFunctionType.voiceRealtime);
   bool get supportsImage => functions.contains(ApiFunctionType.image);
+  bool get supportsOfflineVoice => functions.contains(ApiFunctionType.offlineVoice);
+
+  /// 检查此配置是否支持指定的功能类型（基于模型固有能力）
+  bool isFunctionCompatible(ApiFunctionType functionType) {
+    return AiModelConfig.providerSupportsFunction(provider, functionType);
+  }
+
+  /// 获取此配置支持的功能类型列表（基于模型固有能力）
+  List<ApiFunctionType> get compatibleFunctions {
+    return ApiFunctionType.values
+        .where((f) => AiModelConfig.providerSupportsFunction(provider, f))
+        .toList();
+  }
+
+  /// 获取此配置不支持但用户已勾选的功能列表
+  List<ApiFunctionType> get incompatibleSelectedFunctions {
+    return functions.where((f) => !isFunctionCompatible(f)).toList();
+  }
+
+  /// 检查是否有不兼容的功能选择
+  bool get hasIncompatibleFunctions => incompatibleSelectedFunctions.isNotEmpty;
 }
 
 class ApiFunctionAssignment {

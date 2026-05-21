@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { User } from './entities/user.entity';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { User } from './entities/user.entity';
       secret: process.env.JWT_SECRET || 'changji_jwt_secret_change_me',
       signOptions: { expiresIn: '15m' },
     }),
+    SubscriptionModule,
   ],
   controllers: [AuthController],
   providers: [AuthService],

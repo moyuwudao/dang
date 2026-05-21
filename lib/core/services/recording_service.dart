@@ -48,10 +48,14 @@ class RecordingService {
     _fileSink = file.openWrite();
 
     // 使用 startStream 获取音频流
+    // 优化：使用较小的缓冲区以提高实时性
     const recordConfig = RecordConfig(
       encoder: AudioEncoder.pcm16bits,
       sampleRate: 16000,
       numChannels: 1,
+      autoGain: true,
+      echoCancel: true,
+      noiseSuppress: true,
     );
 
     final audioStream = await _audioRecorder.startStream(recordConfig);

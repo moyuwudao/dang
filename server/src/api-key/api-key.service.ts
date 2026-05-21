@@ -1,8 +1,10 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiKey } from './entities/api-key.entity';
 import { UserApiKey } from './entities/user-api-key.entity';
+import { CreateApiKeyDto } from './dto';
+import { CryptoUtil } from '../common/crypto.util';
 
 @Injectable()
 export class ApiKeyService {
@@ -14,49 +16,95 @@ export class ApiKeyService {
   ) {}
 
   async getApiKey(userId: string) {
-    // 检查用户是否有有效的 API Key 分配
     const existingAssignment = await this.userApiKeyRepository.findOne({
       where: { userId, isActive: true },
       order: { assignedAt: 'DESC' },
     });
 
     if (existingAssignment && existingAssignment.expiresAt > new Date()) {
-      // 返回已分配的 Key
       const apiKey = await this.apiKeyRepository.findOne({
         where: { id: existingAssignment.apiKeyId },
       });
 
       if (apiKey && apiKey.isActive) {
+        const decryptedKey = CryptoUtil.decrypt(apiKey.apiKeyEncrypted);
         return {
           code: 200,
           message: 'success',
           data: {
             provider: apiKey.provider,
-            apiKey: apiKey.apiKeyEncrypted, // 实际应解密
+            apiKey: decryptedKey,
             model: apiKey.model,
+            rateLimitPerMin: apiKey.rateLimitPerMin,
             expiresAt: existingAssignment.expiresAt,
           },
         };
       }
     }
 
-    // 分配新的 API Key
     return this.assignNewKey(userId);
   }
 
   async refreshApiKey(userId: string) {
-    // 使旧 Key 失效
     await this.userApiKeyRepository.update(
       { userId, isActive: true },
       { isActive: false },
     );
 
-    // 分配新 Key
     return this.assignNewKey(userId);
   }
 
+  async createApiKey(dto: CreateApiKeyDto) {
+    const encryptedKey = CryptoUtil.encrypt(dto.apiKey);
+    
+    const apiKey = this.apiKeyRepository.create({
+      provider: dto.provider,
+      apiKeyEncrypted: encryptedKey,
+      model: dto.model,
+      rateLimitPerMin: dto.rateLimitPerMin ?? 60,
+      isActive: dto.isActive ?? true,
+    });
+
+    await this.apiKeyRepository.save(apiKey);
+
+    return {
+      code: 200,
+      message: 'API Key 创建成功',
+      data: {
+        id: apiKey.id,
+        provider: apiKey.provider,
+        model: apiKey.model,
+        isActive: apiKey.isActive,
+      },
+    };
+  }
+
+  async getApiKeys() {
+    const keys = await this.apiKeyRepository.find();
+    return {
+      code: 200,
+      message: 'success',
+      data: keys.map(k => ({
+        id: k.id,
+        provider: k.provider,
+        model: k.model,
+        isActive: k.isActive,
+        rateLimitPerMin: k.rateLimitPerMin,
+        createdAt: k.createdAt,
+      })),
+    };
+  }
+
+  async deleteApiKey(id: string) {
+    await this.apiKeyRepository.delete(id);
+    return {
+      code: 200,
+      message: 'API Key 删除成功',
+      data: null,
+    };
+  }
+
   private async assignNewKey(userId: string) {
-    // 从 Key 池中获取一个可用的 Key
     const availableKey = await this.apiKeyRepository.findOne({
       where: { isActive: true },
     });
@@ -65,9 +113,8 @@ export class ApiKeyService {
       throw new ForbiddenException('API Key 池已耗尽，请联系管理员');
     }
 
-    // 创建分配记录
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1); // 1 小时过期
+    expiresAt.setHours(expiresAt.getHours() + 24); // 24小时过期
 
     const assignment = this.userApiKeyRepository.create({
       userId,
@@ -79,13 +126,16 @@ export class ApiKeyService {
 
     await this.userApiKeyRepository.save(assignment);
 
+    const decryptedKey = CryptoUtil.decrypt(availableKey.apiKeyEncrypted);
+
     return {
       code: 200,
       message: 'success',
       data: {
         provider: availableKey.provider,
-        apiKey: availableKey.apiKeyEncrypted, // 实际应解密
+        apiKey: decryptedKey,
         model: availableKey.model,
+        rateLimitPerMin: availableKey.rateLimitPerMin,
         expiresAt,
       },
     };

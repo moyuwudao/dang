@@ -293,6 +293,93 @@ class TingwuService {
     throw Exception('任务超时未完成');
   }
 
+  /// 创建实时会议（用于实时转写）
+  ///
+  /// 返回 WebSocket 连接信息和认证凭证
+  /// [audioFormat] 音频格式：pcm, wav, mp3, opus, speex, aac, amr
+  /// [sampleRate] 采样率：16000, 8000
+  /// [language] 语言：cn, en, yue, fspk
+  /// [realtimeResultEnabled] 是否开启实时结果返回
+  /// [diarizationEnabled] 是否开启说话人分离
+  Future<TingwuMeetingInfo> createMeeting({
+    String audioFormat = 'pcm',
+    int sampleRate = 16000,
+    String language = 'cn',
+    bool realtimeResultEnabled = true,
+    int realtimeResultLevel = 2,
+    bool diarizationEnabled = true,
+  }) async {
+    _log('Creating Tingwu meeting for realtime transcription');
+
+    final appId = _httpClient.appId;
+
+    if (appId == null || appId.isEmpty) {
+      throw Exception('通义听悟需要配置 AppKey，请在设置中填写');
+    }
+
+    try {
+      // 如果签名器未初始化，尝试重新初始化
+      if (_signer == null) {
+        _initSigner();
+      }
+      
+      if (_signer == null) {
+        throw Exception('阿里云签名未配置，请先调用 setCredentials()');
+      }
+
+      // 使用新版 API: PUT /openapi/tingwu/v2/tasks?type=realtime
+      final path = '/openapi/tingwu/v2/tasks';
+      final queryParams = {'type': 'realtime'};
+
+      final body = {
+        'AppKey': appId,
+        'Input': {
+          'SourceLanguage': language,
+          'Format': audioFormat.toLowerCase(),
+          'SampleRate': sampleRate,
+        },
+      };
+
+      final bodyJson = jsonEncode(body);
+      _log('Create meeting request: $bodyJson');
+
+      final signedHeaders = _signer!.signRoaRequest(
+        method: 'PUT',
+        path: path,
+        queryParams: queryParams,
+        body: bodyJson,
+      );
+
+      final url = '$_baseUrl$path';
+      _log('Create meeting URL: $url?type=realtime');
+
+      final dio = Dio();
+      final response = await dio.put(
+        url,
+        data: bodyJson,
+        queryParameters: queryParams,
+        options: Options(headers: signedHeaders),
+      );
+
+      _log('Create meeting response: ${response.data}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data is String
+            ? jsonDecode(response.data)
+            : response.data;
+        
+        final meetingInfo = TingwuMeetingInfo.fromJson(data['Data']);
+        _log('Meeting created: ${meetingInfo.meetingId}');
+        return meetingInfo;
+      }
+
+      throw Exception('创建会议失败: ${response.data}');
+    } catch (e) {
+      _log('Error creating meeting: $e');
+      rethrow;
+    }
+  }
+
   /// 合并参数，避免重复键
   Map<String, dynamic> _mergeParameters(Map<String, dynamic> parameters) {
     final merged = <String, dynamic>{};
@@ -510,4 +597,61 @@ class TingwuChapter {
     required this.beginTime,
     required this.endTime,
   });
+}
+
+/// 通义听悟会议信息（用于实时转写）
+class TingwuMeetingInfo {
+  /// 会议 ID
+  final String meetingId;
+  
+  /// WebSocket 连接地址
+  final String wsUrl;
+  
+  /// 认证 Token
+  final String token;
+  
+  /// 实时结果数据 ID
+  final String? realtimeDataId;
+  
+  /// 结束回调 URL
+  final String? callbackUrl;
+  
+  /// 过期时间
+  final DateTime? expireTime;
+
+  TingwuMeetingInfo({
+    required this.meetingId,
+    required this.wsUrl,
+    required this.token,
+    this.realtimeDataId,
+    this.callbackUrl,
+    this.expireTime,
+  });
+
+  factory TingwuMeetingInfo.fromJson(Map<String, dynamic> json) {
+    // 解析 WebSocket URL - 可能字段名: MeetingJoinUrl, WsUrl, ws_url
+    var wsUrl = json['MeetingJoinUrl'] ?? json['WsUrl'] ?? json['ws_url'] ?? '';
+    
+    // 解析 Token - 可能字段名: Token, token, MeetingToken
+    var token = json['Token'] ?? json['token'] ?? json['MeetingToken'] ?? '';
+    
+    // 解析 MeetingId - 可能字段名: MeetingId, meeting_id, TaskId
+    var meetingId = json['MeetingId'] ?? json['meeting_id'] ?? json['TaskId'] ?? '';
+    
+    return TingwuMeetingInfo(
+      meetingId: meetingId,
+      wsUrl: wsUrl,
+      token: token,
+      realtimeDataId: json['RealtimeDataId'] ?? json['realtime_data_id'] ?? json['TaskId'],
+      callbackUrl: json['CallbackUrl'] ?? json['callback_url'],
+      expireTime: json['ExpireTime'] != null 
+          ? DateTime.tryParse(json['ExpireTime'].toString())
+          : null,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'TingwuMeetingInfo(meetingId: $meetingId, wsUrl: $wsUrl, hasToken: ${token.isNotEmpty})';
+  }
 }

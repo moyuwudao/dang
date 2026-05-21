@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum AiProvider {
   openAI,
   claude,
@@ -11,6 +13,14 @@ enum AiProvider {
   spark,
   grok,
   custom,
+}
+
+enum ApiFunctionType {
+  text,
+  voice,
+  voiceRealtime,
+  image,
+  offlineVoice,
 }
 
 enum AppFeature {
@@ -69,6 +79,7 @@ class AiModelConfig {
   final List<String> availableModels;
   final bool supportsTranscription;
   final bool supportsRealtimeTranscription;
+  final bool supportsOfflineTranscription;
   final bool supportsSpeakerDiarization;
   final bool supportsChat;
   final bool supportsTextAnalysis;
@@ -107,6 +118,7 @@ class AiModelConfig {
     required this.availableModels,
     this.supportsTranscription = false,
     this.supportsRealtimeTranscription = false,
+    this.supportsOfflineTranscription = false,
     this.supportsSpeakerDiarization = false,
     this.supportsChat = true,
     this.supportsTextAnalysis = true,
@@ -163,7 +175,7 @@ class AiModelConfig {
       case AppFeature.speechTranscription:
         if (configuredProvider == null) return false;
         final config = getConfig(configuredProvider);
-        return config.supportsTranscription;
+        return config.supportsTranscription || config.supportsOfflineTranscription;
       case AppFeature.speechRealtimeTranscription:
         if (configuredProvider == null) return false;
         final config = getConfig(configuredProvider);
@@ -178,7 +190,9 @@ class AiModelConfig {
         return config.supportsOCR;
       case AppFeature.chatSummary:
       case AppFeature.titleGeneration:
-        return configuredProvider != null;
+        if (configuredProvider == null) return false;
+        final config = getConfig(configuredProvider);
+        return config.supportsChat || config.supportsTextAnalysis;
     }
   }
 
@@ -235,6 +249,10 @@ class AiModelConfig {
       case AppFeature.titleGeneration:
         if (configuredProvider == null) {
           return 'Please configure an AI model API Key first';
+        }
+        final config = getConfig(configuredProvider);
+        if (!config.supportsChat && !config.supportsTextAnalysis) {
+          return '${config.displayName} does not support chat or text analysis. Please use a model with chat capabilities.';
         }
         return null;
     }
@@ -410,6 +428,7 @@ class AiModelConfig {
     ],
     supportsTranscription: true,
     supportsRealtimeTranscription: true,
+    supportsOfflineTranscription: true,
     supportsSpeakerDiarization: false,
     supportsChat: true,
     supportsTextAnalysis: true,
@@ -636,9 +655,10 @@ class AiModelConfig {
     availableModels: ['tingwu-v2'],
     supportsTranscription: true,
     supportsRealtimeTranscription: true,
+    supportsOfflineTranscription: true,
     supportsSpeakerDiarization: true,
     supportsChat: false,
-    supportsTextAnalysis: true,
+    supportsTextAnalysis: false,
     supportsOCR: false,
     visionModel: '',
     apiKeyPrefix: null,
@@ -728,7 +748,11 @@ class AiModelConfig {
   ];
 
   static List<AiModelConfig> get transcriptionProviders => allProviders
-      .where((p) => p.supportsTranscription)
+      .where((p) => p.supportsTranscription || p.supportsOfflineTranscription)
+      .toList();
+
+  static List<AiModelConfig> get offlineTranscriptionProviders => allProviders
+      .where((p) => p.supportsOfflineTranscription)
       .toList();
 
   static List<AiModelConfig> get realtimeTranscriptionProviders => allProviders
@@ -746,4 +770,88 @@ class AiModelConfig {
   static List<AiModelConfig> get speakerDiarizationProviders => allProviders
       .where((p) => p.supportsSpeakerDiarization)
       .toList();
+
+  /// 获取支持指定功能类型的所有提供商配置
+  static List<AiModelConfig> getProvidersForFunction(ApiFunctionType functionType) {
+    switch (functionType) {
+      case ApiFunctionType.text:
+        return textAnalysisProviders;
+      case ApiFunctionType.voice:
+        return transcriptionProviders;
+      case ApiFunctionType.voiceRealtime:
+        return realtimeTranscriptionProviders;
+      case ApiFunctionType.image:
+        return ocrProviders;
+      case ApiFunctionType.offlineVoice:
+        return offlineTranscriptionProviders;
+    }
+  }
+
+  /// 检查指定提供商是否支持指定功能类型
+  static bool providerSupportsFunction(AiProvider provider, ApiFunctionType functionType) {
+    final config = getConfig(provider);
+    switch (functionType) {
+      case ApiFunctionType.text:
+        return config.supportsTextAnalysis;
+      case ApiFunctionType.voice:
+        return config.supportsTranscription || config.supportsOfflineTranscription;
+      case ApiFunctionType.voiceRealtime:
+        return config.supportsRealtimeTranscription;
+      case ApiFunctionType.image:
+        return config.supportsOCR;
+      case ApiFunctionType.offlineVoice:
+        return config.supportsOfflineTranscription;
+    }
+  }
+
+  /// 获取功能类型对应的中文名称
+  static String getFunctionTypeLabel(ApiFunctionType functionType) {
+    switch (functionType) {
+      case ApiFunctionType.text:
+        return '文本分析';
+      case ApiFunctionType.voice:
+        return '语音转写';
+      case ApiFunctionType.voiceRealtime:
+        return '实时语音转写';
+      case ApiFunctionType.image:
+        return '图像识别';
+      case ApiFunctionType.offlineVoice:
+        return '离线语音转写';
+    }
+  }
+
+  /// 获取功能类型对应的图标
+  static IconData getFunctionTypeIcon(ApiFunctionType functionType) {
+    switch (functionType) {
+      case ApiFunctionType.text:
+        return Icons.chat_bubble_outline;
+      case ApiFunctionType.voice:
+        return Icons.mic;
+      case ApiFunctionType.voiceRealtime:
+        return Icons.record_voice_over;
+      case ApiFunctionType.image:
+        return Icons.image;
+      case ApiFunctionType.offlineVoice:
+        return Icons.offline_bolt;
+    }
+  }
+
+  /// 获取不支持该功能的原因说明
+  static String getUnsupportedReason(AiProvider provider, ApiFunctionType functionType) {
+    final config = getConfig(provider);
+    final functionName = getFunctionTypeLabel(functionType);
+    final supportedFunctions = <String>[];
+
+    if (config.supportsTextAnalysis) supportedFunctions.add('文本分析');
+    if (config.supportsTranscription || config.supportsOfflineTranscription) supportedFunctions.add('语音转写');
+    if (config.supportsRealtimeTranscription) supportedFunctions.add('实时语音转写');
+    if (config.supportsOCR) supportedFunctions.add('图像识别');
+    if (config.supportsOfflineTranscription) supportedFunctions.add('离线语音转写');
+
+    if (supportedFunctions.isEmpty) {
+      return '${config.displayName} 不支持 $functionName 功能。该模型目前无可用的功能支持。';
+    }
+
+    return '${config.displayName} 不支持 $functionName 功能。该模型仅支持: ${supportedFunctions.join('、')}。';
+  }
 }

@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsBoolean, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsBoolean, IsNotEmpty, IsArray } from 'class-validator';
 
 export class CreatePlanDto {
   @IsString()
@@ -20,6 +20,19 @@ export class CreatePlanDto {
   @IsNumber()
   @IsNotEmpty()
   durationDays: number;
+
+  @IsString()
+  @IsOptional()
+  type?: string; // subscription | package | recharge
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  features?: string[];
+
+  @IsBoolean()
+  @IsOptional()
+  isRecommended?: boolean;
 
   @IsString()
   @IsNotEmpty()

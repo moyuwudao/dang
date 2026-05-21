@@ -45,6 +45,7 @@ class RecordingState {
   final String? transcriptionProgress;
   final bool isRealtimeEnabled;
   final String? realtimeText;
+  final List<String> realtimeSentences; // 累积所有转写句子
   final bool isRealtimeAvailable;
 
   const RecordingState({
@@ -58,6 +59,7 @@ class RecordingState {
     this.transcriptionProgress,
     this.isRealtimeEnabled = false,
     this.realtimeText,
+    this.realtimeSentences = const [],
     this.isRealtimeAvailable = false,
   });
 
@@ -72,6 +74,7 @@ class RecordingState {
     String? transcriptionProgress,
     bool? isRealtimeEnabled,
     String? realtimeText,
+    List<String>? realtimeSentences,
     bool? isRealtimeAvailable,
   }) {
     return RecordingState(
@@ -85,6 +88,7 @@ class RecordingState {
       transcriptionProgress: transcriptionProgress ?? this.transcriptionProgress,
       isRealtimeEnabled: isRealtimeEnabled ?? this.isRealtimeEnabled,
       realtimeText: realtimeText ?? this.realtimeText,
+      realtimeSentences: realtimeSentences ?? this.realtimeSentences,
       isRealtimeAvailable: isRealtimeAvailable ?? this.isRealtimeAvailable,
     );
   }
@@ -237,6 +241,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
         isTranscribing: false,
         transcriptionProgress: null,
         realtimeText: null,
+        realtimeSentences: const [],
       );
 
       // 监听振幅
@@ -286,9 +291,21 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
       _realtimeSubscription = realtimeStream.listen(
         (result) {
           AppLogger().i('Realtime', 'Result: "${result.text}", isFinal: ${result.isFinal}');
-          // result.text 已经是完整文本（包含所有历史句子）
-          // 直接更新状态，不需要额外缓冲
-          state = state.copyWith(realtimeText: result.text);
+          
+          if (result.isFinal) {
+            // 如果是最终结果，添加到句子列表
+            final newSentences = [...state.realtimeSentences, result.text];
+            state = state.copyWith(
+              realtimeSentences: newSentences,
+              realtimeText: newSentences.join('\n'),
+            );
+          } else {
+            // 如果是中间结果，显示当前正在识别的文本
+            final currentText = state.realtimeSentences.isNotEmpty
+                ? '${state.realtimeSentences.join('\n')}\n${result.text}'
+                : result.text;
+            state = state.copyWith(realtimeText: currentText);
+          }
         },
         onError: (e) {
           AppLogger().e('Realtime', 'Realtime transcription error: $e');
@@ -349,6 +366,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
           transcriptionProgress: '等待转写中...',
           isRealtimeEnabled: false,
           realtimeText: null,
+          realtimeSentences: const [],
         );
       }
     } catch (e) {
