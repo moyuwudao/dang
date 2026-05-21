@@ -83,20 +83,20 @@ export default function ApiKeysPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">API Key 管理</h1>
+            <h1 className="text-xl font-semibold text-gray-900">API Key 管理</h1>
             <p className="text-gray-500 mt-1 flex items-center gap-2">
               <Shield className="w-4 h-4" />
               安全地管理第三方服务的 API Key
             </p>
           </div>
-          <Button color="primary" className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/30" onClick={() => setShowAddModal(true)}>
+          <Button color="primary" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowAddModal(true)}>
             <Plus className="w-4 h-4" />
             添加 Key
           </Button>
         </div>
 
         {/* Search Card */}
-        <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
+        <Card className="bg-white border border-gray-100">
           <CardBody className="p-4">
             <div className="flex items-center gap-4">
               <div className="relative flex-1">
@@ -107,7 +107,7 @@ export default function ApiKeysPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-12"
                   classNames={{
-                    inputWrapper: 'bg-gray-50/80 border border-gray-200/50 rounded-xl',
+                    inputWrapper: 'bg-gray-50 border border-gray-200 rounded-xl',
                   }}
                 />
               </div>
@@ -116,7 +116,7 @@ export default function ApiKeysPage() {
         </Card>
 
         {/* Table Card */}
-        <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
+        <Card className="bg-white border border-gray-100">
           <CardBody className="p-0">
             <Table>
               <TableHeader>
@@ -129,11 +129,11 @@ export default function ApiKeysPage() {
               </TableHeader>
               <TableBody>
                 {filteredKeys.map((key) => (
-                  <TableRow key={key.id} className="hover:bg-indigo-50/30 transition-colors">
+                  <TableRow key={key.id} className="hover:bg-gray-50 transition-colors">
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md">
-                          <Key className="w-5 h-5 text-white" />
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                          <Key className="w-5 h-5 text-blue-600" />
                         </div>
                         <span className="font-semibold text-gray-800 capitalize">{key.provider}</span>
                       </div>
@@ -154,7 +154,7 @@ export default function ApiKeysPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button size="sm" variant="light" color="primary" onClick={() => handleView(key)} className="hover:bg-indigo-50">
+                        <Button size="sm" variant="light" color="primary" onClick={() => handleView(key)} className="hover:bg-gray-50">
                           <Eye className="w-4 h-4" />
                         </Button>
                         <Button size="sm" variant="light" color="warning" className="hover:bg-yellow-50">
@@ -174,11 +174,11 @@ export default function ApiKeysPage() {
 
         {/* Add Modal */}
         <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} classNames={{
-          base: 'rounded-2xl',
+          base: 'rounded-xl',
         }}>
           <ModalHeader className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <Plus className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <Plus className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <p className="text-lg font-bold text-gray-800">添加新 API Key</p>
@@ -197,17 +197,17 @@ export default function ApiKeysPage() {
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onClick={() => setShowAddModal(false)} className="hover:bg-gray-100 rounded-xl">取消</Button>
-            <Button color="primary" className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl" onClick={handleAddKey}>创建</Button>
+            <Button color="primary" className="bg-blue-600 hover:bg-blue-700 rounded-xl" onClick={handleAddKey}>创建</Button>
           </ModalFooter>
         </Modal>
 
         {/* View Modal */}
         <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)} classNames={{
-          base: 'rounded-2xl',
+          base: 'rounded-xl',
         }}>
           <ModalHeader className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <p className="text-lg font-bold text-gray-800">API Key 详情</p>

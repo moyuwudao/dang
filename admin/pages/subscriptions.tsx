@@ -30,15 +30,6 @@ const getPlanIcon = (planId: string) => {
   }
 };
 
-const getPlanGradient = (planId: string) => {
-  switch (planId) {
-    case 'enterprise': return 'from-amber-500 to-orange-500';
-    case 'pro': return 'from-purple-500 to-pink-500';
-    case 'basic': return 'from-blue-500 to-indigo-500';
-    default: return 'from-gray-400 to-gray-500';
-  }
-};
-
 export default function SubscriptionsPage() {
   const [plans, setPlans] = useState<Plan[]>(mockPlans);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(mockSubscriptions);
@@ -98,10 +89,10 @@ export default function SubscriptionsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">订阅管理</h1>
+            <h1 className="text-xl font-semibold text-gray-900">订阅管理</h1>
             <p className="text-gray-500 mt-1">管理套餐和用户订阅</p>
           </div>
-          <Button color="primary" variant="light" className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30" onClick={() => setShowAddPlanModal(true)}>
+          <Button color="primary" variant="light" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowAddPlanModal(true)}>
             <Plus className="w-4 h-4" />
             添加套餐
           </Button>
@@ -109,11 +100,11 @@ export default function SubscriptionsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Plans List */}
-          <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
+          <Card className="bg-white border border-gray-100">
             <CardBody className="p-6">
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
-                  <Package className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <Package className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-800">套餐列表</h2>
@@ -123,18 +114,17 @@ export default function SubscriptionsPage() {
               <div className="space-y-3">
                 {plans.map((plan) => {
                   const Icon = getPlanIcon(plan.id);
-                  const gradient = getPlanGradient(plan.id);
                   return (
-                    <div key={plan.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 rounded-xl border border-indigo-100/30 hover:shadow-md transition-all">
+                    <div key={plan.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
-                          <Icon className="w-6 h-6 text-white" />
+                        <div className={`w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center`}>
+                          <Icon className="w-6 h-6 text-blue-600" />
                         </div>
                         <div>
                           <p className="font-semibold text-gray-800">{plan.name}</p>
                           <p className="text-sm text-gray-500">{plan.description}</p>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className="text-sm font-medium text-indigo-600">¥{(plan.priceCents / 100).toFixed(0)}/{plan.durationDays}天</span>
+                            <span className="text-sm font-medium text-blue-600">¥{(plan.priceCents / 100).toFixed(0)}/{plan.durationDays}天</span>
                             <span className="text-xs text-gray-400">
                               {plan.quotaType === 'unlimited' ? '无限配额' : `${plan.quotaValue}分钟`}
                             </span>
@@ -145,7 +135,7 @@ export default function SubscriptionsPage() {
                         <span className={`px-3 py-1 text-xs rounded-full border ${plan.isActive ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
                           {plan.isActive ? '启用' : '禁用'}
                         </span>
-                        <Button size="sm" variant="light" color="primary" className="hover:bg-indigo-50">
+                        <Button size="sm" variant="light" color="primary" className="hover:bg-gray-50">
                           <Edit className="w-4 h-4" />
                         </Button>
                       </div>
@@ -157,11 +147,11 @@ export default function SubscriptionsPage() {
           </Card>
 
           {/* Subscriptions List */}
-          <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
+          <Card className="bg-white border border-gray-100">
             <CardBody className="p-6">
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-                  <Clock className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-800">用户订阅</h2>
@@ -201,13 +191,12 @@ export default function SubscriptionsPage() {
                 {filteredSubscriptions.map((sub) => {
                   const statusConfig = getStatusConfig(sub.status);
                   const Icon = getPlanIcon(sub.planId);
-                  const gradient = getPlanGradient(sub.planId);
                   return (
-                    <div key={sub.id} className="flex items-start justify-between p-4 bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-xl border border-purple-100/30 hover:shadow-md transition-all">
+                    <div key={sub.id} className="flex items-start justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-                            <Icon className="w-4 h-4 text-white" />
+                          <div className={`w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center`}>
+                            <Icon className="w-4 h-4 text-blue-600" />
                           </div>
                           <span className={`px-2.5 py-1 text-xs rounded-full border ${statusConfig.className}`}>
                             {statusConfig.label}
@@ -226,7 +215,7 @@ export default function SubscriptionsPage() {
                             </div>
                             <div className="w-full bg-gray-200/80 rounded-full h-2">
                               <div
-                                className="bg-gradient-to-r from-green-400 to-emerald-500 h-2 rounded-full transition-all duration-500"
+                                className="bg-blue-500 h-2 rounded-full transition-all duration-500"
                                 style={{ width: `${getQuotaPercent(sub.usedQuota, sub.totalQuota)}%` }}
                               />
                             </div>
@@ -253,11 +242,11 @@ export default function SubscriptionsPage() {
 
         {/* Add Plan Modal */}
         <Modal isOpen={showAddPlanModal} onClose={() => setShowAddPlanModal(false)} classNames={{
-          base: 'rounded-2xl',
+          base: 'rounded-xl',
         }}>
           <ModalHeader className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <Plus className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <Plus className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <p className="text-lg font-bold text-gray-800">添加新套餐</p>
@@ -281,7 +270,7 @@ export default function SubscriptionsPage() {
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onClick={() => setShowAddPlanModal(false)} className="hover:bg-gray-100 rounded-xl">取消</Button>
-            <Button color="primary" className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl" onClick={handleAddPlan}>创建套餐</Button>
+            <Button color="primary" className="bg-blue-600 hover:bg-blue-700 rounded-xl" onClick={handleAddPlan}>创建套餐</Button>
           </ModalFooter>
         </Modal>
       </div>

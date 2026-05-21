@@ -46,20 +46,20 @@ export default function UsersPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">用户管理</h1>
+            <h1 className="text-xl font-semibold text-gray-900">用户管理</h1>
             <p className="text-gray-500 mt-1 flex items-center gap-2">
               <Users className="w-4 h-4" />
               共 {filteredUsers.length} 位用户
             </p>
           </div>
-          <Button color="primary" className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/30">
+          <Button color="primary" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
             <UserPlus className="w-4 h-4" />
             添加用户
           </Button>
         </div>
 
         {/* Search Card */}
-        <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
+        <Card className="bg-white border border-gray-100">
           <CardBody className="p-4">
             <div className="flex items-center gap-4">
               <div className="relative flex-1">
@@ -69,8 +69,9 @@ export default function UsersPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-12"
+                  size="sm"
                   classNames={{
-                    inputWrapper: 'bg-gray-50/80 border border-gray-200/50 rounded-xl',
+                    inputWrapper: 'bg-gray-50 border border-gray-200 rounded-xl',
                   }}
                 />
               </div>
@@ -79,7 +80,7 @@ export default function UsersPage() {
         </Card>
 
         {/* Table Card */}
-        <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
+        <Card className="bg-white border border-gray-100">
           <CardBody className="p-0">
             <Table>
               <TableHeader>
@@ -91,14 +92,14 @@ export default function UsersPage() {
               </TableHeader>
               <TableBody>
                 {paginatedUsers.map((user) => (
-                  <TableRow key={user.id} className="hover:bg-indigo-50/30 transition-colors">
+                  <TableRow key={user.id} className="hover:bg-gray-50 transition-colors">
                     <TableCell>
                       <span className="font-mono text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">{user.id.slice(0, 8)}...</span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md">
-                          <span className="text-white font-semibold">U</span>
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                          <span className="text-blue-600 font-semibold">U</span>
                         </div>
                         <span className="font-medium text-gray-800">{user.phone}</span>
                       </div>
@@ -118,7 +119,7 @@ export default function UsersPage() {
                           variant="light"
                           color="primary"
                           onClick={() => handleView(user)}
-                          className="hover:bg-indigo-50"
+                          className="hover:bg-gray-50"
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -152,8 +153,8 @@ export default function UsersPage() {
                   color="primary"
                   classNames={{
                     wrapper: 'gap-2',
-                    item: 'bg-gray-100/50 hover:bg-indigo-50',
-                    cursor: 'bg-gradient-to-r from-indigo-500 to-purple-500 shadow-lg',
+                    item: 'bg-gray-100 hover:bg-gray-50',
+                    cursor: 'bg-blue-600',
                   }}
                 />
               </div>
@@ -163,13 +164,13 @@ export default function UsersPage() {
 
         {/* User Detail Modal */}
         <Modal isOpen={showModal} onClose={() => setShowModal(false)} classNames={{
-          base: 'rounded-2xl',
+          base: 'rounded-xl',
           header: 'border-b border-gray-100',
           footer: 'border-t border-gray-100',
         }}>
           <ModalHeader className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="text-white text-lg font-bold">U</span>
+            <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
+              <span className="text-blue-600 text-lg font-bold">U</span>
             </div>
             <div>
               <p className="text-lg font-bold text-gray-800">用户详情</p>
@@ -179,9 +180,9 @@ export default function UsersPage() {
           <ModalBody>
             {selectedUser && (
               <div className="space-y-6">
-                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 rounded-xl">
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
-                    <span className="text-white text-2xl font-bold">U</span>
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-16 h-16 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <span className="text-blue-600 text-2xl font-bold">U</span>
                   </div>
                   <div>
                     <p className="text-xl font-bold text-gray-800">{selectedUser.phone}</p>
@@ -205,7 +206,7 @@ export default function UsersPage() {
             <Button variant="light" onClick={() => setShowModal(false)} className="hover:bg-gray-100">
               关闭
             </Button>
-            <Button color="primary" className="bg-gradient-to-r from-indigo-500 to-purple-500">
+            <Button color="primary" className="bg-blue-600 hover:bg-blue-700">
               编辑用户
             </Button>
           </ModalFooter>
