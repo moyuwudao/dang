@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AuthModule } from '../auth/auth.module';
 import { User } from '../auth/entities/user.entity';
 import { Plan } from '../subscription/entities/plan.entity';
 import { Subscription } from '../subscription/entities/subscription.entity';
@@ -19,6 +20,7 @@ import { RechargeRecord } from '../subscription/entities/recharge-record.entity'
       UserBalance,
       RechargeRecord,
     ]),
+    AuthModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],
