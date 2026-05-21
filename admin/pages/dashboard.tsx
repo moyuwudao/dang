@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardBody, Chip, Button } from '@nextui-org/react';
-import { Users, CreditCard, Key, TrendingUp, Activity, ArrowUpRight, ArrowDownRight, Sparkles } from 'lucide-react';
+import { Card, CardBody, Button, Badge } from '@nextui-org/react';
+import { Users, CreditCard, Key, TrendingUp, Activity, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import Layout from '@/components/Layout';
 import { subscriptionAPI, apiKeyAPI } from '@/services/api';
@@ -37,20 +37,20 @@ const mockApiKeys: ApiKey[] = [
   { id: '2', provider: 'qwen', model: 'qwen-plus', isActive: true, rateLimitPerMin: 30, createdAt: '2026-05-16' },
 ];
 
-const StatCard = ({ icon: Icon, title, value, change, changeType, color }: { icon: React.ElementType, title: string, value: string | number, change: string, changeType: 'up' | 'down', color: string }) => (
-  <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 hover:-translate-y-1">
+const StatCard = ({ icon: Icon, title, value, change, changeType }: { icon: React.ElementType, title: string, value: string | number, change: string, changeType: 'up' | 'down' }) => (
+  <Card className="bg-white border border-gray-100 hover:shadow-sm transition-shadow duration-200">
     <CardBody className="p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-500 text-sm font-medium">{title}</p>
-          <p className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-900 bg-clip-text text-transparent mt-1">{value}</p>
-          <div className={`flex items-center gap-1 mt-3 ${changeType === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <p className="text-sm text-gray-500 font-medium">{title}</p>
+          <p className="text-2xl font-semibold text-gray-900">{value}</p>
+          <div className={`flex items-center gap-1 ${changeType === 'up' ? 'text-green-600' : 'text-red-500'}`}>
             {changeType === 'up' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
             <span className="text-sm font-medium">{change}</span>
           </div>
         </div>
-        <div className={`w-14 h-14 rounded-2xl ${color} flex items-center justify-center shadow-lg`}>
-          <Icon className="w-7 h-7 text-white" />
+        <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
+          <Icon className="w-6 h-6 text-blue-600" />
         </div>
       </div>
     </CardBody>
@@ -62,7 +62,6 @@ export default function DashboardPage() {
   const [plans] = useState<Plan[]>(mockPlans);
   const [apiKeys] = useState<ApiKey[]>(mockApiKeys);
   const [chartData] = useState<ChartDataPoint[]>(mockChartData);
-  const [loading] = useState(true);
 
   const totalRevenue = plans.reduce((acc, plan) => acc + (plan.priceCents * 10), 0);
 
@@ -72,24 +71,23 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">仪表板</h1>
-            <p className="text-gray-500 mt-1">欢迎回来，查看系统概览</p>
+            <h1 className="text-xl font-semibold text-gray-900">仪表板</h1>
+            <p className="text-sm text-gray-500 mt-1">欢迎回来，查看系统概览</p>
           </div>
-          <Chip color="success" variant="flat" className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-600 border border-green-200">
-            <Activity className="w-4 h-4" />
+          <Badge variant="flat" className="bg-green-50 text-green-700 border-green-200 px-3 py-1.5">
+            <Activity className="w-3.5 h-3.5 mr-1.5" />
             系统运行正常
-          </Chip>
+          </Badge>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             icon={Users}
             title="总用户数"
             value={stats.totalUsers.toLocaleString()}
             change="+12.5%"
             changeType="up"
-            color="bg-gradient-to-br from-blue-500 to-indigo-500"
           />
           <StatCard
             icon={CreditCard}
@@ -97,7 +95,6 @@ export default function DashboardPage() {
             value={stats.activeSubscriptions}
             change="+8.3%"
             changeType="up"
-            color="bg-gradient-to-br from-green-500 to-emerald-500"
           />
           <StatCard
             icon={Key}
@@ -105,7 +102,6 @@ export default function DashboardPage() {
             value={stats.apiKeyCount}
             change="+2"
             changeType="up"
-            color="bg-gradient-to-br from-purple-500 to-pink-500"
           />
           <StatCard
             icon={TrendingUp}
@@ -113,43 +109,50 @@ export default function DashboardPage() {
             value={`¥${(totalRevenue / 100).toLocaleString()}`}
             change="+15.2%"
             changeType="up"
-            color="bg-gradient-to-br from-orange-500 to-yellow-500"
           />
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
-            <CardBody className="p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-500" />
-                用户增长趋势
-              </h2>
-              <ResponsiveContainer width="100%" height={250}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="bg-white border border-gray-100">
+            <CardBody className="p-5">
+              <h2 className="text-base font-semibold text-gray-900 mb-4">用户增长趋势</h2>
+              <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="date" stroke="#9ca3af" />
-                  <YAxis stroke="#9ca3af" />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} dot={{ fill: '#6366f1', strokeWidth: 2 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis dataKey="date" stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                  <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '8px 12px'
+                    }} 
+                  />
+                  <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }} />
                 </LineChart>
               </ResponsiveContainer>
             </CardBody>
           </Card>
 
-          <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
-            <CardBody className="p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-500" />
-                套餐分布
-              </h2>
-              <ResponsiveContainer width="100%" height={250}>
+          <Card className="bg-white border border-gray-100">
+            <CardBody className="p-5">
+              <h2 className="text-base font-semibold text-gray-900 mb-4">套餐分布</h2>
+              <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={plans.map(p => ({ name: p.name, value: p.quotaValue || 100 }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" stroke="#9ca3af" />
-                  <YAxis stroke="#9ca3af" />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis dataKey="name" stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                  <YAxis stroke="#9ca3af" tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '8px 12px'
+                    }} 
+                  />
+                  <Bar dataKey="value" fill="#3b82f6" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardBody>
@@ -157,49 +160,46 @@ export default function DashboardPage() {
         </div>
 
         {/* Bottom Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
-            <CardBody className="p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="bg-white border border-gray-100">
+            <CardBody className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-indigo-500" />
-                  套餐列表
-                </h2>
-                <Button size="sm" color="primary" variant="light" className="bg-indigo-50">查看全部</Button>
+                <h2 className="text-base font-semibold text-gray-900">套餐列表</h2>
+                <Button size="sm" variant="light" className="text-blue-600 hover:text-blue-700">查看全部</Button>
               </div>
               <div className="space-y-3">
                 {plans.map((plan) => (
-                  <div key={plan.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 rounded-xl border border-indigo-100/30 hover:shadow-md transition-shadow">
+                  <div key={plan.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div>
-                      <p className="font-semibold text-gray-800">{plan.name}</p>
+                      <p className="font-medium text-gray-900">{plan.name}</p>
                       <p className="text-sm text-gray-500">{plan.description}</p>
                     </div>
-                    <p className="font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">¥{(plan.priceCents / 100).toFixed(0)}</p>
+                    <p className="font-semibold text-gray-900">¥{(plan.priceCents / 100).toFixed(0)}</p>
                   </div>
                 ))}
               </div>
             </CardBody>
           </Card>
 
-          <Card className="bg-white/80 backdrop-blur-sm border border-indigo-100/50">
-            <CardBody className="p-6">
+          <Card className="bg-white border border-gray-100">
+            <CardBody className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <Key className="w-5 h-5 text-purple-500" />
-                  API Key 状态
-                </h2>
-                <Button size="sm" color="primary" variant="light" className="bg-purple-50">添加 Key</Button>
+                <h2 className="text-base font-semibold text-gray-900">API Key 状态</h2>
+                <Button size="sm" variant="light" className="text-blue-600 hover:text-blue-700">添加 Key</Button>
               </div>
               <div className="space-y-3">
                 {apiKeys.map((key) => (
-                  <div key={key.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-xl border border-purple-100/30 hover:shadow-md transition-shadow">
+                  <div key={key.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div>
-                      <p className="font-semibold text-gray-800">{key.provider} - {key.model}</p>
+                      <p className="font-medium text-gray-900">{key.provider} - {key.model}</p>
                       <p className="text-sm text-gray-500">创建于 {key.createdAt}</p>
                     </div>
-                    <Chip color={key.isActive ? 'success' : 'danger'} size="sm" className={key.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                    <Badge 
+                      variant="flat" 
+                      className={key.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}
+                    >
                       {key.isActive ? '活跃' : '停用'}
-                    </Chip>
+                    </Badge>
                   </div>
                 ))}
               </div>

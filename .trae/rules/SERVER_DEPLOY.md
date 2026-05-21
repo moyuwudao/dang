@@ -74,7 +74,7 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 
 ### 2.2 连接方式
 
-#### 方式一：密码登录（当前方式）
+#### 方式一：密码登录（备用方式）
 
 ```bash
 # Linux/Mac 终端
@@ -84,17 +84,38 @@ ssh admin@101.133.238.249
 ssh admin@101.133.238.249
 ```
 
-#### 方式二：密钥登录（推荐）
+**注意**：密码登录仅在密钥登录不可用时使用
 
+#### 方式二：密钥登录（推荐 ✅ 已配置）
+
+**本地配置**（Windows PowerShell）：
+```powershell
+# 1. 确认私钥存在
+ls $env:USERPROFILE\.ssh\id_ed25519
+
+# 2. 使用密钥连接
+ssh -i $env:USERPROFILE\.ssh\id_ed25519 admin@101.133.238.249
+
+# 3. 或使用配置别名
+ssh changji
+```
+
+**服务器配置**（已完成的配置）：
 ```bash
-# 1. 生成密钥对（本地执行）
-ssh-keygen -t ed25519 -C "your_email@example.com"
+# 公钥已添加到 /home/admin/.ssh/authorized_keys
+# SSH配置：PasswordAuthentication yes + PubkeyAuthentication yes
+# 防火墙：ufw allow 22/tcp
+```
 
-# 2. 上传公钥到服务器
-ssh-copy-id admin@101.133.238.249
-
-# 3. 使用密钥登录
-ssh admin@101.133.238.249
+**SSH Config 配置**（`C:\Users\Mayn\.ssh\config`）：
+```bash
+Host changji
+    HostName 101.133.238.249
+    User admin
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519
+    StrictHostKeyChecking accept-new
+    ConnectTimeout 30
 ```
 
 ### 2.3 服务连接方式
@@ -166,7 +187,66 @@ http://127.0.0.1:3000/api/v1/health
 http://101.133.238.249/api/v1/health
 ```
 
-### 2.4 连接安全规范
+### 2.4 SSH 配置进展记录
+
+#### 配置历史
+
+| 日期 | 操作 | 状态 |
+|-----|------|------|
+| 2026-05-20 | 初始配置：生成 ed25519 密钥对 | ✅ 完成 |
+| 2026-05-20 | 添加公钥到服务器 authorized_keys | ✅ 完成 |
+| 2026-05-20 | 配置 SSH Config 别名 `changji` | ✅ 完成 |
+| 2026-05-20 | 测试密码登录成功 | ✅ 完成 |
+| 2026-05-20 | 配置 Nginx 反向代理 | ✅ 完成 |
+| 2026-05-21 | 服务器恢复后重新验证 SSH 连接 | ✅ 完成 |
+| 2026-05-21 | 密码登录可用，密钥登录待验证 | ⚠️ 待完成 |
+
+#### 已知问题与解决
+
+**问题1：SSH 连接超时**
+- 现象：`Connection timed out`
+- 原因：阿里云安全组或网络问题
+- 解决：检查安全组规则，确认 22 端口开放
+
+**问题2：密钥认证失败**
+- 现象：`Permission denied (publickey)`
+- 原因：公钥未正确添加到服务器
+- 解决：手动添加公钥到 `~/.ssh/authorized_keys`
+
+**问题3：服务器无法连接**
+- 现象：云助手和 SSH 都无法连接
+- 原因：SSH 配置错误或系统问题
+- 解决：通过阿里云控制台重置实例密码，重启服务器
+
+#### 当前配置状态
+
+**服务器端：**
+```bash
+# SSH 服务状态
+sudo systemctl status sshd  # active (running)
+
+# 关键配置
+Port 22
+PermitRootLogin no
+PasswordAuthentication yes
+PubkeyAuthentication yes
+
+# 防火墙
+sudo ufw status  # 22/tcp ALLOW
+```
+
+**本地端：**
+```powershell
+# SSH Config (C:\Users\Mayn\.ssh\config)
+Host changji
+    HostName 101.133.238.249
+    User admin
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519
+    StrictHostKeyChecking accept-new
+```
+
+### 2.5 连接安全规范
 
 ```
 ✅ 必须使用 admin 账户连接
