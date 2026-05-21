@@ -32,7 +32,6 @@ export class User {
   subscriptions: Subscription[];
 
   @OneToOne(() => UserBalance, balance => balance.user)
-  @JoinColumn({ name: 'id', referencedColumnName: 'userId' })
   balance: UserBalance;
 
   @CreateDateColumn()

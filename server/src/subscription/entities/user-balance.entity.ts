@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne } from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 
 @Entity('user_balances')
@@ -16,6 +16,7 @@ export class UserBalance {
   totalRefundedCents: number;
 
   @OneToOne(() => User, user => user.balance)
+  @JoinColumn({ name: 'userId' })
   user: User;
 
   @CreateDateColumn()
