@@ -34,7 +34,7 @@ export class MonitorService {
   async getSystemInfo() {
     const data = await this.agentRequest('/info');
     
-    // 解析内存信息
+    // 解析内存信息 - 处理 Gi, Mi 单位
     const memoryMatch = data.memory?.match(/Mem:\s+(\d+\.?\d*)(\w+)\s+(\d+\.?\d*)(\w+)\s+(\d+\.?\d*)(\w+)/);
     let memory = {
       total: 0,
@@ -54,7 +54,7 @@ export class MonitorService {
       };
     }
     
-    // 解析磁盘信息
+    // 解析磁盘信息 - 处理 G, M 单位
     let disk = {
       total: 0,
       used: 0,
@@ -135,7 +135,11 @@ export class MonitorService {
   
   private parseSize(value: string, unit: string): number {
     const num = parseFloat(value);
-    const units = { 'B': 1, 'KB': 1024, 'MB': 1024*1024, 'GB': 1024*1024*1024, 'TB': 1024*1024*1024*1024 };
+    const units = { 
+      'B': 1, 'K': 1024, 'KB': 1024, 'M': 1024*1024, 'MB': 1024*1024, 'MI': 1024*1024, 'MIB': 1024*1024,
+      'G': 1024*1024*1024, 'GB': 1024*1024*1024, 'GI': 1024*1024*1024, 'GIB': 1024*1024*1024,
+      'T': 1024*1024*1024*1024, 'TB': 1024*1024*1024*1024 
+    };
     const multiplier = units[unit.toUpperCase()] || 1;
     return Math.floor(num * multiplier);
   }
