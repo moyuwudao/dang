@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import { Card, CardBody, Button, Badge, Spinner } from '@nextui-org/react';
 import { Users, CreditCard, Key, TrendingUp, Activity, ArrowUpRight, Server } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -35,6 +36,7 @@ const StatCard = ({ icon: Icon, title, value, change, changeType, loading }: { i
 );
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -156,7 +158,7 @@ export default function DashboardPage() {
                   <Server className="w-5 h-5 text-blue-600" />
                   服务器状态
                 </h2>
-                <Button size="sm" variant="light" className="text-blue-600" onClick={() => window.location.href = '/server-monitor'}>
+                <Button size="sm" variant="light" className="text-blue-600" onClick={() => router.push('/server-monitor')}>
                   查看详情
                 </Button>
               </div>
@@ -247,7 +249,7 @@ export default function DashboardPage() {
             <CardBody className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-semibold text-gray-900">套餐列表</h2>
-                <Button size="sm" variant="light" className="text-blue-600 hover:text-blue-700" onClick={() => window.location.href = '/subscriptions'}>
+                <Button size="sm" variant="light" className="text-blue-600 hover:text-blue-700" onClick={() => router.push('/subscriptions')}>
                   查看全部
                 </Button>
               </div>
@@ -280,7 +282,7 @@ export default function DashboardPage() {
             <CardBody className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-semibold text-gray-900">API Key 状态</h2>
-                <Button size="sm" variant="light" className="text-blue-600 hover:text-blue-700" onClick={() => window.location.href = '/api-keys'}>
+                <Button size="sm" variant="light" className="text-blue-600 hover:text-blue-700" onClick={() => router.push('/api-keys')}>
                   管理 Keys
                 </Button>
               </div>

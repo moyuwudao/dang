@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { Button, Input, Card, CardBody, Alert } from '@nextui-org/react';
 import { Eye, EyeOff, LogIn, Sparkles, Shield, Zap } from 'lucide-react';
 import { authAPI } from '@/services/api';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,7 +24,7 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('accessToken', response.accessToken);
         localStorage.setItem('refreshToken', response.refreshToken);
-        window.location.href = '/dashboard';
+        router.push('/dashboard');
       }
     } catch (err) {
       setError('登录失败，请检查账号密码');

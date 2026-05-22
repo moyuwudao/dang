@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import { Button } from '@nextui-org/react';
 import {
   LayoutDashboard,
@@ -33,12 +34,13 @@ const menuItems = [
 
 export default function Layout({ children, currentPage }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const router = useRouter();
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      window.location.href = '/login';
+      router.push('/login');
     }
   };
 
@@ -92,9 +94,7 @@ export default function Layout({ children, currentPage }: LayoutProps) {
                   <button
                     key={item.id}
                     onClick={() => {
-                      if (typeof window !== 'undefined') {
-                        window.location.href = `/${item.id}`;
-                      }
+                      router.push(`/${item.id}`);
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors duration-150 ${
                       isActive
