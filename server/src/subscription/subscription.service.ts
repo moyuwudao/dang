@@ -321,6 +321,22 @@ export class SubscriptionService {
     usedQuota: number;
     expiresAt: Date;
   }) {
+    // 确保 plans 表中存在 trial 记录，避免外键约束失败
+    let trialPlan = await this.planRepository.findOne({ where: { id: trialData.planId } });
+    if (!trialPlan) {
+      trialPlan = this.planRepository.create({
+        id: trialData.planId,
+        name: trialData.planName,
+        description: '新用户注册赠送',
+        priceCents: 0,
+        durationDays: 7,
+        quotaType: 'minutes',
+        quotaValue: trialData.totalQuota,
+        isActive: true,
+      });
+      await this.planRepository.save(trialPlan);
+    }
+
     const subscription = this.subscriptionRepository.create({
       userId,
       planId: trialData.planId,

@@ -16,6 +16,21 @@ const LOG_SERVICES = [
   { value: 'agent', label: 'Agent' },
 ];
 
+const QUICK_COMMANDS = [
+  { label: '服务状态', command: 'systemctl status changji-api --no-pager -l', icon: '📊' },
+  { label: '重启API', command: 'pm2 restart changji-api', icon: '🔄' },
+  { label: '重启Nginx', command: 'systemctl restart nginx', icon: '🔄' },
+  { label: 'Nginx状态', command: 'systemctl status nginx --no-pager -l', icon: '📊' },
+  { label: 'PM2列表', command: 'pm2 list', icon: '📋' },
+  { label: 'PM2日志', command: 'pm2 logs changji-api --lines 50 --nostream', icon: '📄' },
+  { label: '磁盘空间', command: 'df -h', icon: '💾' },
+  { label: '内存使用', command: 'free -h', icon: '🧠' },
+  { label: '端口监听', command: 'ss -tlnp', icon: '🔌' },
+  { label: '最近登录', command: 'last -10', icon: '🔐' },
+  { label: '系统负载', command: 'uptime', icon: '⚡' },
+  { label: '进程Top10', command: 'ps aux --sort=-%mem | head -11', icon: '📈' },
+];
+
 export default function ServerMonitorPage() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [services, setServices] = useState<ServiceStatus[]>([]);
@@ -65,8 +80,22 @@ export default function ServerMonitorPage() {
   const executeCommand = async () => {
     if (!command.trim()) return;
     setCommandLoading(true);
+    setCommandOutput('');
     try {
       const res = await monitorAPI.executeCommand(command, 30);
+      setCommandOutput(res.output);
+    } catch (err: any) {
+      setCommandOutput(err.response?.data?.message || '执行命令失败');
+    } finally {
+      setCommandLoading(false);
+    }
+  };
+
+  const executeCommandWithCmd = async (cmd: string) => {
+    setCommandLoading(true);
+    setCommandOutput('');
+    try {
+      const res = await monitorAPI.executeCommand(cmd, 30);
       setCommandOutput(res.output);
     } catch (err: any) {
       setCommandOutput(err.response?.data?.message || '执行命令失败');
@@ -265,6 +294,27 @@ export default function ServerMonitorPage() {
                 <Terminal className="w-5 h-5 text-blue-600" />
                 命令执行
               </h2>
+            </div>
+            {/* Quick Commands */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-500 mb-2">快捷命令</p>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_COMMANDS.map((cmd) => (
+                  <Button
+                    key={cmd.label}
+                    size="sm"
+                    variant="flat"
+                    className="bg-gray-50 hover:bg-blue-50 hover:text-blue-600 text-gray-700 border border-gray-200"
+                    onClick={() => {
+                      setCommand(cmd.command);
+                      executeCommandWithCmd(cmd.command);
+                    }}
+                  >
+                    <span className="mr-1">{cmd.icon}</span>
+                    {cmd.label}
+                  </Button>
+                ))}
+              </div>
             </div>
             <div className="flex gap-2 mb-3">
               <input

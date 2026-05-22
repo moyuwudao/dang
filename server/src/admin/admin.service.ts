@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 import { User } from '../auth/entities/user.entity';
 import { Plan } from '../subscription/entities/plan.entity';
 import { Subscription } from '../subscription/entities/subscription.entity';
@@ -159,6 +160,10 @@ export class AdminService {
 
   // 创建套餐
   async createPlan(data: Partial<Plan>) {
+    // 如果没有提供 id，自动生成 UUID
+    if (!data.id) {
+      data.id = uuidv4();
+    }
     const plan = this.planRepo.create(data);
     return this.planRepo.save(plan);
   }
