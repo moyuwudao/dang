@@ -10,7 +10,8 @@ export class AdminController {
 
   @Get('stats')
   async getStats() {
-    return this.adminService.getStats();
+    const data = await this.adminService.getStats();
+    return { code: 200, message: 'success', data };
   }
 
   @Get('users')
@@ -19,41 +20,48 @@ export class AdminController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
   ) {
-    return this.adminService.getUsers(
+    const data = await this.adminService.getUsers(
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
       search,
     );
+    return { code: 200, message: 'success', data };
   }
 
   @Put('users/:id')
   async updateUser(@Param('id') id: string, @Body() data: any) {
-    return this.adminService.updateUser(id, data);
+    const result = await this.adminService.updateUser(id, data);
+    return { code: 200, message: 'success', data: result };
   }
 
   @Delete('users/:id')
   async deleteUser(@Param('id') id: string) {
-    return this.adminService.deleteUser(id);
+    await this.adminService.deleteUser(id);
+    return { code: 200, message: 'success', data: null };
   }
 
   @Get('plans')
   async getPlans() {
-    return this.adminService.getPlans();
+    const data = await this.adminService.getPlans();
+    return { code: 200, message: 'success', data };
   }
 
   @Post('plans')
   async createPlan(@Body() data: any) {
-    return this.adminService.createPlan(data);
+    const result = await this.adminService.createPlan(data);
+    return { code: 200, message: 'success', data: result };
   }
 
   @Put('plans/:id')
   async updatePlan(@Param('id') id: string, @Body() data: any) {
-    return this.adminService.updatePlan(id, data);
+    const result = await this.adminService.updatePlan(id, data);
+    return { code: 200, message: 'success', data: result };
   }
 
   @Delete('plans/:id')
   async deletePlan(@Param('id') id: string) {
-    return this.adminService.deletePlan(id);
+    await this.adminService.deletePlan(id);
+    return { code: 200, message: 'success', data: null };
   }
 
   @Get('subscriptions')
@@ -62,16 +70,18 @@ export class AdminController {
     @Query('limit') limit?: string,
     @Query('status') status?: string,
   ) {
-    return this.adminService.getSubscriptions(
+    const data = await this.adminService.getSubscriptions(
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
       status,
     );
+    return { code: 200, message: 'success', data };
   }
 
   @Put('subscriptions/:id')
   async updateSubscription(@Param('id') id: string, @Body() data: any) {
-    return this.adminService.updateSubscription(id, data);
+    const result = await this.adminService.updateSubscription(id, data);
+    return { code: 200, message: 'success', data: result };
   }
 
   @Get('recharge-records')
@@ -79,19 +89,22 @@ export class AdminController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.adminService.getRechargeRecords(
+    const data = await this.adminService.getRechargeRecords(
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
     );
+    return { code: 200, message: 'success', data };
   }
 
   @Get('charts/user-growth')
   async getUserGrowth(@Query('days') days?: string) {
-    return this.adminService.getUserGrowth(days ? parseInt(days, 10) : 7);
+    const data = await this.adminService.getUserGrowth(days ? parseInt(days, 10) : 7);
+    return { code: 200, message: 'success', data };
   }
 
   @Get('charts/revenue-trend')
   async getRevenueTrend(@Query('days') days?: string) {
-    return this.adminService.getRevenueTrend(days ? parseInt(days, 10) : 7);
+    const data = await this.adminService.getRevenueTrend(days ? parseInt(days, 10) : 7);
+    return { code: 200, message: 'success', data };
   }
 }
