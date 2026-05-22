@@ -71,7 +71,7 @@ export class AdminService {
     const [users, total] = await qb.getManyAndCount();
 
     return {
-      users: users.map(u => ({
+      items: users.map(u => ({
         id: u.id,
         phone: u.phone,
         email: u.email,
@@ -139,7 +139,7 @@ export class AdminService {
     const [subscriptions, total] = await qb.getManyAndCount();
 
     return {
-      subscriptions: subscriptions.map(s => ({
+      items: subscriptions.map(s => ({
         id: s.id,
         userId: s.userId,
         userPhone: s.user?.phone,
@@ -175,7 +175,7 @@ export class AdminService {
     });
 
     return {
-      records: records.map(r => ({
+      items: records.map(r => ({
         id: r.id,
         userId: r.userId,
         userPhone: r.user?.phone,
@@ -194,37 +194,71 @@ export class AdminService {
 
   // 图表数据 - 用户增长趋势
   async getUserGrowth(days = 7) {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days + 1);
+
     const result = await this.userRepo
       .createQueryBuilder('u')
-      .select("DATE(u.createdAt)", 'date')
-      .addSelect('COUNT(*)', 'count')
-      .where('u.createdAt >= :date', { date: new Date(Date.now() - days * 24 * 60 * 60 * 1000) })
-      .groupBy("DATE(u.createdAt)")
-      .orderBy("DATE(u.createdAt)", 'ASC')
+      .select('DATE(u.createdAt)', 'date')
+      .addSelect('COUNT(u.id)', 'count')
+      .where('u.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
+      .groupBy('DATE(u.createdAt)')
+      .orderBy('DATE(u.createdAt)', 'ASC')
       .getRawMany();
 
-    return result.map(r => ({
-      date: r.date,
-      value: parseInt(r.count, 10),
-    }));
+    const dataMap = new Map();
+    result.forEach(r => {
+      dataMap.set(r.date, parseInt(r.count, 10));
+    });
+
+    const data = [];
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      data.push({
+        date: dateStr,
+        value: dataMap.get(dateStr) || 0,
+      });
+    }
+
+    return data;
   }
 
   // 图表数据 - 收入趋势
   async getRevenueTrend(days = 7) {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days + 1);
+
     const result = await this.rechargeRepo
       .createQueryBuilder('r')
-      .select("DATE(r.createdAt)", 'date')
-      .addSelect('SUM(r.amountCents)', 'amount')
-      .where('r.type = :type', { type: 'recharge' })
+      .select('DATE(r.createdAt)', 'date')
+      .addSelect('COALESCE(SUM(r.amountCents), 0)', 'count')
+      .where('r.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
+      .andWhere('r.type = :type', { type: 'recharge' })
       .andWhere('r.status = :status', { status: 'completed' })
-      .andWhere('r.createdAt >= :date', { date: new Date(Date.now() - days * 24 * 60 * 60 * 1000) })
-      .groupBy("DATE(r.createdAt)")
-      .orderBy("DATE(r.createdAt)", 'ASC')
+      .groupBy('DATE(r.createdAt)')
+      .orderBy('DATE(r.createdAt)', 'ASC')
       .getRawMany();
 
-    return result.map(r => ({
-      date: r.date,
-      value: parseInt(r.amount, 10),
-    }));
+    const dataMap = new Map();
+    result.forEach(r => {
+      dataMap.set(r.date, parseInt(r.count, 10));
+    });
+
+    const data = [];
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      data.push({
+        date: dateStr,
+        value: dataMap.get(dateStr) || 0,
+      });
+    }
+
+    return data;
   }
 }
