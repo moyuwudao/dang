@@ -10,33 +10,35 @@ export class ApiKeyController {
   @Get()
   @UseGuards(JwtAuthGuard)
   async getApiKey(@Req() req) {
-    return this.apiKeyService.getApiKey(req.user.sub);
+    const data = await this.apiKeyService.getApiKey(req.user.sub);
+    return { code: 200, message: 'success', data };
   }
 
   @Post('refresh')
   @UseGuards(JwtAuthGuard)
   async refreshApiKey(@Req() req) {
-    return this.apiKeyService.refreshApiKey(req.user.sub);
+    const data = await this.apiKeyService.refreshApiKey(req.user.sub);
+    return { code: 200, message: 'success', data };
   }
 
   @Get('admin/list')
   @UseGuards(JwtAuthGuard)
   async getApiKeys() {
-    // 实际生产环境应该添加管理员权限检查
-    return this.apiKeyService.getApiKeys();
+    const data = await this.apiKeyService.getApiKeys();
+    return { code: 200, message: 'success', data };
   }
 
   @Post('admin/create')
   @UseGuards(JwtAuthGuard)
   async createApiKey(@Body() dto: CreateApiKeyDto) {
-    // 实际生产环境应该添加管理员权限检查
-    return this.apiKeyService.createApiKey(dto);
+    const data = await this.apiKeyService.createApiKey(dto);
+    return { code: 200, message: 'success', data };
   }
 
   @Delete('admin/:id')
   @UseGuards(JwtAuthGuard)
   async deleteApiKey(@Param('id') id: string) {
-    // 实际生产环境应该添加管理员权限检查
-    return this.apiKeyService.deleteApiKey(id);
+    await this.apiKeyService.deleteApiKey(id);
+    return { code: 200, message: 'success', data: null };
   }
 }

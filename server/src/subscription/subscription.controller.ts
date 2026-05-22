@@ -10,54 +10,62 @@ export class SubscriptionController {
   @Get()
   @UseGuards(JwtAuthGuard)
   async getSubscription(@Req() req) {
-    return this.subscriptionService.getSubscription(req.user.sub);
+    const data = await this.subscriptionService.getSubscription(req.user.sub);
+    return { code: 200, message: 'success', data };
   }
 
   @Post()
   @UseGuards(JwtAuthGuard)
   async createSubscription(@Req() req, @Body() dto: CreateSubscriptionDto) {
-    return this.subscriptionService.createSubscription(req.user.sub, dto.planId);
+    const data = await this.subscriptionService.createSubscription(req.user.sub, dto.planId);
+    return { code: 200, message: 'success', data };
   }
 
   @Get('plans')
   async getPlans(@Query('type') type?: string) {
-    return this.subscriptionService.getPlans(type);
+    const data = await this.subscriptionService.getPlans(type);
+    return { code: 200, message: 'success', data };
   }
 
   @Post('plans')
   @UseGuards(JwtAuthGuard)
   async createPlan(@Body() dto: CreatePlanDto) {
-    return this.subscriptionService.createPlan(dto);
+    const data = await this.subscriptionService.createPlan(dto);
+    return { code: 200, message: 'success', data };
   }
 
   @Post('quota/use')
   @UseGuards(JwtAuthGuard)
   async useQuota(@Req() req, @Body() body: { amount: number }) {
-    return this.subscriptionService.useQuota(req.user.sub, body.amount);
+    const data = await this.subscriptionService.useQuota(req.user.sub, body.amount);
+    return { code: 200, message: 'success', data };
   }
 
-  // 余额相关接口
   @Get('balance')
   @UseGuards(JwtAuthGuard)
   async getBalance(@Req() req) {
-    return this.subscriptionService.getBalance(req.user.sub);
+    const data = await this.subscriptionService.getBalance(req.user.sub);
+    return { code: 200, message: 'success', data };
   }
 
   @Post('recharge')
   @UseGuards(JwtAuthGuard)
   async recharge(@Req() req, @Body() dto: RechargeDto) {
-    return this.subscriptionService.recharge(req.user.sub, dto);
+    const data = await this.subscriptionService.recharge(req.user.sub, dto);
+    return { code: 200, message: 'success', data };
   }
 
   @Post('refund')
   @UseGuards(JwtAuthGuard)
   async refund(@Req() req, @Body() dto: RefundDto) {
-    return this.subscriptionService.refund(req.user.sub, dto);
+    const data = await this.subscriptionService.refund(req.user.sub, dto);
+    return { code: 200, message: 'success', data };
   }
 
   @Get('records')
   @UseGuards(JwtAuthGuard)
   async getRechargeRecords(@Req() req) {
-    return this.subscriptionService.getRechargeRecords(req.user.sub);
+    const data = await this.subscriptionService.getRechargeRecords(req.user.sub);
+    return { code: 200, message: 'success', data };
   }
 }

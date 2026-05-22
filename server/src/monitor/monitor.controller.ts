@@ -10,21 +10,25 @@ export class MonitorController {
 
   @Get('system')
   async getSystemInfo() {
-    return this.monitorService.getSystemInfo();
+    const data = await this.monitorService.getSystemInfo();
+    return { code: 200, message: 'success', data };
   }
 
   @Get('services')
   async getServices() {
-    return this.monitorService.getServices();
+    const data = await this.monitorService.getServices();
+    return { code: 200, message: 'success', data };
   }
 
   @Post('logs')
   async getLogs(@Body() body: { service: string; lines?: number }) {
-    return this.monitorService.getLogs(body.service, body.lines || 100);
+    const data = await this.monitorService.getLogs(body.service, body.lines || 100);
+    return { code: 200, message: 'success', data };
   }
 
   @Post('execute')
   async executeCommand(@Body() body: { command: string; timeout?: number }) {
-    return this.monitorService.executeCommand(body.command, body.timeout || 30);
+    const data = await this.monitorService.executeCommand(body.command, body.timeout || 30);
+    return { code: 200, message: 'success', data };
   }
 }
