@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardBody, Button, Input, Select, SelectItem, Modal, ModalHeader, ModalBody, ModalFooter, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Pagination, Spinner } from '@nextui-org/react';
+import { Card, CardBody, Button, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Pagination, Spinner } from '@nextui-org/react';
 import { Plus, Search, Edit, Package, Clock, Zap, Crown, Sparkles, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { adminAPI } from '@/services/api';
@@ -428,6 +428,7 @@ export default function SubscriptionsPage() {
           header: 'border-b border-gray-100',
           footer: 'border-t border-gray-100',
         }}>
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
               <Plus className="w-5 h-5 text-blue-600" />
@@ -500,6 +501,7 @@ export default function SubscriptionsPage() {
               {planModalMode === 'create' ? '创建套餐' : '保存修改'}
             </Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
 
         {/* Delete Plan Modal */}
@@ -508,6 +510,7 @@ export default function SubscriptionsPage() {
           header: 'border-b border-gray-100',
           footer: 'border-t border-gray-100',
         }}>
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
               <Trash2 className="w-5 h-5 text-red-600" />
@@ -524,6 +527,7 @@ export default function SubscriptionsPage() {
             <Button variant="light" onClick={() => setShowDeletePlanModal(false)} className="hover:bg-gray-100">取消</Button>
             <Button color="danger" className="bg-red-600 hover:bg-red-700" onClick={handleDeletePlan}>确认删除</Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
 
         {/* Edit Subscription Modal */}
@@ -532,6 +536,7 @@ export default function SubscriptionsPage() {
           header: 'border-b border-gray-100',
           footer: 'border-t border-gray-100',
         }}>
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
               <Edit className="w-5 h-5 text-blue-600" />
@@ -563,6 +568,7 @@ export default function SubscriptionsPage() {
             <Button variant="light" onClick={() => setShowEditSubModal(false)} className="hover:bg-gray-100">取消</Button>
             <Button color="primary" className="bg-blue-600 hover:bg-blue-700" onClick={handleUpdateSubscription}>保存</Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
       </div>
     </Layout>

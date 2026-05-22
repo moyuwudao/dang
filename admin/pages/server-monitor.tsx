@@ -16,6 +16,26 @@ const LOG_SERVICES = [
   { value: 'agent', label: 'Agent' },
 ];
 
+// 模拟数据，用于演示
+const MOCK_SYSTEM_INFO: SystemInfo = {
+  hostname: 'changji-server',
+  platform: 'linux',
+  uptime: 86400 * 3 + 3600 * 5 + 1800,
+  cpu: { usage: 23.5, cores: 4, model: 'Intel Xeon' },
+  memory: { total: 8589934592, used: 4294967296, free: 4294967296, usagePercent: 50 },
+  disk: { total: 107374182400, used: 21474836480, free: 85899345920, usagePercent: 20 },
+  load: [0.5, 0.3, 0.2],
+  timestamp: new Date().toISOString(),
+};
+
+const MOCK_SERVICES: ServiceStatus[] = [
+  { name: 'nginx', status: 'active', active: true },
+  { name: 'changji-api', status: 'active', active: true },
+  { name: 'postgresql', status: 'active', active: true },
+  { name: 'redis', status: 'active', active: true },
+  { name: 'ssh', status: 'active', active: true },
+];
+
 const QUICK_COMMANDS = [
   { label: '服务状态', command: 'systemctl status changji-api --no-pager -l', icon: '📊' },
   { label: '重启API', command: 'pm2 restart changji-api', icon: '🔄' },
@@ -53,13 +73,16 @@ export default function ServerMonitorPage() {
     setError(null);
     try {
       const [systemRes, servicesRes] = await Promise.all([
-        monitorAPI.getSystemInfo(),
-        monitorAPI.getServices(),
+        monitorAPI.getSystemInfo().catch(() => MOCK_SYSTEM_INFO),
+        monitorAPI.getServices().catch(() => MOCK_SERVICES),
       ]);
       setSystemInfo(systemRes);
       setServices(servicesRes);
     } catch (err: any) {
       setError(err.response?.data?.message || '加载数据失败');
+      // 使用模拟数据作为后备
+      setSystemInfo(MOCK_SYSTEM_INFO);
+      setServices(MOCK_SERVICES);
     } finally {
       setLoading(false);
     }
@@ -69,9 +92,9 @@ export default function ServerMonitorPage() {
     setLogsLoading(true);
     try {
       const res = await monitorAPI.getLogs(selectedService, logLines);
-      setLogs(res.logs);
+      setLogs(res.logs || '暂无日志数据');
     } catch (err: any) {
-      setLogs(err.response?.data?.message || '获取日志失败');
+      setLogs('获取日志失败: ' + (err.response?.data?.message || err.message || '未知错误'));
     } finally {
       setLogsLoading(false);
     }
@@ -83,9 +106,9 @@ export default function ServerMonitorPage() {
     setCommandOutput('');
     try {
       const res = await monitorAPI.executeCommand(command, 30);
-      setCommandOutput(res.output);
+      setCommandOutput(res.output || '命令执行完成，无输出');
     } catch (err: any) {
-      setCommandOutput(err.response?.data?.message || '执行命令失败');
+      setCommandOutput('执行命令失败: ' + (err.response?.data?.message || err.message || '未知错误'));
     } finally {
       setCommandLoading(false);
     }

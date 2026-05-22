@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardBody, Button, Input, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Modal, ModalHeader, ModalBody, ModalFooter, Pagination, Spinner, Select, SelectItem } from '@nextui-org/react';
+import { Card, CardBody, Button, Input, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Pagination, Spinner, Select, SelectItem } from '@nextui-org/react';
 import { Search, Edit, Trash2, Eye, UserPlus, Users, AlertCircle, RefreshCw } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { adminAPI } from '@/services/api';
@@ -342,6 +342,7 @@ export default function UsersPage() {
           header: 'border-b border-gray-100',
           footer: 'border-t border-gray-100',
         }}>
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
               <span className="text-blue-600 text-lg font-bold">{selectedUser?.phone.slice(-1)}</span>
@@ -407,6 +408,7 @@ export default function UsersPage() {
               编辑用户
             </Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
 
         {/* Edit User Modal */}
@@ -415,6 +417,7 @@ export default function UsersPage() {
           header: 'border-b border-gray-100',
           footer: 'border-t border-gray-100',
         }}>
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
               <Edit className="w-5 h-5 text-blue-600" />
@@ -454,6 +457,7 @@ export default function UsersPage() {
               保存
             </Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
 
         {/* Create User Modal */}
@@ -462,6 +466,7 @@ export default function UsersPage() {
           header: 'border-b border-gray-100',
           footer: 'border-t border-gray-100',
         }}>
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
               <UserPlus className="w-5 h-5 text-blue-600" />
@@ -530,6 +535,7 @@ export default function UsersPage() {
               创建
             </Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
 
         {/* Delete Confirm Modal */}
@@ -538,6 +544,7 @@ export default function UsersPage() {
           header: 'border-b border-gray-100',
           footer: 'border-t border-gray-100',
         }}>
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
               <Trash2 className="w-5 h-5 text-red-600" />
@@ -558,6 +565,7 @@ export default function UsersPage() {
               确认删除
             </Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
       </div>
     </Layout>

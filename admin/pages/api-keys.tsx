@@ -14,6 +14,7 @@ import {
   TableCell,
   Chip,
   Modal,
+  ModalContent,
   ModalHeader,
   ModalBody,
   ModalFooter,
@@ -275,6 +276,7 @@ export default function ApiKeysPage() {
           }}
           classNames={{ base: 'rounded-xl' }}
         >
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
               <Plus className="w-5 h-5 text-blue-600" />
@@ -345,6 +347,7 @@ export default function ApiKeysPage() {
               创建
             </Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
 
         {/* View Modal */}
@@ -353,6 +356,7 @@ export default function ApiKeysPage() {
           onClose={() => setShowViewModal(false)}
           classNames={{ base: 'rounded-xl' }}
         >
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-blue-600" />
@@ -433,6 +437,7 @@ export default function ApiKeysPage() {
               关闭
             </Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
 
         {/* Delete Confirm Modal */}
@@ -444,6 +449,7 @@ export default function ApiKeysPage() {
           }}
           classNames={{ base: 'rounded-xl' }}
         >
+          <ModalContent>
           <ModalHeader className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
               <Trash2 className="w-5 h-5 text-red-600" />
@@ -479,6 +485,7 @@ export default function ApiKeysPage() {
               删除
             </Button>
           </ModalFooter>
+          </ModalContent>
         </Modal>
       </div>
     </Layout>
