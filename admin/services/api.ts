@@ -130,6 +130,17 @@ export const adminAPI = {
     });
     return response.data.data;
   },
+
+  createUser: async (data: {
+    phone: string;
+    password: string;
+    nickname?: string;
+    role?: string;
+    status?: string;
+  }): Promise<User> => {
+    const response = await axiosInstance.post<ApiResponse<User>>('/admin/users', data);
+    return response.data.data;
+  },
   
   updateUser: async (id: string, data: Partial<User>): Promise<User> => {
     const response = await axiosInstance.put<ApiResponse<User>>(`/admin/users/${id}`, data);

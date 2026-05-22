@@ -16,8 +16,17 @@ export default function UsersPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ status: '', role: '' });
+  const [createForm, setCreateForm] = useState({
+    phone: '',
+    password: '',
+    nickname: '',
+    role: 'user',
+    status: 'active',
+  });
+  const [createLoading, setCreateLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -90,6 +99,32 @@ export default function UsersPage() {
     setShowDeleteModal(true);
   };
 
+  const handleCreateUser = async () => {
+    if (!createForm.phone || !createForm.password) {
+      setError('请填写手机号和密码');
+      return;
+    }
+    
+    setCreateLoading(true);
+    try {
+      await adminAPI.createUser(createForm);
+      setShowCreateModal(false);
+      setCreateForm({
+        phone: '',
+        password: '',
+        nickname: '',
+        role: 'user',
+        status: 'active',
+      });
+      setError(null);
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.response?.data?.message || '创建用户失败');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'active':
@@ -124,7 +159,11 @@ export default function UsersPage() {
               共 {total} 位用户
             </p>
           </div>
-          <Button color="primary" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+          <Button 
+            color="primary" 
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => setShowCreateModal(true)}
+          >
             <UserPlus className="w-4 h-4" />
             添加用户
           </Button>
@@ -413,6 +452,82 @@ export default function UsersPage() {
             </Button>
             <Button color="primary" className="bg-blue-600 hover:bg-blue-700" onClick={handleUpdateUser}>
               保存
+            </Button>
+          </ModalFooter>
+        </Modal>
+
+        {/* Create User Modal */}
+        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} classNames={{
+          base: 'rounded-xl',
+          header: 'border-b border-gray-100',
+          footer: 'border-t border-gray-100',
+        }}>
+          <ModalHeader className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <UserPlus className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-gray-800">添加用户</p>
+              <p className="text-sm text-gray-500">创建新的用户账户</p>
+            </div>
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-4">
+              <Input
+                label="手机号"
+                placeholder="请输入手机号"
+                value={createForm.phone}
+                onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                classNames={{ inputWrapper: 'rounded-xl' }}
+                isRequired
+              />
+              <Input
+                label="密码"
+                type="password"
+                placeholder="请设置密码"
+                value={createForm.password}
+                onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                classNames={{ inputWrapper: 'rounded-xl' }}
+                isRequired
+              />
+              <Input
+                label="昵称"
+                placeholder="请输入昵称（可选）"
+                value={createForm.nickname}
+                onChange={(e) => setCreateForm({ ...createForm, nickname: e.target.value })}
+                classNames={{ inputWrapper: 'rounded-xl' }}
+              />
+              <Select
+                label="角色"
+                selectedKeys={[createForm.role]}
+                onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                classNames={{ trigger: 'rounded-xl' }}
+              >
+                <SelectItem key="user" value="user">普通用户</SelectItem>
+                <SelectItem key="admin" value="admin">管理员</SelectItem>
+              </Select>
+              <Select
+                label="状态"
+                selectedKeys={[createForm.status]}
+                onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })}
+                classNames={{ trigger: 'rounded-xl' }}
+              >
+                <SelectItem key="active" value="active">活跃</SelectItem>
+                <SelectItem key="banned" value="banned">停用</SelectItem>
+              </Select>
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onClick={() => setShowCreateModal(false)} className="hover:bg-gray-100">
+              取消
+            </Button>
+            <Button 
+              color="primary" 
+              className="bg-blue-600 hover:bg-blue-700" 
+              onClick={handleCreateUser}
+              isLoading={createLoading}
+            >
+              创建
             </Button>
           </ModalFooter>
         </Modal>

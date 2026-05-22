@@ -28,6 +28,12 @@ export class AdminController {
     return { code: 200, message: 'success', data };
   }
 
+  @Post('users')
+  async createUser(@Body() data: any) {
+    const result = await this.adminService.createUser(data);
+    return { code: 200, message: '创建成功', data: result };
+  }
+
   @Put('users/:id')
   async updateUser(@Param('id') id: string, @Body() data: any) {
     const result = await this.adminService.updateUser(id, data);

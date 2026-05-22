@@ -1,12 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { User } from '../auth/entities/user.entity';
 import { Plan } from '../subscription/entities/plan.entity';
 import { Subscription } from '../subscription/entities/subscription.entity';
 import { ApiKey } from '../api-key/entities/api-key.entity';
 import { UserBalance } from '../subscription/entities/user-balance.entity';
 import { RechargeRecord } from '../subscription/entities/recharge-record.entity';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
 export class AdminService {
@@ -23,6 +25,7 @@ export class AdminService {
     private balanceRepo: Repository<UserBalance>,
     @InjectRepository(RechargeRecord)
     private rechargeRepo: Repository<RechargeRecord>,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   // 统计
@@ -86,6 +89,55 @@ export class AdminService {
       page,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  // 创建用户
+  async createUser(data: {
+    phone: string;
+    password: string;
+    nickname?: string;
+    role?: string;
+    status?: string;
+  }) {
+    // 检查手机号是否已存在
+    const existingUser = await this.userRepo.findOne({
+      where: { phone: data.phone },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException('手机号已存在');
+    }
+
+    // 加密密码
+    const passwordHash = await bcrypt.hash(data.password, 12);
+
+    // 创建用户
+    const user = this.userRepo.create({
+      phone: data.phone,
+      passwordHash,
+      nickname: data.nickname || '用户',
+      role: data.role || 'user',
+      status: data.status || 'active',
+    });
+
+    await this.userRepo.save(user);
+
+    // 初始化用户余额
+    await this.subscriptionService.initUserBalance(user.id);
+
+    // 创建新手体验订阅（100分钟，7天有效期）
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    await this.subscriptionService.createTrialSubscription(user.id, {
+      planId: 'trial',
+      planName: '新手体验包',
+      totalQuota: 100,
+      usedQuota: 0,
+      expiresAt,
+    });
+
+    return user;
   }
 
   // 更新用户
