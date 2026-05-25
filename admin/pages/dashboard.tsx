@@ -8,6 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Layout from '@/components/Layout';
 import { adminAPI, apiKeyAPI, monitorAPI } from '@/services/api';
 import type { DashboardStats, Plan, ApiKey, ChartDataPoint } from '@/types';
+import { ApiKeyStatus } from '@/types';
 
 const StatCard = ({ icon: Icon, title, value, change, changeType, loading }: { icon: React.ElementType, title: string, value: string | number, change?: string, changeType?: 'up' | 'down', loading?: boolean }) => (
   <Card className="bg-white border border-gray-100 hover:shadow-sm transition-shadow duration-200">
@@ -298,11 +299,11 @@ export default function DashboardPage() {
                         <p className="font-medium text-gray-900">{key.provider} - {key.model}</p>
                         <p className="text-sm text-gray-500">限流: {key.rateLimitPerMin}/min</p>
                       </div>
-                      <Badge 
-                        variant="flat" 
-                        className={key.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}
+                      <Badge
+                        variant="flat"
+                        className={key.status === ApiKeyStatus.ACTIVE ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}
                       >
-                        {key.isActive ? '活跃' : '停用'}
+                        {key.status === ApiKeyStatus.ACTIVE ? '活跃' : '停用'}
                       </Badge>
                     </div>
                   ))

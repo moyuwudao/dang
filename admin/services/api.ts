@@ -98,19 +98,108 @@ export const apiKeyAPI = {
     const response = await axiosInstance.get<ApiResponse<ApiKey[]>>('/api-key/admin/list');
     return response.data.data;
   },
-  
-  createApiKey: async (data: { provider: string; apiKey: string; model: string; rateLimitPerMin?: number }): Promise<ApiKey> => {
+
+  getApiKeyById: async (id: string): Promise<ApiKey> => {
+    const response = await axiosInstance.get<ApiResponse<ApiKey>>(`/api-key/admin/${id}`);
+    return response.data.data;
+  },
+
+  createApiKey: async (data: {
+    provider: string;
+    name: string;
+    description?: string;
+    apiKey: string;
+    apiSecret?: string;
+    model: string;
+    baseUrl?: string;
+    status?: string;
+    scopes?: string[];
+    rateLimitPerMin?: number;
+    maxConcurrentRequests?: number;
+    dailyQuota?: number;
+    expiresAt?: string;
+    isDefault?: boolean;
+    allowedIpRanges?: string;
+  }): Promise<ApiKey> => {
     const response = await axiosInstance.post<ApiResponse<ApiKey>>(
       '/api-key/admin/create',
       data
     );
     return response.data.data;
   },
-  
+
+  batchCreateApiKeys: async (data: any[]): Promise<{ success: boolean; data?: any; error?: string; name?: string }[]> => {
+    const response = await axiosInstance.post<ApiResponse<{ success: boolean; data?: any; error?: string; name?: string }[]>>(
+      '/api-key/admin/batch',
+      data
+    );
+    return response.data.data;
+  },
+
+  updateApiKey: async (id: string, data: Partial<{
+    provider: string;
+    name: string;
+    description?: string;
+    apiKey: string;
+    apiSecret?: string;
+    model: string;
+    baseUrl?: string;
+    status?: string;
+    scopes?: string[];
+    rateLimitPerMin?: number;
+    maxConcurrentRequests?: number;
+    dailyQuota?: number;
+    expiresAt?: string;
+    isDefault?: boolean;
+    allowedIpRanges?: string;
+  }>): Promise<ApiKey> => {
+    const response = await axiosInstance.put<ApiResponse<ApiKey>>(
+      `/api-key/admin/${id}`,
+      data
+    );
+    return response.data.data;
+  },
+
   deleteApiKey: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/api-key/admin/${id}`);
   },
-  
+
+  testApiKey: async (id: string): Promise<{
+    status: string;
+    provider: string;
+    model: string;
+    responseTime?: number;
+    details?: any;
+    error?: string;
+  }> => {
+    const response = await axiosInstance.post<ApiResponse<{
+      status: string;
+      provider: string;
+      model: string;
+      responseTime?: number;
+      details?: any;
+      error?: string;
+    }>>(`/api-key/admin/${id}/test`);
+    return response.data.data;
+  },
+
+  getApiKeyStats: async (): Promise<{
+    total: number;
+    active: number;
+    inactive: number;
+    expired: number;
+    providers: { provider: string; count: number }[];
+  }> => {
+    const response = await axiosInstance.get<ApiResponse<{
+      total: number;
+      active: number;
+      inactive: number;
+      expired: number;
+      providers: { provider: string; count: number }[];
+    }>>('/api-key/admin/stats');
+    return response.data.data;
+  },
+
   getMyApiKey: async (): Promise<{ provider: string; apiKey: string; model: string; rateLimitPerMin: number; expiresAt: string }> => {
     const response = await axiosInstance.get<ApiResponse<{ provider: string; apiKey: string; model: string; rateLimitPerMin: number; expiresAt: string }>>(
       '/api-key'

@@ -39,13 +39,58 @@ export interface Subscription {
   createdAt: string;
 }
 
+export enum ApiKeyProvider {
+  QWEN = 'qwen',
+  OPENAI = 'openai',
+  ANTHROPIC = 'anthropic',
+  GEMINI = 'gemini',
+  DEEPSEEK = 'deepseek',
+  GROK = 'grok',
+  CUSTOM = 'custom',
+}
+
+export enum ApiKeyStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  EXPIRED = 'expired',
+  REVOKED = 'revoked',
+}
+
+export enum ApiKeyScope {
+  TRANSCRIPTION = 'transcription',
+  SUMMARY = 'summary',
+  CHAT = 'chat',
+  TRANSLATION = 'translation',
+  ALL = 'all',
+}
+
 export interface ApiKey {
   id: string;
-  provider: string;
+  provider: ApiKeyProvider;
+  name: string;
+  description?: string;
   model: string;
-  isActive: boolean;
+  status: ApiKeyStatus;
+  scopes?: ApiKeyScope[];
   rateLimitPerMin: number;
+  maxConcurrentRequests: number;
+  dailyQuota: number;
+  dailyUsage: number;
+  expiresAt?: string;
+  isDefault: boolean;
+  lastUsedAt?: string;
+  lastHealthCheckAt?: string;
+  lastHealthCheckStatus?: string;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiKeyStats {
+  total: number;
+  active: number;
+  inactive: number;
+  expired: number;
+  providers: { provider: string; count: number }[];
 }
 
 export interface ApiResponse<T> {

@@ -33,7 +33,7 @@ export class MonitorService {
 
   async getSystemInfo() {
     const data = await this.agentRequest('/info');
-    
+
     // 解析内存信息 - 处理 Gi, Mi 单位
     const memoryMatch = data.memory?.match(/Mem:\s+(\d+\.?\d*)(\w+)\s+(\d+\.?\d*)(\w+)\s+(\d+\.?\d*)(\w+)/);
     let memory = {
@@ -42,7 +42,7 @@ export class MonitorService {
       free: 0,
       usagePercent: 0,
     };
-    
+
     if (memoryMatch) {
       const total = this.parseSize(memoryMatch[1], memoryMatch[2]);
       const used = this.parseSize(memoryMatch[3], memoryMatch[4]);
@@ -53,7 +53,7 @@ export class MonitorService {
         usagePercent: total > 0 ? (used / total) * 100 : 0,
       };
     }
-    
+
     // 解析磁盘信息 - 处理 G, M 单位
     let disk = {
       total: 0,
@@ -61,7 +61,7 @@ export class MonitorService {
       free: 0,
       usagePercent: 0,
     };
-    
+
     const diskLines = data.disk?.split('\n').filter(line => line.trim());
     if (diskLines?.length > 1) {
       const rootLine = diskLines.find(line => line.includes('/dev/vda3')) || diskLines[1];
@@ -75,7 +75,7 @@ export class MonitorService {
         };
       }
     }
-    
+
     // 解析负载信息
     const loadMatch = data.load?.match(/load average:\s+(\d+\.?\d*),\s+(\d+\.?\d*),\s+(\d+\.?\d*)/);
     const load = loadMatch ? [
@@ -83,7 +83,7 @@ export class MonitorService {
       parseFloat(loadMatch[2]),
       parseFloat(loadMatch[3]),
     ] : [0, 0, 0];
-    
+
     // 解析运行时间
     let uptime = 0;
     const uptimeMatch = data.load?.match(/up\s+(\d+)\s+days?/);
@@ -94,14 +94,14 @@ export class MonitorService {
     if (hoursMatch) {
       uptime += parseInt(hoursMatch[1], 10) * 3600 + parseInt(hoursMatch[2], 10) * 60;
     }
-    
+
     // 解析 CPU 信息
     const cpu = {
       usage: (load[0] / parseInt(data.cpu_cores || '1', 10)) * 100,
       cores: parseInt(data.cpu_cores || '1', 10),
       model: 'Intel Xeon',
     };
-    
+
     return {
       hostname: 'changji-server',
       platform: 'linux',
@@ -117,7 +117,7 @@ export class MonitorService {
   async getServices() {
     const data = await this.agentRequest('/services');
     const services = data.services || {};
-    
+
     return Object.entries(services).map(([name, info]: [string, any]) => ({
       name,
       status: info.status,
@@ -126,19 +126,43 @@ export class MonitorService {
   }
 
   async getLogs(service: string, lines = 100) {
-    return this.agentRequest('/logs', 'post', { service, lines });
+    const data = await this.agentRequest('/logs', 'post', { service, lines });
+    // 适配前端期望的格式 { logs: string }
+    if (data.logs) {
+      return { logs: data.logs };
+    }
+    if (data.content !== undefined) {
+      return { logs: data.content || '暂无日志数据' };
+    }
+    // 如果 Agent 返回错误，直接抛出
+    if (data.error) {
+      throw new HttpException(data.error, 400);
+    }
+    return { logs: '暂无日志数据' };
   }
 
   async executeCommand(command: string, timeout = 30) {
-    return this.agentRequest('/execute', 'post', { command, timeout });
+    const data = await this.agentRequest('/execute', 'post', { command, timeout });
+    // 适配前端期望的格式 { output: string }
+    let output = '';
+    if (data.stdout) {
+      output += data.stdout;
+    }
+    if (data.stderr) {
+      output += (output ? '\n' : '') + data.stderr;
+    }
+    if (data.error) {
+      output = `错误: ${data.error}`;
+    }
+    return { output: output || '命令执行完成，无输出' };
   }
-  
+
   private parseSize(value: string, unit: string): number {
     const num = parseFloat(value);
-    const units = { 
+    const units = {
       'B': 1, 'K': 1024, 'KB': 1024, 'M': 1024*1024, 'MB': 1024*1024, 'MI': 1024*1024, 'MIB': 1024*1024,
       'G': 1024*1024*1024, 'GB': 1024*1024*1024, 'GI': 1024*1024*1024, 'GIB': 1024*1024*1024,
-      'T': 1024*1024*1024*1024, 'TB': 1024*1024*1024*1024 
+      'T': 1024*1024*1024*1024, 'TB': 1024*1024*1024*1024
     };
     const multiplier = units[unit.toUpperCase()] || 1;
     return Math.floor(num * multiplier);
