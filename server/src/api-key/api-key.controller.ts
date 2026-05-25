@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Put, Delete, UseGuards, Req, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, UseGuards, UseInterceptors, Req, Body, Param } from '@nestjs/common';
 import { ApiKeyService } from './api-key.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { RateLimitInterceptor } from './interceptors/rate-limit.interceptor';
 import { CreateApiKeyDto } from './dto';
 
 @Controller('api-key')
@@ -10,12 +11,14 @@ export class ApiKeyController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(RateLimitInterceptor)
   async getApiKey(@Req() req) {
     return this.apiKeyService.getApiKey(req.user.sub);
   }
 
   @Post('refresh')
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(RateLimitInterceptor)
   async refreshApiKey(@Req() req) {
     return this.apiKeyService.refreshApiKey(req.user.sub);
   }

@@ -6,6 +6,7 @@ import { ApiKeyController } from './api-key.controller';
 import { ApiKeyService } from './api-key.service';
 import { ApiKey } from './entities/api-key.entity';
 import { UserApiKey } from './entities/user-api-key.entity';
+import { RateLimitInterceptor } from './interceptors/rate-limit.interceptor';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { UserApiKey } from './entities/user-api-key.entity';
     }),
   ],
   controllers: [ApiKeyController],
-  providers: [ApiKeyService],
+  providers: [ApiKeyService, RateLimitInterceptor],
   exports: [ApiKeyService],
 })
 export class ApiKeyModule {}
