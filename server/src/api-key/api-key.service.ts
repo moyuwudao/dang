@@ -5,6 +5,8 @@ import { ApiKey, ApiKeyProvider, ApiKeyStatus } from './entities/api-key.entity'
 import { UserApiKey } from './entities/user-api-key.entity';
 import { CreateApiKeyDto } from './dto';
 import { CryptoUtil } from '../common/crypto.util';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class ApiKeyService {
@@ -13,6 +15,7 @@ export class ApiKeyService {
     private apiKeyRepository: Repository<ApiKey>,
     @InjectRepository(UserApiKey)
     private userApiKeyRepository: Repository<UserApiKey>,
+    private readonly httpService: HttpService,
   ) {}
 
   async getApiKey(userId: string) {
@@ -312,15 +315,201 @@ export class ApiKeyService {
   private async performHealthCheck(provider: string, apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
     const startTime = Date.now();
     
-    // 这里实现各平台的连通性测试逻辑
-    // 后续可以根据需要扩展
+    switch (provider) {
+      case ApiKeyProvider.OPENAI:
+        return this.checkOpenAI(apiKey, baseUrl);
+      case ApiKeyProvider.ANTHROPIC:
+        return this.checkAnthropic(apiKey, baseUrl);
+      case ApiKeyProvider.QWEN:
+        return this.checkQwen(apiKey, baseUrl);
+      case ApiKeyProvider.DEEPSEEK:
+        return this.checkDeepSeek(apiKey, baseUrl);
+      case ApiKeyProvider.GEMINI:
+        return this.checkGemini(apiKey, baseUrl);
+      case ApiKeyProvider.GROK:
+        return this.checkGrok(apiKey, baseUrl);
+      default:
+        return this.checkGeneric(apiKey, baseUrl);
+    }
+  }
+
+  private async checkOpenAI(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
+    const url = baseUrl || 'https://api.openai.com/v1/models';
+    const startTime = Date.now();
     
-    return {
-      responseTime: Date.now() - startTime,
-      details: {
-        provider,
-        timestamp: new Date().toISOString(),
-      },
-    };
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          timeout: 10000,
+        }),
+      );
+      
+      return {
+        responseTime: Date.now() - startTime,
+        details: {
+          provider: 'openai',
+          status: response.status,
+          modelsAvailable: response.data?.data?.length || 0,
+        },
+      };
+    } catch (error) {
+      throw new Error(`OpenAI API 连接失败: ${error.message}`);
+    }
+  }
+
+  private async checkAnthropic(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
+    const url = baseUrl || 'https://api.anthropic.com/v1/models';
+    const startTime = Date.now();
+    
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          timeout: 10000,
+        }),
+      );
+      
+      return {
+        responseTime: Date.now() - startTime,
+        details: {
+          provider: 'anthropic',
+          status: response.status,
+          modelsAvailable: response.data?.data?.length || 0,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Anthropic API 连接失败: ${error.message}`);
+    }
+  }
+
+  private async checkQwen(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
+    const url = baseUrl || 'https://dashscope.aliyuncs.com/api/v1/models';
+    const startTime = Date.now();
+    
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          timeout: 10000,
+        }),
+      );
+      
+      return {
+        responseTime: Date.now() - startTime,
+        details: {
+          provider: 'qwen',
+          status: response.status,
+          modelsAvailable: response.data?.data?.length || 0,
+        },
+      };
+    } catch (error) {
+      throw new Error(`通义千问 API 连接失败: ${error.message}`);
+    }
+  }
+
+  private async checkDeepSeek(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
+    const url = baseUrl || 'https://api.deepseek.com/v1/models';
+    const startTime = Date.now();
+    
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          timeout: 10000,
+        }),
+      );
+      
+      return {
+        responseTime: Date.now() - startTime,
+        details: {
+          provider: 'deepseek',
+          status: response.status,
+          modelsAvailable: response.data?.data?.length || 0,
+        },
+      };
+    } catch (error) {
+      throw new Error(`DeepSeek API 连接失败: ${error.message}`);
+    }
+  }
+
+  private async checkGemini(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
+    const url = baseUrl || `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const startTime = Date.now();
+    
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          timeout: 10000,
+        }),
+      );
+      
+      return {
+        responseTime: Date.now() - startTime,
+        details: {
+          provider: 'gemini',
+          status: response.status,
+          modelsAvailable: response.data?.models?.length || 0,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Gemini API 连接失败: ${error.message}`);
+    }
+  }
+
+  private async checkGrok(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
+    const url = baseUrl || 'https://api.x.ai/v1/models';
+    const startTime = Date.now();
+    
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          timeout: 10000,
+        }),
+      );
+      
+      return {
+        responseTime: Date.now() - startTime,
+        details: {
+          provider: 'grok',
+          status: response.status,
+          modelsAvailable: response.data?.data?.length || 0,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Grok API 连接失败: ${error.message}`);
+    }
+  }
+
+  private async checkGeneric(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
+    if (!baseUrl) {
+      throw new Error('自定义 provider 需要提供 baseUrl');
+    }
+    
+    const startTime = Date.now();
+    
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(baseUrl, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          timeout: 10000,
+        }),
+      );
+      
+      return {
+        responseTime: Date.now() - startTime,
+        details: {
+          provider: 'custom',
+          status: response.status,
+          baseUrl,
+        },
+      };
+    } catch (error) {
+      throw new Error(`自定义 API 连接失败: ${error.message}`);
+    }
   }
 }
