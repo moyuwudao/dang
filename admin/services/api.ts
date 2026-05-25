@@ -34,7 +34,9 @@ axiosInstance.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('accessToken');
-      Router.push('/login');
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        Router.push('/login');
+      }
     }
     throw error;
   }
