@@ -27,7 +27,7 @@ export class PaymentService {
       description?: string;
     },
   ) {
-    const { amount, paymentMethod, description } = params;
+    const { amount, paymentMethod } = params;
 
     // 生成订单号
     const orderId = `RE${Date.now()}${Math.random().toString(36).substr(2, 6)}`;
@@ -35,10 +35,10 @@ export class PaymentService {
     // 创建充值记录
     const record = this.rechargeRecordRepository.create({
       userId,
-      amount,
+      amountCents: amount,
       paymentMethod,
       status: 'pending',
-      description: description || `充值 ${amount / 100} 元`,
+      remark: params.description || `充值 ${amount / 100} 元`,
     });
     await this.rechargeRecordRepository.save(record);
 
@@ -49,13 +49,13 @@ export class PaymentService {
         paymentData = await this.wechatPayService.createOrder({
           orderId,
           amount,
-          description: record.description,
+          description: record.remark || '',
         });
       } else if (paymentMethod === 'alipay') {
         paymentData = await this.alipayService.createOrder({
           orderId,
           amount,
-          description: record.description,
+          description: record.remark || '',
         });
       } else {
         throw new Error('不支持的支付方式');
@@ -99,10 +99,9 @@ export class PaymentService {
       data: {
         orderId: record.id,
         status: record.status,
-        amount: record.amount,
+        amount: record.amountCents,
         paymentMethod: record.paymentMethod,
         createdAt: record.createdAt,
-        paidAt: record.paidAt,
       },
     };
   }
@@ -145,23 +144,22 @@ export class PaymentService {
       where: { id: orderId },
     });
 
-    if (!record || record.status === 'success') {
+    if (!record || record.status === 'completed') {
       return;
     }
 
     // 更新订单状态
-    record.status = 'success';
-    record.paidAt = new Date();
+    record.status = 'completed';
     await this.rechargeRecordRepository.save(record);
 
     // 增加用户余额
     await this.subscriptionService.recharge(record.userId, {
-      amount: record.amount,
+      amount: record.amountCents,
       paymentMethod: record.paymentMethod,
-      description: record.description,
+      description: record.remark,
     });
 
-    this.logger.log(`用户 ${record.userId} 充值成功: ${record.amount} 分`);
+    this.logger.log(`用户 ${record.userId} 充值成功: ${record.amountCents} 分`);
   }
 
   // 获取充值记录

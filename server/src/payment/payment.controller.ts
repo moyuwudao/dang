@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Param, Req, UseGuards } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
