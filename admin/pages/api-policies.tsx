@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { subscriptionAPI } from '../services/api';
+import { subscriptionAPI, apiKeyAPI } from '../services/api';
 import {
   Card,
   CardBody,
@@ -38,6 +38,11 @@ interface PlanItem {
   type?: string;
 }
 
+interface ApiKeyModel {
+  provider: string;
+  model: string;
+}
+
 const PROVIDER_OPTIONS = [
   { key: 'qwen', label: '通义千问' },
   { key: 'deepseek', label: 'DeepSeek' },
@@ -56,9 +61,12 @@ export default function ApiPoliciesPage() {
   const [error, setError] = useState<string | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [editingPolicy, setEditingPolicy] = useState<Partial<ApiPolicy>>({});
+  const [apiKeyModels, setApiKeyModels] = useState<ApiKeyModel[]>([]);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
 
   useEffect(() => {
     fetchPlans();
+    fetchApiKeyModels();
   }, []);
 
   useEffect(() => {
@@ -66,6 +74,17 @@ export default function ApiPoliciesPage() {
       fetchPolicies(selectedPlan);
     }
   }, [selectedPlan]);
+
+  useEffect(() => {
+    if (editingPolicy.provider) {
+      const models = apiKeyModels
+        .filter(m => m.provider === editingPolicy.provider)
+        .map(m => m.model);
+      setAvailableModels([...new Set(models)]);
+    } else {
+      setAvailableModels([]);
+    }
+  }, [editingPolicy.provider, apiKeyModels]);
 
   const fetchPlans = async () => {
     try {
@@ -76,6 +95,16 @@ export default function ApiPoliciesPage() {
       }
     } catch (err: any) {
       setError(err.response?.data?.message || '获取套餐列表失败');
+    }
+  };
+
+  const fetchApiKeyModels = async () => {
+    try {
+      const keys = await apiKeyAPI.getApiKeys();
+      const models = keys.map((k: any) => ({ provider: k.provider, model: k.model }));
+      setApiKeyModels(models);
+    } catch (err: any) {
+      console.error('获取API Key模型失败:', err);
     }
   };
 
@@ -97,10 +126,10 @@ export default function ApiPoliciesPage() {
       return;
     }
     try {
-      await subscriptionAPI.updatePlanApiPolicy(selectedPlan, editingPolicy.modelPattern, {
+      await subscriptionAPI.updatePlanApiPolicy(selectedPlan, editingPolicy.modelPattern || '*', {
         provider: editingPolicy.provider,
         multiplier: editingPolicy.multiplier,
-        modelPattern: editingPolicy.modelPattern,
+        modelPattern: editingPolicy.modelPattern || '*',
       });
       onClose();
       fetchPolicies(selectedPlan);
@@ -178,7 +207,7 @@ export default function ApiPoliciesPage() {
                 <TableColumn>操作</TableColumn>
               </TableHeader>
               <TableBody>
-                {policies.map((policy) => (
+                {policies?.map((policy) => (
                   <TableRow key={policy.id}>
                     <TableCell>
                       {PROVIDER_OPTIONS.find(p => p.key === policy.provider)?.label || policy.provider}
@@ -210,7 +239,7 @@ export default function ApiPoliciesPage() {
               </TableBody>
             </Table>
 
-            {policies.length === 0 && !loading && (
+            {policies?.length === 0 && !loading && (
               <div className="text-center py-12 text-gray-500">
                 <p>该套餐暂无API策略配置</p>
                 <p className="text-sm mt-1">点击右上角添加策略</p>
@@ -252,7 +281,7 @@ export default function ApiPoliciesPage() {
               <Select
                 label="提供商"
                 selectedKeys={[editingPolicy.provider || 'qwen']}
-                onChange={(e) => setEditingPolicy({ ...editingPolicy, provider: e.target.value })}
+                onChange={(e) => setEditingPolicy({ ...editingPolicy, provider: e.target.value, modelPattern: undefined })}
                 classNames={{ trigger: 'rounded-xl' }}
               >
                 {PROVIDER_OPTIONS.map((p) => (
@@ -262,8 +291,22 @@ export default function ApiPoliciesPage() {
                 ))}
               </Select>
 
+              <Select
+                label="模型（从API Key自动匹配）"
+                selectedKeys={[editingPolicy.modelPattern || '']}
+                onChange={(e) => setEditingPolicy({ ...editingPolicy, modelPattern: e.target.value })}
+                classNames={{ trigger: 'rounded-xl' }}
+              >
+                <SelectItem key="" value="">全部模型</SelectItem>
+                {availableModels.map((model) => (
+                  <SelectItem key={model} value={model}>
+                    {model}
+                  </SelectItem>
+                ))}
+              </Select>
+
               <Input
-                label="模型匹配规则（可选）"
+                label="或手动输入模型匹配规则"
                 placeholder="如：qwen-* 或 gpt-4o"
                 value={editingPolicy.modelPattern || ''}
                 onChange={(e) => setEditingPolicy({ ...editingPolicy, modelPattern: e.target.value })}

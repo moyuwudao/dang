@@ -319,17 +319,17 @@ export const adminAPI = {
     const response = await axiosInstance.get<ApiResponse<any>>('/admin/users', {
       params: { page, limit, search },
     });
-    return response.data;
+    return response.data.data;
   },
 
   getUserById: async (id: string): Promise<any> => {
     const response = await axiosInstance.get<ApiResponse<any>>(`/admin/users/${id}`);
-    return response.data;
+    return response.data.data;
   },
 
   updateUser: async (id: string, data: any): Promise<any> => {
     const response = await axiosInstance.put<ApiResponse<any>>(`/admin/users/${id}`, data);
-    return response.data;
+    return response.data.data;
   },
 
   deleteUser: async (id: string): Promise<void> => {
@@ -338,7 +338,7 @@ export const adminAPI = {
 
   createUser: async (data: any): Promise<any> => {
     const response = await axiosInstance.post<ApiResponse<any>>('/admin/users', data);
-    return response.data;
+    return response.data.data;
   },
 
   getPlans: async (): Promise<Plan[]> => {
@@ -348,12 +348,12 @@ export const adminAPI = {
 
   createPlan: async (plan: any): Promise<any> => {
     const response = await axiosInstance.post<ApiResponse<any>>('/admin/plans', plan);
-    return response.data;
+    return response.data.data;
   },
 
   updatePlan: async (id: string, plan: any): Promise<any> => {
     const response = await axiosInstance.put<ApiResponse<any>>(`/admin/plans/${id}`, plan);
-    return response.data;
+    return response.data.data;
   },
 
   deletePlan: async (id: string): Promise<void> => {
@@ -364,19 +364,19 @@ export const adminAPI = {
     const response = await axiosInstance.get<ApiResponse<any>>('/admin/subscriptions', {
       params: { page, limit },
     });
-    return response.data;
+    return response.data.data;
   },
 
   updateSubscription: async (id: string, data: any): Promise<any> => {
     const response = await axiosInstance.put<ApiResponse<any>>(`/admin/subscriptions/${id}`, data);
-    return response.data;
+    return response.data.data;
   },
 
   getRechargeRecords: async (page = 1, limit = 20): Promise<any> => {
     const response = await axiosInstance.get<ApiResponse<any>>('/admin/recharge-records', {
       params: { page, limit },
     });
-    return response.data;
+    return response.data.data;
   },
 
   getRevenueTrend: async (days = 7): Promise<ChartDataPoint[]> => {
@@ -397,14 +397,14 @@ export const adminAPI = {
     const response = await axiosInstance.get<ApiResponse<any>>('/admin/revenue-stats', {
       params: { startDate, endDate },
     });
-    return response.data;
+    return response.data.data;
   },
 
   getApiUsageLogs: async (page = 1, limit = 20, userId?: string, provider?: string): Promise<any> => {
     const response = await axiosInstance.get<ApiResponse<any>>('/admin/api-usage-logs', {
       params: { page, limit, userId, provider },
     });
-    return response.data;
+    return response.data.data;
   },
 
   adjustUserQuota: async (userId: string, amount: number, reason?: string): Promise<any> => {
@@ -412,14 +412,14 @@ export const adminAPI = {
       amount,
       reason,
     });
-    return response.data;
+    return response.data.data;
   },
 
   assignPlanToUser: async (userId: string, planId: string): Promise<any> => {
     const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/assign-plan`, {
       planId,
     });
-    return response.data;
+    return response.data.data;
   },
 };
 
