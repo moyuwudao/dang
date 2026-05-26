@@ -149,7 +149,7 @@ export class MonitorService {
     'find', 'head', 'tail', 'wc', 'sort', 'uniq',
     'vmstat', 'iostat', 'mpstat', 'sar', 'lsof',
     'systemctl status', 'service --status-all',
-    'journalctl', 'dmesg',
+    'journalctl', 'dmesg', 'pm2', 'last',
   ];
 
   // 禁止的危险命令（严格匹配，避免误杀合法命令）
