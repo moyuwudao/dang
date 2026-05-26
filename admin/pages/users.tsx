@@ -283,6 +283,7 @@ export default function UsersPage() {
                                 onClick={() => openDetail(user)}
                                 className="hover:bg-gray-50"
                                 isIconOnly
+                                aria-label="查看用户详情"
                               >
                                 <Eye className="w-4 h-4" />
                               </Button>
@@ -293,6 +294,7 @@ export default function UsersPage() {
                                 onClick={() => openEdit(user)}
                                 className="hover:bg-yellow-50"
                                 isIconOnly
+                                aria-label="编辑用户"
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -303,6 +305,7 @@ export default function UsersPage() {
                                 onClick={() => openDelete(user.id)}
                                 className="hover:bg-red-50"
                                 isIconOnly
+                                aria-label="删除用户"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>

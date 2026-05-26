@@ -266,10 +266,10 @@ export default function SubscriptionsPage() {
                           <span className={`px-3 py-1 text-xs rounded-full border ${plan.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                             {plan.isActive ? '启用' : '禁用'}
                           </span>
-                          <Button size="sm" variant="light" color="primary" className="hover:bg-gray-50" isIconOnly onClick={() => openEditPlan(plan)}>
+                          <Button size="sm" variant="light" color="primary" className="hover:bg-gray-50" isIconOnly aria-label="编辑套餐" onClick={() => openEditPlan(plan)}>
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button size="sm" variant="light" color="danger" className="hover:bg-red-50" isIconOnly onClick={() => openDeletePlan(plan.id)}>
+                          <Button size="sm" variant="light" color="danger" className="hover:bg-red-50" isIconOnly aria-label="删除套餐" onClick={() => openDeletePlan(plan.id)}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
