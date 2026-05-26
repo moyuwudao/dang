@@ -97,7 +97,7 @@ export default function ApiPoliciesPage() {
       return;
     }
     try {
-      await subscriptionAPI.setPlanApiPolicy(selectedPlan, {
+      await subscriptionAPI.updatePlanApiPolicy(selectedPlan, editingPolicy.modelPattern, {
         provider: editingPolicy.provider,
         multiplier: editingPolicy.multiplier,
         modelPattern: editingPolicy.modelPattern,
