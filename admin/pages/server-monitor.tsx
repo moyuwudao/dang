@@ -92,7 +92,7 @@ export default function ServerMonitorPage() {
     setLogsLoading(true);
     try {
       const res = await monitorAPI.getLogs(selectedService, logLines);
-      setLogs(res.logs || '暂无日志数据');
+      setLogs(typeof res === 'string' ? res : (res.logs || '暂无日志数据'));
     } catch (err: any) {
       setLogs('获取日志失败: ' + (err.response?.data?.message || err.message || '未知错误'));
     } finally {
