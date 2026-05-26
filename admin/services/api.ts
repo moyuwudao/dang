@@ -29,15 +29,78 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
+// Token 刷新状态
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+// 订阅 Token 刷新
+function subscribeTokenRefresh(callback: (token: string) => void) {
+  refreshSubscribers.push(callback);
+}
+
+// 通知所有订阅者
+function onTokenRefreshed(newToken: string) {
+  refreshSubscribers.forEach((callback) => callback(newToken));
+  refreshSubscribers = [];
+}
+
 axiosInstance.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('accessToken');
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        Router.push('/login');
+  async (error) => {
+    const originalRequest = error.config;
+
+    // 如果是 401 且不是刷新请求本身
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // 等待刷新完成
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((newToken: string) => {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            resolve(axiosInstance(originalRequest));
+          });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+
+        // 调用刷新接口
+        const response = await axios.post(`${API_URL}/auth/refresh`, {
+          refreshToken,
+        });
+
+        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+
+        // 更新存储
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('refreshToken', newRefreshToken);
+
+        // 更新原始请求
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+
+        // 通知其他等待的请求
+        onTokenRefreshed(accessToken);
+
+        return axiosInstance(originalRequest);
+      } catch (refreshError) {
+        // 刷新失败，清除 Token 并跳转登录
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          Router.push('/login');
+        }
+        throw refreshError;
+      } finally {
+        isRefreshing = false;
       }
     }
+
     throw error;
   }
 );

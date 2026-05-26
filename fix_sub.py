@@ -1,0 +1,10 @@
+import sys
+f=open('/home/admin/dang/admin/pages/subscriptions.tsx')
+c=f.read()
+f.close()
+c=c.replace('type: " subscription,', 'type: "subscription",')
+c=c.replace('type:  subscription,', 'type: "subscription",')
+f=open('/home/admin/dang/admin/pages/subscriptions.tsx','w')
+f.write(c)
+f.close()
+print('done')

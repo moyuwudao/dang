@@ -141,7 +141,55 @@ export class MonitorService {
     return { logs: '暂无日志数据' };
   }
 
+  // 允许的命令白名单（只读命令）
+  private readonly allowedCommands = [
+    'cat', 'ls', 'll', 'df', 'free', 'ps', 'top', 'htop',
+    'uptime', 'whoami', 'pwd', 'echo', 'date', 'uname',
+    'netstat', 'ss', 'ping', 'curl', 'wget', 'grep',
+    'find', 'head', 'tail', 'wc', 'sort', 'uniq',
+    'vmstat', 'iostat', 'mpstat', 'sar', 'lsof',
+    'systemctl status', 'service --status-all',
+    'journalctl', 'dmesg',
+  ];
+
+  // 禁止的危险命令
+  private readonly forbiddenPatterns = [
+    'rm', 'mkfs', 'dd', 'shutdown', 'reboot', 'halt',
+    'poweroff', 'init', 'kill', 'pkill', 'killall',
+    '>', '>>', '|', ';', '&&', '||',
+    'wget.*-O', 'curl.*-o', 'curl.*--output',
+    'bash', 'sh', 'python', 'python3', 'node',
+    'eval', 'exec', 'source', '. ',
+  ];
+
+  private validateCommand(command: string): { valid: boolean; reason?: string } {
+    // 检查是否包含危险模式
+    for (const pattern of this.forbiddenPatterns) {
+      if (command.includes(pattern)) {
+        return { valid: false, reason: `命令包含危险操作: ${pattern}` };
+      }
+    }
+
+    // 检查是否在白名单中
+    const cmd = command.trim().split(' ')[0];
+    const isAllowed = this.allowedCommands.some(allowed =>
+      command.startsWith(allowed) || cmd === allowed
+    );
+
+    if (!isAllowed) {
+      return { valid: false, reason: `命令不在白名单中: ${cmd}` };
+    }
+
+    return { valid: true };
+  }
+
   async executeCommand(command: string, timeout = 30) {
+    // 验证命令
+    const validation = this.validateCommand(command);
+    if (!validation.valid) {
+      throw new HttpException(validation.reason, 403);
+    }
+
     const data = await this.agentRequest('/execute', 'post', { command, timeout });
     // 适配前端期望的格式 { output: string }
     let output = '';

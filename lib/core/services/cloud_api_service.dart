@@ -47,6 +47,29 @@ class CloudApiService {
         },
         onError: (error, handler) async {
           if (error.response?.statusCode == 401) {
+            // 尝试刷新 Token
+            final refreshed = await refreshToken();
+            if (refreshed) {
+              // 刷新成功，重试原请求
+              final options = error.requestOptions;
+              options.headers['Authorization'] = 'Bearer $_accessToken';
+              try {
+                final response = await _dio!.request(
+                  options.path,
+                  data: options.data,
+                  queryParameters: options.queryParameters,
+                  options: Options(
+                    method: options.method,
+                    headers: options.headers,
+                  ),
+                );
+                handler.resolve(response);
+                return;
+              } catch (e) {
+                // 重试失败，继续处理错误
+              }
+            }
+            // 刷新失败或重试失败，清除 Token
             await clearToken();
           }
           handler.next(error);
@@ -89,11 +112,40 @@ class CloudApiService {
     _accessToken = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('cloud_access_token');
+    await prefs.remove('cloud_refresh_token');
   }
 
   Future<void> loadToken() async {
     final prefs = await SharedPreferences.getInstance();
     _accessToken = prefs.getString('cloud_access_token');
+  }
+
+  // Token 刷新
+  Future<bool> refreshToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString('cloud_refresh_token');
+      if (refreshToken == null) return false;
+
+      final response = await _dio!.post(
+        '/auth/refresh',
+        data: {'refreshToken': refreshToken},
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data['data'];
+        final newAccessToken = data['accessToken'];
+        final newRefreshToken = data['refreshToken'];
+
+        await setToken(newAccessToken);
+        await prefs.setString('cloud_refresh_token', newRefreshToken);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      AppLogger().e('API', 'Token刷新失败: $e');
+      return false;
+    }
   }
 
   bool get isAuthenticated => _accessToken != null;

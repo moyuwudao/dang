@@ -141,7 +141,15 @@ A / B / C / 有其他想法
   ↓ 失败/无结果
 分析输出
   ↓
-能确定原因？ → 修复后重试（这是第 1 次重试，也是最后 1 次）
+错误与上次完全相同？ → **这不是新问题！立即停止，切换方案**
+  ↓
+错误是环境限制？
+  ├→ PowerShell 引号/转义问题
+  ├→ heredoc 在 SSH 中截断
+  ├→ Windows/Linux 路径混用
+  └→ **立即切换传输方案**（Write+scp 或 GitHub MCP），不重试原方式
+  ↓
+能确定原因？ → 修复后重试（仅 1 次）
   ↓
 仍失败？
   ↓ 是
@@ -151,6 +159,38 @@ A / B / C / 有其他想法
 错误信息：___
 已尝试：___ 和 ___
 建议：请检查 ___ 或给出指示
+```
+
+### "换方案" vs "换格式"的判断标准
+
+这是防止重复执行最关键的区分：
+
+| 类别 | 操作示例 | 判定 | 行动 |
+|------|---------|------|------|
+| **换格式**（禁止） | `cat << 'EOF'` → `cat << PYEOF` | 同一方式，只改了heredoc标记 | 停止，切换真正方案 |
+| **换格式**（禁止） | `python3 -c '...'` → `printf '...' \| python3` | 同一思路，换了命令外壳 | 停止，切换真正方案 |
+| **换格式**（禁止） | 单引号 → 双引号 → 反斜杠转义 | 同一思路，反复调试引号 | 停止，切换真正方案 |
+| **换方案**（允许） | `cat << 'EOF'` 失败 → `Write` 本地 + `scp` | 思路变了，传输方式变了 | ✅ 继续 |
+| **换方案**（允许） | SSH heredoc 失败 → GitHub MCP push + SSH pull | 使用了完全不同的传输通道 | ✅ 继续 |
+| **换方案**（允许） | 多行代码 inline 失败 → 拆成多个单行命令 | 代码结构变了 | ✅ 继续 |
+
+### PowerShell 转义陷阱（Windows 环境特别警告）
+
+在 Windows PowerShell 终端执行 SSH 命令时，以下方式**注定会断裂**，不要尝试：
+
+```
+❌ ssh changji "cat > /tmp/fix.py << 'EOF'
+print('hello')
+EOF"                    → heredoc 在 PowerShell 中肯定截断
+
+❌ ssh changji "python3 -c 'import sys\nprint(1)'"
+                        → 换行符和引号在 PowerShell 中肯定变形
+
+❌ ssh changji "echo 'line1\nline2' > file"
+                        → \n 不会展开为换行
+
+✅ 正确做法：Write 本地文件 → rsync/scp 上传 → SSH 执行
+✅ 或：GitHub MCP push → SSH git pull
 ```
 
 ### 命令超时自动处理（不等待确认）

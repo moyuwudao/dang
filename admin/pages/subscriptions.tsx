@@ -23,6 +23,7 @@ const emptyPlan: Omit<Plan, 'id'> = {
   quotaType: 'minutes',
   quotaValue: 100,
   isActive: true,
+  type: 'subscription',
 };
 
 export default function SubscriptionsPage() {
@@ -153,6 +154,7 @@ export default function SubscriptionsPage() {
       quotaType: plan.quotaType,
       quotaValue: plan.quotaValue || 0,
       isActive: plan.isActive,
+      type: plan.type,
     });
     setShowPlanModal(true);
   };
