@@ -362,6 +362,13 @@ export const adminAPI = {
     return response.data;
   },
 
+  getUserGrowth: async (days = 7): Promise<ChartDataPoint[]> => {
+    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/user-growth', {
+      params: { days },
+    });
+    return response.data.data;
+  },
+
   getRevenueTrend: async (days = 7): Promise<ChartDataPoint[]> => {
     const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/revenue-trend', {
       params: { days },
