@@ -28,7 +28,7 @@ import {
 import { Plus, Search, Trash2, Key, Eye, Copy, Check, Shield, Sparkles, AlertCircle, FileJson, TestTube, Activity, Edit } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { apiKeyAPI } from '@/services/api';
-import type { ApiKey, ApiKeyProvider, ApiKeyStatus } from '@/types';
+import type { ApiKey, ApiKeyProvider, ApiKeyStatus, ApiKeyScope } from '@/types';
 
 const PROVIDER_OPTIONS = [
   { key: 'qwen', label: '阿里云通义千问' },
