@@ -70,6 +70,7 @@ export interface ApiKey {
   name: string;
   description?: string;
   model: string;
+  baseUrl?: string;
   status: ApiKeyStatus;
   scopes?: ApiKeyScope[];
   rateLimitPerMin: number;

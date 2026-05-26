@@ -25,7 +25,7 @@ import {
   Tab,
   Textarea,
 } from '@nextui-org/react';
-import { Plus, Search, Trash2, Key, Eye, Copy, Check, Shield, Sparkles, AlertCircle, FileJson, TestTube, Activity } from 'lucide-react';
+import { Plus, Search, Trash2, Key, Eye, Copy, Check, Shield, Sparkles, AlertCircle, FileJson, TestTube, Activity, Edit } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { apiKeyAPI } from '@/services/api';
 import type { ApiKey, ApiKeyProvider, ApiKeyStatus } from '@/types';
@@ -60,6 +60,7 @@ export default function ApiKeysPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showJsonModal, setShowJsonModal] = useState(false);
@@ -194,6 +195,54 @@ export default function ApiKeysPage() {
   const openDeleteModal = (key: ApiKey) => {
     setSelectedKey(key);
     setShowDeleteModal(true);
+  };
+
+  const openEdit = (key: ApiKey) => {
+    setSelectedKey(key);
+    setNewKey({
+      provider: key.provider,
+      name: key.name,
+      description: key.description || '',
+      model: key.model,
+      apiKey: '',
+      apiSecret: '',
+      baseUrl: key.baseUrl || '',
+      rateLimitPerMin: key.rateLimitPerMin,
+      maxConcurrentRequests: key.maxConcurrentRequests,
+      dailyQuota: key.dailyQuota,
+      scopes: key.scopes || ['all'],
+      expiresAt: key.expiresAt ? new Date(key.expiresAt).toISOString().split('T')[0] : '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditKey = async () => {
+    if (!selectedKey) return;
+    setSubmitting(true);
+    try {
+      await apiKeyAPI.updateApiKey(selectedKey.id, {
+        provider: newKey.provider as ApiKeyProvider,
+        name: newKey.name,
+        description: newKey.description,
+        model: newKey.model,
+        apiKey: newKey.apiKey || undefined,
+        apiSecret: newKey.apiSecret || undefined,
+        baseUrl: newKey.baseUrl || undefined,
+        rateLimitPerMin: newKey.rateLimitPerMin,
+        maxConcurrentRequests: newKey.maxConcurrentRequests,
+        dailyQuota: newKey.dailyQuota,
+        scopes: newKey.scopes,
+        expiresAt: newKey.expiresAt || undefined,
+      });
+      await fetchApiKeys();
+      setShowEditModal(false);
+      setSelectedKey(null);
+      resetNewKey();
+    } catch (err: any) {
+      setError(err?.response?.data?.message || '更新 API Key 失败');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDeleteKey = async () => {
@@ -481,8 +530,21 @@ export default function ApiKeysPage() {
                             color="primary"
                             onClick={() => handleView(key)}
                             className="hover:bg-gray-50"
+                            isIconOnly
+                            aria-label="查看详情"
                           >
                             <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="light"
+                            color="warning"
+                            onClick={() => openEdit(key)}
+                            className="hover:bg-yellow-50"
+                            isIconOnly
+                            aria-label="编辑"
+                          >
+                            <Edit className="w-4 h-4" />
                           </Button>
                           <Button
                             size="sm"
@@ -490,6 +552,8 @@ export default function ApiKeysPage() {
                             color="success"
                             onClick={() => handleTestKey(key)}
                             className="hover:bg-green-50"
+                            isIconOnly
+                            aria-label="测试连通性"
                           >
                             <TestTube className="w-4 h-4" />
                           </Button>
@@ -499,6 +563,8 @@ export default function ApiKeysPage() {
                             color="danger"
                             onClick={() => openDeleteModal(key)}
                             className="hover:bg-red-50"
+                            isIconOnly
+                            aria-label="删除"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -942,6 +1008,154 @@ export default function ApiKeysPage() {
                 className="hover:bg-gray-100 rounded-xl"
               >
                 关闭
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Edit Modal */}
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedKey(null);
+            resetNewKey();
+          }}
+          classNames={{ base: 'rounded-xl' }}
+          size="2xl"
+        >
+          <ModalContent>
+            <ModalHeader className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-yellow-50 flex items-center justify-center">
+                <Edit className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-gray-800">编辑 API Key</p>
+                <p className="text-sm text-gray-500">{selectedKey?.name}</p>
+              </div>
+            </ModalHeader>
+            <ModalBody>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Select
+                    label="提供商"
+                    selectedKeys={[newKey.provider]}
+                    onChange={(e) => setNewKey({ ...newKey, provider: e.target.value })}
+                    classNames={{ trigger: 'rounded-xl' }}
+                  >
+                    {PROVIDER_OPTIONS.map((p) => (
+                      <SelectItem key={p.key} value={p.key}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                  <Input
+                    label="名称"
+                    placeholder="如：通义千问主Key"
+                    value={newKey.name}
+                    onChange={(e) => setNewKey({ ...newKey, name: e.target.value })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                    isRequired
+                  />
+                </div>
+                <Input
+                  label="描述"
+                  placeholder="用途说明（可选）"
+                  value={newKey.description}
+                  onChange={(e) => setNewKey({ ...newKey, description: e.target.value })}
+                  classNames={{ inputWrapper: 'rounded-xl' }}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="模型"
+                    placeholder="如：qwen-turbo"
+                    value={newKey.model}
+                    onChange={(e) => setNewKey({ ...newKey, model: e.target.value })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                    isRequired
+                  />
+                  <Input
+                    label="Base URL（可选）"
+                    placeholder="自定义 API 地址"
+                    value={newKey.baseUrl}
+                    onChange={(e) => setNewKey({ ...newKey, baseUrl: e.target.value })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                  />
+                </div>
+                <div className="p-3 bg-yellow-50/80 border border-yellow-200/50 rounded-xl flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-yellow-600 shrink-0" />
+                  <span className="text-sm text-yellow-800">如需更新 API Key，请填写下方字段；留空则保持原值不变</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="API Key（留空保持不变）"
+                    placeholder="输入新的 API Key"
+                    value={newKey.apiKey}
+                    onChange={(e) => setNewKey({ ...newKey, apiKey: e.target.value })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                    type="password"
+                  />
+                  <Input
+                    label="API Secret（留空保持不变）"
+                    placeholder="输入新的 API Secret"
+                    value={newKey.apiSecret}
+                    onChange={(e) => setNewKey({ ...newKey, apiSecret: e.target.value })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                    type="password"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <Input
+                    label="速率限制（次/分钟）"
+                    type="number"
+                    value={String(newKey.rateLimitPerMin)}
+                    onChange={(e) => setNewKey({ ...newKey, rateLimitPerMin: parseInt(e.target.value) || 60 })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                  />
+                  <Input
+                    label="最大并发"
+                    type="number"
+                    value={String(newKey.maxConcurrentRequests)}
+                    onChange={(e) => setNewKey({ ...newKey, maxConcurrentRequests: parseInt(e.target.value) || 5 })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                  />
+                  <Input
+                    label="日配额"
+                    type="number"
+                    value={String(newKey.dailyQuota)}
+                    onChange={(e) => setNewKey({ ...newKey, dailyQuota: parseInt(e.target.value) || 1000 })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                  />
+                </div>
+                <Input
+                  label="过期时间"
+                  type="date"
+                  value={newKey.expiresAt}
+                  onChange={(e) => setNewKey({ ...newKey, expiresAt: e.target.value })}
+                  classNames={{ inputWrapper: 'rounded-xl' }}
+                />
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <Button
+                variant="light"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedKey(null);
+                  resetNewKey();
+                }}
+                className="hover:bg-gray-100 rounded-xl"
+              >
+                取消
+              </Button>
+              <Button
+                color="primary"
+                className="bg-blue-600 hover:bg-blue-700 rounded-xl"
+                onClick={handleEditKey}
+                isLoading={submitting}
+                isDisabled={!newKey.name.trim() || !newKey.model.trim()}
+              >
+                保存
               </Button>
             </ModalFooter>
           </ModalContent>
