@@ -297,10 +297,9 @@ export default function ApiPoliciesPage() {
                 onChange={(e) => setEditingPolicy({ ...editingPolicy, modelPattern: e.target.value })}
                 classNames={{ trigger: 'rounded-xl' }}
               >
-                <SelectItem key="" value="">全部模型</SelectItem>
-                {availableModels.map((model) => (
+                {(['', ...availableModels] as string[]).map((model) => (
                   <SelectItem key={model} value={model}>
-                    {model}
+                    {model || '全部模型'}
                   </SelectItem>
                 ))}
               </Select>
