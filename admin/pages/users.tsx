@@ -274,7 +274,7 @@ export default function UsersPage() {
                     <TableColumn className="bg-gray-50/80">操作</TableColumn>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user) => {
+                    {users?.map((user) => {
                       const statusConfig = getStatusConfig(user.status);
                       const roleConfig = getRoleConfig(user.role);
                       return (
@@ -612,7 +612,7 @@ export default function UsersPage() {
                 onChange={(e) => setSelectedPlanId(e.target.value)}
                 classNames={{ trigger: 'rounded-xl' }}
               >
-                {plans.map((plan) => (
+                {plans?.map((plan) => (
                   <SelectItem key={plan.id} value={plan.id}>
                     {plan.name} - ¥{(plan.priceCents / 100).toFixed(2)} / {plan.durationDays}天
                   </SelectItem>

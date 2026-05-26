@@ -37,7 +37,7 @@ const MOCK_SERVICES: ServiceStatus[] = [
 ];
 
 const QUICK_COMMANDS = [
-  { label: '服务状态', command: 'systemctl status changji-api --no-pager -l', icon: '📊' },
+  { label: 'PM2状态', command: 'pm2 status changji-api', icon: '📊' },
   { label: 'Nginx状态', command: 'systemctl status nginx --no-pager -l', icon: '📊' },
   { label: 'PM2列表', command: 'pm2 list', icon: '📋' },
   { label: 'PM2日志', command: 'pm2 logs changji-api --lines 50 --nostream', icon: '📄' },

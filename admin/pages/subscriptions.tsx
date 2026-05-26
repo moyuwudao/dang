@@ -244,7 +244,7 @@ export default function SubscriptionsPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {plans.map((plan) => {
+                  {plans?.map((plan) => {
                     const Icon = getPlanIcon(plan.id);
                     return (
                       <div key={plan.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100">
@@ -342,7 +342,7 @@ export default function SubscriptionsPage() {
               ) : (
                 <>
                   <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                    {filteredSubscriptions.map((sub) => {
+                    {filteredSubscriptions?.map((sub) => {
                       const statusConfig = getStatusConfig(sub.status);
                       const Icon = getPlanIcon(sub.planId);
                       return (
