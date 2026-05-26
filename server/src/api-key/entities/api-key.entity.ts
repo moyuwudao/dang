@@ -43,10 +43,10 @@ export class ApiKey {
   @Column({ nullable: true })
   description: string;
 
-  @Column({ name: 'api_key_encrypted' })
+  @Column()
   apiKeyEncrypted: string;
 
-  @Column({ name: 'api_secret_encrypted', nullable: true })
+  @Column({ nullable: true })
   apiSecretEncrypted: string;
 
   @Column()
