@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Subscription } from './subscription.entity';
 import { ApiKey } from '../../api-key/entities/api-key.entity';
+import { User } from '../../auth/entities/user.entity';
 
 @Entity('api_usage_logs')
 export class ApiUsageLog {
@@ -33,6 +34,10 @@ export class ApiUsageLog {
 
   @Column({ name: 'cost_cents', nullable: true })
   costCents: number;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
+  user: User;
 
   @ManyToOne(() => Subscription)
   @JoinColumn({ name: 'subscription_id' })
