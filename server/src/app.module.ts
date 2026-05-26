@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import { AuthModule } from './auth/auth.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { ApiKeyModule } from './api-key/api-key.module';
@@ -23,6 +24,7 @@ import { MonitorModule } from './monitor/monitor.module';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: false, // 数据库 schema 已同步，关闭自动同步
       logging: false,
+      namingStrategy: new SnakeNamingStrategy(),
     }),
     AuthModule,
     SubscriptionModule,
