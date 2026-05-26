@@ -417,6 +417,13 @@ export const adminAPI = {
     });
     return response.data;
   },
+
+  assignPlanToUser: async (userId: string, planId: string): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/assign-plan`, {
+      planId,
+    });
+    return response.data;
+  },
 };
 
 export default axiosInstance;
