@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ApiKey, ApiKeyProvider, ApiKeyStatus } from './entities/api-key.entity';
+import { ApiKey, ApiKeyProvider, ApiKeyStatus, ApiKeyScope } from './entities/api-key.entity';
 import { UserApiKey } from './entities/user-api-key.entity';
 import { CreateApiKeyDto } from './dto';
 import { CryptoUtil } from '../common/crypto.util';
