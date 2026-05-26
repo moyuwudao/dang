@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { MonitorService } from './monitor.service';
-import { MetricsService } from './metrics.service';
+import { MetricsService, MetricsData } from './metrics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 

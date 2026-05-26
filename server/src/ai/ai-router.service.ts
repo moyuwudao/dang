@@ -56,7 +56,7 @@ export class AiRouterService {
   private async selectBestKey(provider: string): Promise<ApiKey | null> {
     const keys = await this.apiKeyRepository.find({
       where: {
-        provider,
+        provider: provider as any,
         status: ApiKeyStatus.ACTIVE,
         lastHealthCheckStatus: 'healthy',
       },

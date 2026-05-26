@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
 import { RedisService } from '../redis/redis.service';
 
-interface MetricsData {
+export interface MetricsData {
   totalCalls: number;
   totalTokens: number;
   totalQuotaConsumed: number;
