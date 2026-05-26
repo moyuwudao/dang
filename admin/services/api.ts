@@ -344,6 +344,11 @@ export const adminAPI = {
     await axiosInstance.delete(`/admin/users/${id}`);
   },
 
+  createUser: async (data: any): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>('/admin/users', data);
+    return response.data;
+  },
+
   getPlans: async (): Promise<Plan[]> => {
     const response = await axiosInstance.get<ApiResponse<Plan[]>>('/admin/plans');
     return response.data.data;
