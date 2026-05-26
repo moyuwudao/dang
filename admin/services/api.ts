@@ -1,5 +1,4 @@
 import axios from 'axios';
-import Router from 'next/router';
 import type { 
   User, 
   Plan, 
@@ -21,113 +20,107 @@ const axiosInstance = axios.create({
   baseURL: API_URL,
 });
 
+// 请求拦截器：添加 Token
 axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
 
 // Token 刷新状态
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
-let isRedirecting = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
 
-// 订阅 Token 刷新
 function subscribeTokenRefresh(callback: (token: string) => void) {
   refreshSubscribers.push(callback);
 }
 
-// 通知所有订阅者
 function onTokenRefreshed(newToken: string) {
   refreshSubscribers.forEach((callback) => callback(newToken));
   refreshSubscribers = [];
 }
 
-// 跳转到登录页（避免重复跳转）
+// 跳转到登录页
 function redirectToLogin() {
-  if (isRedirecting) return;
-  isRedirecting = true;
-  
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  
-  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-    // 使用 window.location 替代 Router.push，确保页面完全刷新
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     window.location.href = '/login';
   }
-  
-  // 重置标志（3秒后）
-  setTimeout(() => {
-    isRedirecting = false;
-  }, 3000);
 }
 
+// 响应拦截器：处理 401 和 Token 刷新
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // 如果是 401 且不是刷新请求本身
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      // 如果是登录/注册/刷新接口本身，直接抛出错误
-      const url = originalRequest.url || '';
-      if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh')) {
-        return Promise.reject(error);
-      }
-
-      if (isRefreshing) {
-        // 等待刷新完成
-        return new Promise((resolve, reject) => {
-          subscribeTokenRefresh((newToken: string) => {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            resolve(axiosInstance(originalRequest));
-          });
-          // 超时处理
-          setTimeout(() => {
-            reject(new Error('Token refresh timeout'));
-          }, 10000);
-        });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          throw new Error('No refresh token');
-        }
-
-        // 调用刷新接口
-        const response = await axios.post(`${API_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-
-        // 更新存储
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
-
-        // 更新原始请求
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-
-        // 通知其他等待的请求
-        onTokenRefreshed(accessToken);
-
-        return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        // 刷新失败，清除 Token 并跳转登录
-        redirectToLogin();
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
+    // 如果不是 401，直接抛出错误
+    if (error.response?.status !== 401) {
+      return Promise.reject(error);
     }
 
-    return Promise.reject(error);
+    // 如果是登录/注册/刷新接口本身，直接抛出错误
+    const url = originalRequest?.url || '';
+    if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh')) {
+      return Promise.reject(error);
+    }
+
+    // 如果已经重试过，直接跳转登录
+    if (originalRequest._retry) {
+      redirectToLogin();
+      return Promise.reject(error);
+    }
+
+    // 如果正在刷新，等待刷新完成
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        subscribeTokenRefresh((newToken: string) => {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          resolve(axiosInstance(originalRequest));
+        });
+        setTimeout(() => {
+          reject(new Error('Token refresh timeout'));
+        }, 10000);
+      });
+    }
+
+    originalRequest._retry = true;
+    isRefreshing = true;
+
+    try {
+      const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+      if (!refreshToken) {
+        throw new Error('No refresh token');
+      }
+
+      // 使用独立的 axios 实例调用刷新接口（避免拦截器循环）
+      const response = await axios.post(`${API_URL}/auth/refresh`, {
+        refreshToken,
+      });
+
+      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+
+      // 更新存储
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', newRefreshToken);
+
+      // 通知其他等待的请求
+      onTokenRefreshed(accessToken);
+
+      // 重试原始请求
+      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      return axiosInstance(originalRequest);
+    } catch (refreshError) {
+      redirectToLogin();
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
   }
 );
 
@@ -316,7 +309,6 @@ export const paymentAPI = {
   },
 };
 
-// 管理后台 API
 export const adminAPI = {
   getStats: async (): Promise<any> => {
     const response = await axiosInstance.get<ApiResponse<any>>('/admin/stats');
@@ -387,15 +379,15 @@ export const adminAPI = {
     return response.data;
   },
 
-  getUserGrowth: async (days = 7): Promise<ChartDataPoint[]> => {
-    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/user-growth', {
+  getRevenueTrend: async (days = 7): Promise<ChartDataPoint[]> => {
+    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/revenue-trend', {
       params: { days },
     });
     return response.data.data;
   },
 
-  getRevenueTrend: async (days = 7): Promise<ChartDataPoint[]> => {
-    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/revenue-trend', {
+  getUserGrowth: async (days = 7): Promise<ChartDataPoint[]> => {
+    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/user-growth', {
       params: { days },
     });
     return response.data.data;
