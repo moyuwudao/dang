@@ -394,6 +394,25 @@ export const monitorAPI = {
     const response = await axiosInstance.post<ApiResponse<{ output: string }>>('/monitor/execute', { command, timeout });
     return response.data.data;
   },
+
+  getRealtimeMetrics: async (): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/realtime');
+    return response.data;
+  },
+
+  getDailyMetrics: async (date?: string): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/daily', {
+      params: { date },
+    });
+    return response.data;
+  },
+
+  getTrendData: async (days = 7): Promise<any[]> => {
+    const response = await axiosInstance.get<ApiResponse<any[]>>('/monitor/metrics/trend', {
+      params: { days },
+    });
+    return response.data;
+  },
 };
 
 export default axiosInstance;

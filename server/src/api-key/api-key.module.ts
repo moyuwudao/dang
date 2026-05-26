@@ -4,10 +4,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule } from '@nestjs/axios';
 import { ApiKeyController } from './api-key.controller';
 import { ApiKeyService } from './api-key.service';
+import { ApiKeyHealthService } from './api-key-health.service';
 import { ApiKey } from './entities/api-key.entity';
 import { UserApiKey } from './entities/user-api-key.entity';
 import { RateLimitInterceptor } from './interceptors/rate-limit.interceptor';
-import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
@@ -19,7 +19,7 @@ import { AdminModule } from '../admin/admin.module';
     }),
   ],
   controllers: [ApiKeyController],
-  providers: [ApiKeyService, RateLimitInterceptor],
-  exports: [ApiKeyService],
+  providers: [ApiKeyService, ApiKeyHealthService, RateLimitInterceptor],
+  exports: [ApiKeyService, ApiKeyHealthService],
 })
 export class ApiKeyModule {}

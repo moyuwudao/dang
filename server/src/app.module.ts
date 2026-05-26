@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { ApiKeyModule } from './api-key/api-key.module';
 import { AdminModule } from './admin/admin.module';
+import { ScheduleModule } from '@nestjs/schedule';
 import { MonitorModule } from './monitor/monitor.module';
 import { RedisModule } from './redis/redis.module';
 import { AiModule } from './ai/ai.module';
@@ -34,6 +35,7 @@ import { JwtModule } from '@nestjs/jwt';
       secret: process.env.JWT_SECRET || 'changji_jwt_secret_change_me',
       signOptions: { expiresIn: '15m' },
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     SubscriptionModule,
     ApiKeyModule,
