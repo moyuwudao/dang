@@ -236,6 +236,11 @@ export const apiKeyAPI = {
     const response = await axiosInstance.post<ApiResponse<any>>(`/api-key/admin/${id}/test`);
     return response.data.data;
   },
+
+  batchCreateApiKeys: async (keys: Partial<ApiKey>[]): Promise<any[]> => {
+    const response = await axiosInstance.post<ApiResponse<any[]>>(`/api-key/admin/batch`, keys);
+    return response.data.data;
+  },
 };
 
 export const monitorAPI = {
