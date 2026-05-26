@@ -70,7 +70,7 @@ export class ApiKeyService {
       model: dto.model,
       baseUrl: dto.baseUrl,
       status: dto.status ?? ApiKeyStatus.ACTIVE,
-      scopes: dto.scopes ?? ['all'],
+      scopes: (dto.scopes ?? [ApiKeyScope.ALL]) as ApiKeyScope[],
       rateLimitPerMin: dto.rateLimitPerMin ?? 60,
       maxConcurrentRequests: dto.maxConcurrentRequests ?? 5,
       dailyQuota: dto.dailyQuota ?? 1000,
