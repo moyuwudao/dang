@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards, Req, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, Req, Body, Query, Param } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateSubscriptionDto, CreatePlanDto, RechargeDto, RefundDto } from './dto';
@@ -17,6 +17,29 @@ export class SubscriptionController {
   @UseGuards(JwtAuthGuard)
   async createSubscription(@Req() req, @Body() dto: CreateSubscriptionDto) {
     return this.subscriptionService.createSubscription(req.user.sub, dto.planId);
+  }
+
+  // API策略管理（管理员接口）- 必须放在 /plans 前面
+  @Get('plans/:id/policies')
+  @UseGuards(JwtAuthGuard)
+  async getPlanApiPolicies(@Param('id') planId: string) {
+    const policies = await this.subscriptionService.getPlanApiPolicies(planId);
+    return { code: 200, message: 'success', data: policies };
+  }
+
+  @Post('plans/:id/policies')
+  @UseGuards(JwtAuthGuard)
+  async setPlanApiPolicy(
+    @Param('id') planId: string,
+    @Body() body: { provider: string; multiplier: number; modelPattern?: string },
+  ) {
+    const policy = await this.subscriptionService.setPlanApiPolicy(
+      planId,
+      body.provider,
+      body.multiplier,
+      body.modelPattern,
+    );
+    return { code: 200, message: 'success', data: policy };
   }
 
   @Get('plans')
@@ -58,29 +81,6 @@ export class SubscriptionController {
   @UseGuards(JwtAuthGuard)
   async getRechargeRecords(@Req() req) {
     return this.subscriptionService.getRechargeRecords(req.user.sub);
-  }
-
-  // API策略管理（管理员接口）
-  @Get('plans/:id/policies')
-  @UseGuards(JwtAuthGuard)
-  async getPlanApiPolicies(@Param('id') planId: string) {
-    const policies = await this.subscriptionService.getPlanApiPolicies(planId);
-    return { code: 200, message: 'success', data: policies };
-  }
-
-  @Post('plans/:id/policies')
-  @UseGuards(JwtAuthGuard)
-  async setPlanApiPolicy(
-    @Param('id') planId: string,
-    @Body() body: { provider: string; multiplier: number; modelPattern?: string },
-  ) {
-    const policy = await this.subscriptionService.setPlanApiPolicy(
-      planId,
-      body.provider,
-      body.multiplier,
-      body.modelPattern,
-    );
-    return { code: 200, message: 'success', data: policy };
   }
 
   // API使用检查
