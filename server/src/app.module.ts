@@ -8,6 +8,7 @@ import { ApiKeyModule } from './api-key/api-key.module';
 import { AdminModule } from './admin/admin.module';
 import { MonitorModule } from './monitor/monitor.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -25,6 +26,10 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: false, // 数据库 schema 已同步，关闭自动同步
       logging: false,
+    }),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'changji_jwt_secret_change_me',
+      signOptions: { expiresIn: '15m' },
     }),
     AuthModule,
     SubscriptionModule,
