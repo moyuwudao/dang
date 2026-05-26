@@ -205,6 +205,16 @@ export const subscriptionAPI = {
     const response = await axiosInstance.get<ApiResponse<{ balanceCents: number }>>('/subscription/balance');
     return response.data.data;
   },
+
+  getPlanApiPolicies: async (planId: string): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>(`/subscription/plans/${planId}/policies`);
+    return response.data.data;
+  },
+
+  updatePlanApiPolicy: async (planId: string, model: string, data: any): Promise<any> => {
+    const response = await axiosInstance.put<ApiResponse<any>>(`/subscription/plans/${planId}/policies/${model}`, data);
+    return response.data.data;
+  },
 };
 
 export const apiKeyAPI = {
