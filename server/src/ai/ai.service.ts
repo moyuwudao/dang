@@ -7,6 +7,7 @@ import { ApiKeyService } from '../api-key/api-key.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { RedisService } from '../redis/redis.service';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
+import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 
 @Injectable()
 export class AiService {
@@ -17,6 +18,8 @@ export class AiService {
     private readonly redisService: RedisService,
     @InjectRepository(ApiUsageLog)
     private apiUsageLogRepository: Repository<ApiUsageLog>,
+    @InjectRepository(PlanApiPolicy)
+    private planApiPolicyRepository: Repository<PlanApiPolicy>,
   ) {}
 
   async chat(userId: string, params: {
