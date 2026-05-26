@@ -26,12 +26,10 @@ export default function MonitorPage() {
 
   const fetchMetrics = async () => {
     try {
-      const [realtimeRes, trendRes] = await Promise.all([
-        monitorAPI.getRealtimeMetrics(),
-        monitorAPI.getTrendData(),
-      ]);
-      setMetrics(realtimeRes.data);
-      setTrendData(trendRes.data || []);
+      const realtimeRes = await monitorAPI.getRealtimeMetrics();
+      const trendRes = await monitorAPI.getTrendData();
+      setMetrics((realtimeRes as any).data);
+      setTrendData((trendRes as any).data || []);
     } catch (err: any) {
       setError(err.message || '获取监控数据失败');
     } finally {
