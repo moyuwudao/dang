@@ -154,9 +154,8 @@ export class PaymentService {
 
     // 增加用户余额
     await this.subscriptionService.recharge(record.userId, {
-      amount: record.amountCents,
+      amountCents: record.amountCents,
       paymentMethod: record.paymentMethod,
-      description: record.remark,
     });
 
     this.logger.log(`用户 ${record.userId} 充值成功: ${record.amountCents} 分`);
