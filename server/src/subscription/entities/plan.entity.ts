@@ -11,10 +11,10 @@ export class Plan {
   @Column({ nullable: true })
   description: string;
 
-  @Column()
+  @Column({ name: 'priceCents' })
   priceCents: number;
 
-  @Column()
+  @Column({ name: 'durationDays' })
   durationDays: number;
 
   @Column({ default: 'subscription' })
@@ -26,15 +26,15 @@ export class Plan {
   @Column('simple-array', { nullable: true })
   features: string[];
 
-  @Column({ default: false })
+  @Column({ name: 'isRecommended', default: false })
   isRecommended: boolean;
 
-  @Column()
+  @Column({ name: 'quotaType' })
   quotaType: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'quotaValue', nullable: true })
   quotaValue: number;
 
-  @Column({ default: true })
+  @Column({ name: 'isActive', default: true })
   isActive: boolean;
 }

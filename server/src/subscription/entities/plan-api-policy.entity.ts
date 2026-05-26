@@ -6,23 +6,23 @@ export class PlanApiPolicy {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ name: 'plan_id' })
   planId: string;
 
   @Column()
   provider: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'model_pattern', nullable: true })
   modelPattern: string;
 
   @Column({ type: 'decimal', precision: 3, scale: 1, default: 1.0 })
   multiplier: number;
 
-  @Column({ default: true })
+  @Column({ name: 'is_allowed', default: true })
   isAllowed: boolean;
 
   @ManyToOne(() => Plan)
-  @JoinColumn({ name: 'planId' })
+  @JoinColumn({ name: 'plan_id' })
   plan: Plan;
 
   @CreateDateColumn()

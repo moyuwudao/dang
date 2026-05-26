@@ -7,28 +7,28 @@ export class Subscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ name: 'userId' })
   userId: string;
 
-  @Column()
+  @Column({ name: 'planId' })
   planId: string;
 
   @Column({ default: 'active' })
   status: string;
 
-  @Column({ type: 'timestamp' })
+  @Column({ name: 'startedAt', type: 'timestamp' })
   startedAt: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column({ name: 'expiresAt', type: 'timestamp' })
   expiresAt: Date;
 
-  @Column({ default: 0 })
+  @Column({ name: 'totalQuota', default: 0 })
   totalQuota: number;
 
-  @Column({ default: 0 })
+  @Column({ name: 'usedQuota', default: 0 })
   usedQuota: number;
 
-  @Column({ default: 0 })
+  @Column({ name: 'balance_quota', default: 0 })
   balanceQuota: number;
 
   @ManyToOne(() => User, user => user.subscriptions)
