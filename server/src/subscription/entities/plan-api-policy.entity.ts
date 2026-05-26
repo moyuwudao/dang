@@ -25,6 +25,6 @@ export class PlanApiPolicy {
   @JoinColumn({ name: 'plan_id' })
   plan: Plan;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

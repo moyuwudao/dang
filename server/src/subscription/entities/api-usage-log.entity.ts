@@ -7,13 +7,13 @@ export class ApiUsageLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ name: 'user_id' })
   userId: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'subscription_id', nullable: true })
   subscriptionId: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'api_key_id', nullable: true })
   apiKeyId: string;
 
   @Column()
@@ -22,26 +22,26 @@ export class ApiUsageLog {
   @Column()
   model: string;
 
-  @Column({ default: 0 })
+  @Column({ name: 'prompt_tokens', default: 0 })
   promptTokens: number;
 
-  @Column({ default: 0 })
+  @Column({ name: 'completion_tokens', default: 0 })
   completionTokens: number;
 
-  @Column()
+  @Column({ name: 'quota_consumed' })
   quotaConsumed: number;
 
-  @Column({ nullable: true })
+  @Column({ name: 'cost_cents', nullable: true })
   costCents: number;
 
   @ManyToOne(() => Subscription)
-  @JoinColumn({ name: 'subscriptionId' })
+  @JoinColumn({ name: 'subscription_id' })
   subscription: Subscription;
 
   @ManyToOne(() => ApiKey)
-  @JoinColumn({ name: 'apiKeyId' })
+  @JoinColumn({ name: 'api_key_id' })
   apiKey: ApiKey;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
