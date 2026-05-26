@@ -134,7 +134,7 @@ export default function ApiKeysPage() {
         rateLimitPerMin: newKey.rateLimitPerMin,
         maxConcurrentRequests: newKey.maxConcurrentRequests,
         dailyQuota: newKey.dailyQuota,
-        scopes: newKey.scopes,
+        scopes: newKey.scopes as ApiKeyScope[],
         expiresAt: newKey.expiresAt || undefined,
       });
       await fetchApiKeys();
