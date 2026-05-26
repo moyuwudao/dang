@@ -152,14 +152,15 @@ export class MonitorService {
     'journalctl', 'dmesg',
   ];
 
-  // 禁止的危险命令
+  // 禁止的危险命令（严格匹配，避免误杀合法命令）
   private readonly forbiddenPatterns = [
-    'rm', 'mkfs', 'dd', 'shutdown', 'reboot', 'halt',
-    'poweroff', 'init', 'kill', 'pkill', 'killall',
-    '>', '>>', '|', ';', '&&', '||',
-    'wget.*-O', 'curl.*-o', 'curl.*--output',
-    'bash', 'sh', 'python', 'python3', 'node',
-    'eval', 'exec', 'source', '. ',
+    'rm ', 'rm -', 'mkfs', 'dd ', 'dd if=',
+    'shutdown', 'reboot', 'halt', 'poweroff', 'init 0', 'init 6',
+    'kill ', 'kill -', 'pkill ', 'killall ',
+    '> ', '>> ', '; ', '&& ', '|| ',
+    'wget.*-O ', 'curl.*-o ', 'curl.*--output ',
+    'bash ', 'sh ', 'python ', 'python3 ', 'node ',
+    'eval ', 'exec ', 'source ', '. ',
   ];
 
   private validateCommand(command: string): { valid: boolean; reason?: string } {

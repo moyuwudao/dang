@@ -229,16 +229,16 @@ description: 安全红线规则 - 绝对不能碰的区域和操作
 ```
 方案 1（首选，一行搞定）：WSL bash 代理 SSH —— 解决一切引号问题
 
-  # 多行代码直接传（bash 正确解析 heredoc）
-  wsl bash -c "ssh changji 'cat > /tmp/fix.py << EOF
-  这里写任意多行 Python/SQL/Shell 代码
-  不需要任何转义
-  引号、变量、换行符全部正确传递
-  EOF
-  python3 /tmp/fix.py'"
+   # 关键：外层单引号，内层双引号。这样 PowerShell 原样传递，bash 正确解析
+   wsl bash -c 'ssh changji "cat > /tmp/fix.py << EOF
+   这里写任意多行 Python/SQL/Shell 代码
+   不需要任何转义
+   引号、变量、换行符全部正确传递
+   EOF
+   python3 /tmp/fix.py"'
 
-  # 单行命令也推荐用 wsl bash，避免引号意外
-  wsl bash -c "ssh changji '《任何 bash 命令》'"
+   # 单行命令也用 wsl bash，避免引号意外
+   wsl bash -c 'ssh changji "《任何 bash 命令》"'
 
 方案 2（备选）：Write 工具写本地文件 → WSL rsync 到服务器 → WSL SSH 执行
   1. Write file: d:\trae_projects\dang\tmp\fix.py
@@ -251,7 +251,7 @@ description: 安全红线规则 - 绝对不能碰的区域和操作
 ```
 
 **一句话记忆**：
-> 任何需要引号、多行代码、heredoc 的 SSH 操作 → 统一用 `wsl bash -c "ssh changji '...'"`。不再讨论 PowerShell 引号问题。
+> 任何需要引号、多行代码、heredoc 的 SSH 操作 → 统一用 `wsl bash -c 'ssh changji "..."'`（外层单引号 + 内层双引号）。不再讨论 PowerShell 引号问题。
 
 
 #### 5.6 重试判断标准（完整版）

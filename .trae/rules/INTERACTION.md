@@ -189,13 +189,13 @@ EOF"                    → heredoc 在 PowerShell 中必然截断
 
 **唯一正确做法**：
 ```
-✅ wsl bash -c "ssh changji 'cat > /tmp/fix.py << EOF
+✅ wsl bash -c 'ssh changji "cat > /tmp/fix.py << EOF
 代码任意写
 EOF
-python3 /tmp/fix.py'"
+python3 /tmp/fix.py"'
 ```
 
-> **不讨论、不调试、不重试**。直接用 `wsl bash -c "ssh ..."` 一条命令完成。
+> **不讨论、不调试、不重试**。外层单引号 `'...'` + 内层双引号 `"..."`，直接用。
 
 ### 命令超时自动处理（不等待确认）
 
