@@ -1,13 +1,16 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { ApiKeyModule } from './api-key/api-key.module';
 import { AdminModule } from './admin/admin.module';
 import { MonitorModule } from './monitor/monitor.module';
+import { RedisModule } from './redis/redis.module';
+import { AiModule } from './ai/ai.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { JwtModule } from '@nestjs/jwt';
 
 @Module({
@@ -36,11 +39,17 @@ import { JwtModule } from '@nestjs/jwt';
     ApiKeyModule,
     AdminModule,
     MonitorModule,
+    RedisModule,
+    AiModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseInterceptor,
     },
   ],
 })
