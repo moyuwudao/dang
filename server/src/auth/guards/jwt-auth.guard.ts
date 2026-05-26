@@ -23,9 +23,9 @@ export class JwtAuthGuard implements CanActivate {
     const path = request.route?.path || request.url;
     const method = request.method;
 
-    // 检查是否是公开路由
+    // 检查是否是公开路由（支持带前缀的路径）
     const isPublic = this.publicRoutes.some(
-      route => route.path === path && route.method === method
+      route => (path === route.path || path.endsWith(route.path)) && route.method === method
     );
 
     if (isPublic) {
