@@ -167,12 +167,19 @@ export class ApiKeyService {
     if (dto.apiSecret) {
       apiKey.apiSecretEncrypted = CryptoUtil.encrypt(dto.apiSecret);
     }
-
-    const updateData: any = { ...dto };
-    delete updateData.apiKey;
-    delete updateData.apiSecret;
-    
-    Object.assign(apiKey, updateData);
+    if (dto.provider) apiKey.provider = dto.provider;
+    if (dto.name) apiKey.name = dto.name;
+    if (dto.description !== undefined) apiKey.description = dto.description;
+    if (dto.model) apiKey.model = dto.model;
+    if (dto.baseUrl !== undefined) apiKey.baseUrl = dto.baseUrl;
+    if (dto.status) apiKey.status = dto.status;
+    if (dto.scopes) apiKey.scopes = dto.scopes;
+    if (dto.rateLimitPerMin !== undefined) apiKey.rateLimitPerMin = dto.rateLimitPerMin;
+    if (dto.maxConcurrentRequests !== undefined) apiKey.maxConcurrentRequests = dto.maxConcurrentRequests;
+    if (dto.dailyQuota !== undefined) apiKey.dailyQuota = dto.dailyQuota;
+    if (dto.expiresAt) apiKey.expiresAt = new Date(dto.expiresAt);
+    if (dto.isDefault !== undefined) apiKey.isDefault = dto.isDefault;
+    if (dto.allowedIpRanges !== undefined) apiKey.allowedIpRanges = dto.allowedIpRanges;
 
     await this.apiKeyRepository.save(apiKey);
 
