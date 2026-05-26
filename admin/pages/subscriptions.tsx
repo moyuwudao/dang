@@ -183,12 +183,12 @@ export default function SubscriptionsPage() {
     return Math.round((used / total) * 100);
   };
 
-  const filteredSubscriptions = subscriptions.filter(sub => {
+  const filteredSubscriptions = subscriptions?.filter(sub => {
     const matchesSearch = !searchTerm ||
       (sub.userPhone?.includes(searchTerm)) ||
       (sub.planName?.includes(searchTerm));
     return matchesSearch;
-  });
+  }) || [];
 
   return (
     <Layout currentPage="subscriptions">
