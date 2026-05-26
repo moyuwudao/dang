@@ -205,7 +205,7 @@ export const subscriptionAPI = {
   },
 
   updatePlanApiPolicy: async (planId: string, model: string, data: any): Promise<any> => {
-    const response = await axiosInstance.put<ApiResponse<any>>(`/subscription/plans/${planId}/policies/${model}`, data);
+    const response = await axiosInstance.post<ApiResponse<any>>(`/subscription/plans/${planId}/policies`, data);
     return response.data.data;
   },
 };
@@ -416,7 +416,7 @@ export const adminAPI = {
   },
 
   assignPlanToUser: async (userId: string, planId: string): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/assign-plan`, {
+    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/subscribe`, {
       planId,
     });
     return response.data.data;
