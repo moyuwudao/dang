@@ -32,6 +32,7 @@ axiosInstance.interceptors.request.use((config) => {
 // Token 刷新状态
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
+let isRedirecting = false;
 
 // 订阅 Token 刷新
 function subscribeTokenRefresh(callback: (token: string) => void) {
@@ -44,6 +45,25 @@ function onTokenRefreshed(newToken: string) {
   refreshSubscribers = [];
 }
 
+// 跳转到登录页（避免重复跳转）
+function redirectToLogin() {
+  if (isRedirecting) return;
+  isRedirecting = true;
+  
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    // 使用 window.location 替代 Router.push，确保页面完全刷新
+    window.location.href = '/login';
+  }
+  
+  // 重置标志（3秒后）
+  setTimeout(() => {
+    isRedirecting = false;
+  }, 3000);
+}
+
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -51,13 +71,23 @@ axiosInstance.interceptors.response.use(
 
     // 如果是 401 且不是刷新请求本身
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // 如果是登录/注册/刷新接口本身，直接抛出错误
+      const url = originalRequest.url || '';
+      if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh')) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         // 等待刷新完成
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
           subscribeTokenRefresh((newToken: string) => {
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             resolve(axiosInstance(originalRequest));
           });
+          // 超时处理
+          setTimeout(() => {
+            reject(new Error('Token refresh timeout'));
+          }, 10000);
         });
       }
 
@@ -90,18 +120,14 @@ axiosInstance.interceptors.response.use(
         return axiosInstance(originalRequest);
       } catch (refreshError) {
         // 刷新失败，清除 Token 并跳转登录
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-          Router.push('/login');
-        }
-        throw refreshError;
+        redirectToLogin();
+        return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
     }
 
-    throw error;
+    return Promise.reject(error);
   }
 );
 
@@ -149,21 +175,34 @@ export const subscriptionAPI = {
     return response.data.data;
   },
   
-  useQuota: async (amount: number): Promise<{ usedQuota: number; remainingQuota: number }> => {
-    const response = await axiosInstance.post<ApiResponse<{ usedQuota: number; remainingQuota: number }>>(
-      '/subscription/quota/use',
-      { amount }
+  subscribe: async (planId: string, userId?: string): Promise<Subscription> => {
+    const response = await axiosInstance.post<ApiResponse<Subscription>>(
+      '/subscription/subscribe',
+      { planId, userId }
     );
     return response.data.data;
   },
-
-  getPlanApiPolicies: async (planId: string): Promise<any[]> => {
-    const response = await axiosInstance.get<ApiResponse<any[]>>(`/subscription/plans/${planId}/policies`);
+  
+  unsubscribe: async (userId?: string): Promise<void> => {
+    await axiosInstance.post('/subscription/unsubscribe', { userId });
+  },
+  
+  recharge: async (amount: number, paymentMethod: string): Promise<void> => {
+    await axiosInstance.post('/subscription/recharge', {
+      amount,
+      paymentMethod,
+    });
+  },
+  
+  getRechargeRecords: async (page = 1, limit = 20): Promise<PaginatedResponse<RechargeRecord>> => {
+    const response = await axiosInstance.get<ApiResponse<PaginatedResponse<RechargeRecord>>>(
+      `/subscription/recharge-records?page=${page}&limit=${limit}`
+    );
     return response.data.data;
   },
-
-  setPlanApiPolicy: async (planId: string, policy: { provider: string; multiplier: number; modelPattern?: string }): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>(`/subscription/plans/${planId}/policies`, policy);
+  
+  getBalance: async (): Promise<{ balanceCents: number }> => {
+    const response = await axiosInstance.get<ApiResponse<{ balanceCents: number }>>('/subscription/balance');
     return response.data.data;
   },
 };
@@ -173,199 +212,156 @@ export const apiKeyAPI = {
     const response = await axiosInstance.get<ApiResponse<ApiKey[]>>('/api-key/admin/list');
     return response.data.data;
   },
-
-  getApiKeyById: async (id: string): Promise<ApiKey> => {
-    const response = await axiosInstance.get<ApiResponse<ApiKey>>(`/api-key/admin/${id}`);
+  
+  getApiKeyStats: async (): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/api-key/admin/stats');
     return response.data.data;
   },
-
-  createApiKey: async (data: {
-    provider: string;
-    name: string;
-    description?: string;
-    apiKey: string;
-    apiSecret?: string;
-    model: string;
-    baseUrl?: string;
-    status?: string;
-    scopes?: string[];
-    rateLimitPerMin?: number;
-    maxConcurrentRequests?: number;
-    dailyQuota?: number;
-    expiresAt?: string;
-    isDefault?: boolean;
-    allowedIpRanges?: string;
-  }): Promise<ApiKey> => {
-    const response = await axiosInstance.post<ApiResponse<ApiKey>>(
-      '/api-key/admin/create',
-      data
-    );
+  
+  createApiKey: async (data: Partial<ApiKey>): Promise<ApiKey> => {
+    const response = await axiosInstance.post<ApiResponse<ApiKey>>('/api-key/admin/create', data);
     return response.data.data;
   },
-
-  batchCreateApiKeys: async (data: any[]): Promise<{ success: boolean; data?: any; error?: string; name?: string }[]> => {
-    const response = await axiosInstance.post<ApiResponse<{ success: boolean; data?: any; error?: string; name?: string }[]>>(
-      '/api-key/admin/batch',
-      data
-    );
+  
+  updateApiKey: async (id: string, data: Partial<ApiKey>): Promise<ApiKey> => {
+    const response = await axiosInstance.put<ApiResponse<ApiKey>>(`/api-key/admin/${id}`, data);
     return response.data.data;
   },
-
-  updateApiKey: async (id: string, data: Partial<{
-    provider: string;
-    name: string;
-    description?: string;
-    apiKey: string;
-    apiSecret?: string;
-    model: string;
-    baseUrl?: string;
-    status?: string;
-    scopes?: string[];
-    rateLimitPerMin?: number;
-    maxConcurrentRequests?: number;
-    dailyQuota?: number;
-    expiresAt?: string;
-    isDefault?: boolean;
-    allowedIpRanges?: string;
-  }>): Promise<ApiKey> => {
-    const response = await axiosInstance.put<ApiResponse<ApiKey>>(
-      `/api-key/admin/${id}`,
-      data
-    );
-    return response.data.data;
-  },
-
+  
   deleteApiKey: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/api-key/admin/${id}`);
   },
-
-  testApiKey: async (id: string): Promise<{
-    status: string;
-    provider: string;
-    model: string;
-    responseTime?: number;
-    details?: any;
-    error?: string;
-  }> => {
-    const response = await axiosInstance.post<ApiResponse<{
-      status: string;
-      provider: string;
-      model: string;
-      responseTime?: number;
-      details?: any;
-      error?: string;
-    }>>(`/api-key/admin/${id}/test`);
-    return response.data.data;
-  },
-
-  getApiKeyStats: async (): Promise<{
-    total: number;
-    active: number;
-    inactive: number;
-    expired: number;
-    providers: { provider: string; count: number }[];
-  }> => {
-    const response = await axiosInstance.get<ApiResponse<{
-      total: number;
-      active: number;
-      inactive: number;
-      expired: number;
-      providers: { provider: string; count: number }[];
-    }>>('/api-key/admin/stats');
-    return response.data.data;
-  },
-
-  getMyApiKey: async (): Promise<{ provider: string; apiKey: string; model: string; rateLimitPerMin: number; expiresAt: string }> => {
-    const response = await axiosInstance.get<ApiResponse<{ provider: string; apiKey: string; model: string; rateLimitPerMin: number; expiresAt: string }>>(
-      '/api-key'
-    );
+  
+  testApiKey: async (id: string): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>(`/api-key/admin/${id}/test`);
     return response.data.data;
   },
 };
 
-export const adminAPI = {
-  getStats: async (): Promise<DashboardStats> => {
-    const response = await axiosInstance.get<ApiResponse<DashboardStats>>('/admin/stats');
+export const monitorAPI = {
+  getSystemInfo: async (): Promise<SystemInfo> => {
+    const response = await axiosInstance.get<ApiResponse<SystemInfo>>('/monitor/system');
     return response.data.data;
   },
   
-  getUsers: async (page = 1, limit = 20, search?: string): Promise<PaginatedResponse<User>> => {
-    const response = await axiosInstance.get<ApiResponse<PaginatedResponse<User>>>('/admin/users', {
-      params: { page, limit, search },
+  getServices: async (): Promise<ServiceStatus[]> => {
+    const response = await axiosInstance.get<ApiResponse<ServiceStatus[]>>('/monitor/services');
+    return response.data.data;
+  },
+  
+  getLogs: async (service: string, lines = 100): Promise<string> => {
+    const response = await axiosInstance.post<ApiResponse<string>>('/monitor/logs', {
+      service,
+      lines,
     });
     return response.data.data;
   },
+  
+  executeCommand: async (command: string, timeout = 30): Promise<{ output: string }> => {
+    const response = await axiosInstance.post<ApiResponse<{ output: string }>>('/monitor/execute', { command, timeout });
+    return response.data.data;
+  },
 
-  createUser: async (data: {
-    phone: string;
-    password: string;
-    nickname?: string;
-    role?: string;
-    status?: string;
-  }): Promise<User> => {
-    const response = await axiosInstance.post<ApiResponse<User>>('/admin/users', data);
-    return response.data.data;
+  getRealtimeMetrics: async (): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/realtime');
+    return response.data;
   },
-  
-  updateUser: async (id: string, data: Partial<User>): Promise<User> => {
-    const response = await axiosInstance.put<ApiResponse<User>>(`/admin/users/${id}`, data);
-    return response.data.data;
+
+  getDailyMetrics: async (date?: string): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/daily', {
+      params: { date },
+    });
+    return response.data;
   },
-  
+
+  getTrendData: async (days = 7): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/trend', {
+      params: { days },
+    });
+    return response.data;
+  },
+};
+
+export const paymentAPI = {
+  createRechargeOrder: async (params: { amount: number; paymentMethod: string }): Promise<ApiResponse<any>> => {
+    const response = await axiosInstance.post<ApiResponse<any>>('/payment/recharge', params);
+    return response.data;
+  },
+
+  getOrderStatus: async (orderId: string): Promise<ApiResponse<any>> => {
+    const response = await axiosInstance.get<ApiResponse<any>>(`/payment/order/${orderId}`);
+    return response.data;
+  },
+
+  getRechargeRecords: async (page = 1, limit = 20): Promise<ApiResponse<any>> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/payment/records', {
+      params: { page, limit },
+    });
+    return response.data;
+  },
+};
+
+// 管理后台 API
+export const adminAPI = {
+  getStats: async (): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/admin/stats');
+    return response.data;
+  },
+
+  getUsers: async (page = 1, limit = 20, search?: string): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/admin/users', {
+      params: { page, limit, search },
+    });
+    return response.data;
+  },
+
+  getUserById: async (id: string): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>(`/admin/users/${id}`);
+    return response.data;
+  },
+
+  updateUser: async (id: string, data: any): Promise<any> => {
+    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/users/${id}`, data);
+    return response.data;
+  },
+
   deleteUser: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/admin/users/${id}`);
   },
 
-  assignPlanToUser: async (userId: string, planId: string): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/subscribe`, { planId });
-    return response.data.data;
-  },
-  
   getPlans: async (): Promise<Plan[]> => {
     const response = await axiosInstance.get<ApiResponse<Plan[]>>('/admin/plans');
     return response.data.data;
   },
-  
-  createPlan: async (plan: Partial<Plan>): Promise<Plan> => {
-    const response = await axiosInstance.post<ApiResponse<Plan>>('/admin/plans', plan);
-    return response.data.data;
+
+  createPlan: async (plan: any): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>('/admin/plans', plan);
+    return response.data;
   },
-  
-  updatePlan: async (id: string, data: Partial<Plan>): Promise<Plan> => {
-    const response = await axiosInstance.put<ApiResponse<Plan>>(`/admin/plans/${id}`, data);
-    return response.data.data;
+
+  updatePlan: async (id: string, plan: any): Promise<any> => {
+    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/plans/${id}`, plan);
+    return response.data;
   },
-  
+
   deletePlan: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/admin/plans/${id}`);
   },
-  
-  getSubscriptions: async (page = 1, limit = 20, status?: string): Promise<PaginatedResponse<Subscription>> => {
-    const response = await axiosInstance.get<ApiResponse<PaginatedResponse<Subscription>>>('/admin/subscriptions', {
-      params: { page, limit, status },
-    });
-    return response.data.data;
-  },
-  
-  updateSubscription: async (id: string, data: Partial<Subscription>): Promise<Subscription> => {
-    const response = await axiosInstance.put<ApiResponse<Subscription>>(`/admin/subscriptions/${id}`, data);
-    return response.data.data;
-  },
-  
-  getRechargeRecords: async (page = 1, limit = 20): Promise<PaginatedResponse<RechargeRecord>> => {
-    const response = await axiosInstance.get<ApiResponse<PaginatedResponse<RechargeRecord>>>('/admin/recharge-records', {
+
+  getSubscriptions: async (page = 1, limit = 20): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/admin/subscriptions', {
       params: { page, limit },
     });
-    return response.data.data;
+    return response.data;
   },
-  
-  getUserGrowth: async (days = 7): Promise<ChartDataPoint[]> => {
-    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/user-growth', {
-      params: { days },
+
+  getRechargeRecords: async (page = 1, limit = 20): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/admin/recharge-records', {
+      params: { page, limit },
     });
-    return response.data.data;
+    return response.data;
   },
-  
+
   getRevenueTrend: async (days = 7): Promise<ChartDataPoint[]> => {
     const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/revenue-trend', {
       params: { days },
@@ -391,67 +387,6 @@ export const adminAPI = {
     const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/adjust-quota`, {
       amount,
       reason,
-    });
-    return response.data;
-  },
-};
-
-export const monitorAPI = {
-  getSystemInfo: async (): Promise<SystemInfo> => {
-    const response = await axiosInstance.get<ApiResponse<SystemInfo>>('/monitor/system');
-    return response.data.data;
-  },
-  
-  getServices: async (): Promise<ServiceStatus[]> => {
-    const response = await axiosInstance.get<ApiResponse<ServiceStatus[]>>('/monitor/services');
-    return response.data.data;
-  },
-  
-  getLogs: async (service: string, lines = 100): Promise<{ logs: string }> => {
-    const response = await axiosInstance.post<ApiResponse<{ logs: string }>>('/monitor/logs', { service, lines });
-    return response.data.data;
-  },
-  
-  executeCommand: async (command: string, timeout = 30): Promise<{ output: string }> => {
-    const response = await axiosInstance.post<ApiResponse<{ output: string }>>('/monitor/execute', { command, timeout });
-    return response.data.data;
-  },
-
-  getRealtimeMetrics: async (): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/realtime');
-    return response.data;
-  },
-
-  getDailyMetrics: async (date?: string): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/daily', {
-      params: { date },
-    });
-    return response.data;
-  },
-
-  getTrendData: async (days = 7): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any[]>>('/monitor/metrics/trend', {
-      params: { days },
-    });
-    return response.data;
-  },
-};
-
-// 支付 API
-export const paymentAPI = {
-  createRechargeOrder: async (params: { amount: number; paymentMethod: string }): Promise<ApiResponse<any>> => {
-    const response = await axiosInstance.post<ApiResponse<any>>('/payment/recharge', params);
-    return response.data;
-  },
-
-  getOrderStatus: async (orderId: string): Promise<ApiResponse<any>> => {
-    const response = await axiosInstance.get<ApiResponse<any>>(`/payment/order/${orderId}`);
-    return response.data;
-  },
-
-  getRechargeRecords: async (page = 1, limit = 20): Promise<ApiResponse<any>> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/payment/records', {
-      params: { page, limit },
     });
     return response.data;
   },
