@@ -52,7 +52,7 @@ export class ApiKey {
   @Column()
   model: string;
 
-  @Column({ name: 'baseUrl', nullable: true })
+  @Column({ name: 'base_url', nullable: true })
   baseUrl: string;
 
   @Column({
@@ -65,34 +65,34 @@ export class ApiKey {
   @Column({ type: 'simple-array', nullable: true })
   scopes: ApiKeyScope[];
 
-  @Column({ name: 'rateLimitPerMin', default: 60 })
+  @Column({ name: 'rate_limit_per_min', default: 60 })
   rateLimitPerMin: number;
 
-  @Column({ name: 'maxConcurrentRequests', default: 5 })
+  @Column({ name: 'max_concurrent_requests', default: 5 })
   maxConcurrentRequests: number;
 
-  @Column({ name: 'dailyQuota', default: 1000 })
+  @Column({ name: 'daily_quota', default: 1000 })
   dailyQuota: number;
 
-  @Column({ name: 'dailyUsage', default: 0 })
+  @Column({ name: 'daily_usage', default: 0 })
   dailyUsage: number;
 
-  @Column({ name: 'expiresAt', type: 'date', nullable: true })
+  @Column({ name: 'expires_at', type: 'date', nullable: true })
   expiresAt: Date;
 
-  @Column({ name: 'isDefault', default: false })
+  @Column({ name: 'is_default', default: false })
   isDefault: boolean;
 
-  @Column({ name: 'lastUsedAt', nullable: true })
+  @Column({ name: 'last_used_at', nullable: true })
   lastUsedAt: Date;
 
-  @Column({ name: 'lastHealthCheckAt', nullable: true })
+  @Column({ name: 'last_health_check_at', nullable: true })
   lastHealthCheckAt: Date;
 
-  @Column({ name: 'lastHealthCheckStatus', nullable: true })
+  @Column({ name: 'last_health_check_status', nullable: true })
   lastHealthCheckStatus: string;
 
-  @Column({ name: 'allowedIpRanges', nullable: true })
+  @Column({ name: 'allowed_ip_ranges', nullable: true })
   allowedIpRanges: string;
 
   @CreateDateColumn()
