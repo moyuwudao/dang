@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../subscription/providers/subscription_provider.dart';
 import '../providers/auth_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -14,6 +15,8 @@ class ProfileScreen extends ConsumerWidget {
     final authAsync = ref.watch(authNotifierProvider);
     final authState = authAsync.valueOrNull ?? const AuthState();
     final user = authState.user;
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+    final subscription = subscriptionAsync.valueOrNull ?? const SubscriptionState();
 
     if (user == null) {
       return Scaffold(
@@ -85,6 +88,116 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
 
+          // Balance & Quota Card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.primary, AppColors.primaryDark],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '账户余额',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '¥${subscription.balanceCents / 100}',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => context.push('/subscription/store'),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('充值'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white24),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Column(
+                      children: [
+                        Text(
+                          '${subscription.totalQuota - subscription.usedQuota}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '剩余配额',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        Text(
+                          '${subscription.totalQuota}',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '总配额',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        Text(
+                          subscription.isActive ? '生效中' : '已过期',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: subscription.isActive ? Colors.green[300] : Colors.red[300],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '套餐状态',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // User info
           _buildSection(
             title: '账号信息',
@@ -110,11 +223,12 @@ class ProfileScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.workspace_premium, color: AppColors.warning),
                 title: const Text('当前套餐'),
+                subtitle: Text(subscription.planName ?? '免费版'),
                 trailing: Text(
-                  '免费版',
-                  style: const TextStyle(
+                  subscription.isActive ? '生效中' : '已过期',
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: subscription.isActive ? AppColors.success : AppColors.error,
                   ),
                 ),
                 onTap: () => context.push('/subscription/mine'),
@@ -124,6 +238,12 @@ class ProfileScreen extends ConsumerWidget {
                 title: const Text('购买套餐'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/subscription/store'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.receipt_long, color: AppColors.primary),
+                title: const Text('充值记录'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/subscription/orders'),
               ),
             ],
           ),
