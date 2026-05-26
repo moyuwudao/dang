@@ -26,18 +26,18 @@ export class AiService {
     stream?: boolean;
   }) {
     // 1. 检查用户订阅和权限
-    const subscription = await this.subscriptionService.getUserSubscription(userId);
-    if (!subscription.data.isActive) {
+    const subscription = await this.subscriptionService.getSubscription(userId);
+    if (!subscription.data || subscription.data.status !== 'active') {
       throw new HttpException('订阅已过期，请充值', 402);
     }
 
     // 2. 获取 API Key
     const apiKeyResult = await this.apiKeyService.getApiKey(userId);
-    if (!apiKeyResult.data?.key) {
+    if (!apiKeyResult.data?.apiKey) {
       throw new HttpException('未分配 API Key', 500);
     }
 
-    const apiKey = apiKeyResult.data.key;
+    const apiKey = apiKeyResult.data;
 
     // 3. 计算预估配额消耗（实际调用后更新）
     const estimatedQuota = 1; // 基础消耗
@@ -65,19 +65,14 @@ export class AiService {
         totalTokens,
       );
 
-      // 8. 扣减配额
-      await this.subscriptionService.consumeQuota(userId, {
-        provider: apiKey.provider,
-        model: params.model || 'default',
-        promptTokens,
-        completionTokens,
-      });
+      // 8. 扣减配额（直接更新数据库）
+      await this.subscriptionService.updateQuotaUsage(userId, quotaConsumed);
 
       // 9. 记录使用日志
       await this.logApiUsage({
         userId,
-        subscriptionId: subscription.data.subscriptionId,
-        apiKeyId: apiKey.id,
+        subscriptionId: subscription.data.planId,
+        apiKeyId: apiKey.provider, // 简化处理
         provider: apiKey.provider,
         model: params.model || response.model || 'unknown',
         promptTokens,
@@ -217,14 +212,18 @@ export class AiService {
     tokens: number,
   ): Promise<number> {
     // 获取用户订阅和策略
-    const subscription = await this.subscriptionService.getUserSubscription(userId);
-    const planId = subscription.data.planId;
+    const subscription = await this.subscriptionService.getSubscription(userId);
+    const planId = subscription.data?.planId;
+
+    if (!planId) return 1;
 
     // 获取套餐API策略
-    const policies = await this.subscriptionService.getPlanApiPolicies(planId);
+    const policies = await this.planApiPolicyRepository.find({
+      where: { planId },
+    });
 
     // 查找匹配的策略
-    const policy = policies.data?.find((p: any) => {
+    const policy = policies.find((p: any) => {
       if (p.provider !== provider && p.provider !== 'all') return false;
       if (!p.modelPattern) return true;
       const pattern = p.modelPattern.replace('*', '.*');

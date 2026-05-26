@@ -217,6 +217,33 @@ export class SubscriptionService {
 
     subscription.usedQuota += amount;
     await this.subscriptionRepository.save(subscription);
+  }
+
+  async updateQuotaUsage(userId: string, amount: number) {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { userId, status: 'active' },
+    });
+
+    if (!subscription) {
+      throw new BadRequestException('无有效订阅');
+    }
+
+    const remainingQuota = subscription.totalQuota - subscription.usedQuota;
+    if (remainingQuota < amount) {
+      throw new BadRequestException('配额不足');
+    }
+
+    subscription.usedQuota += amount;
+    await this.subscriptionRepository.save(subscription);
+
+    return {
+      code: 200,
+      message: 'success',
+      data: {
+        usedQuota: subscription.usedQuota,
+        remainingQuota: subscription.totalQuota - subscription.usedQuota,
+      },
+    };
 
     return {
       code: 200,
