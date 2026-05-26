@@ -91,8 +91,8 @@ export default function ServerMonitorPage() {
   const fetchLogs = async () => {
     setLogsLoading(true);
     try {
-      const res = await monitorAPI.getLogs(selectedService, logLines);
-      setLogs(typeof res === 'string' ? res : (res.logs || '暂无日志数据'));
+      const res: any = await monitorAPI.getLogs(selectedService, logLines);
+      setLogs(res.logs || res || '暂无日志数据');
     } catch (err: any) {
       setLogs('获取日志失败: ' + (err.response?.data?.message || err.message || '未知错误'));
     } finally {
