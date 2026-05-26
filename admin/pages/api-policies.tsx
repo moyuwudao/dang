@@ -80,7 +80,7 @@ export default function ApiPoliciesPage() {
       const models = apiKeyModels
         .filter(m => m.provider === editingPolicy.provider)
         .map(m => m.model);
-      setAvailableModels([...new Set(models)]);
+      setAvailableModels(Array.from(new Set(models)));
     } else {
       setAvailableModels([]);
     }
