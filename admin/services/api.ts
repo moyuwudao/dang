@@ -415,4 +415,24 @@ export const monitorAPI = {
   },
 };
 
+// 支付 API
+export const paymentAPI = {
+  createRechargeOrder: async (params: { amount: number; paymentMethod: string }): Promise<ApiResponse<any>> => {
+    const response = await axiosInstance.post<ApiResponse<any>>('/payment/recharge', params);
+    return response.data;
+  },
+
+  getOrderStatus: async (orderId: string): Promise<ApiResponse<any>> => {
+    const response = await axiosInstance.get<ApiResponse<any>>(`/payment/order/${orderId}`);
+    return response.data;
+  },
+
+  getRechargeRecords: async (page = 1, limit = 20): Promise<ApiResponse<any>> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/payment/records', {
+      params: { page, limit },
+    });
+    return response.data;
+  },
+};
+
 export default axiosInstance;

@@ -10,6 +10,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { MonitorModule } from './monitor/monitor.module';
 import { RedisModule } from './redis/redis.module';
 import { AiModule } from './ai/ai.module';
+import { PaymentModule } from './payment/payment.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { JwtModule } from '@nestjs/jwt';
@@ -43,6 +44,7 @@ import { JwtModule } from '@nestjs/jwt';
     MonitorModule,
     RedisModule,
     AiModule,
+    PaymentModule,
   ],
   providers: [
     {

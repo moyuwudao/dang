@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SubscriptionController } from './subscription.controller';
 import { SubscriptionService } from './subscription.service';
+import { SubscriptionSchedulerService } from './subscription-scheduler.service';
 import { Subscription } from './entities/subscription.entity';
 import { Plan } from './entities/plan.entity';
 import { UserBalance } from './entities/user-balance.entity';
@@ -19,7 +20,7 @@ import { ApiUsageLog } from './entities/api-usage-log.entity';
     }),
   ],
   controllers: [SubscriptionController],
-  providers: [SubscriptionService],
+  providers: [SubscriptionService, SubscriptionSchedulerService],
   exports: [SubscriptionService],
 })
 export class SubscriptionModule {}

@@ -30,6 +30,7 @@ const menuItems = [
   { id: 'api-keys', label: 'API Key管理', icon: Key },
   { id: 'api-policies', label: 'API系数配置', icon: Sliders },
   { id: 'monitor', label: 'API监控', icon: BarChart3 },
+  { id: 'recharge', label: '充值中心', icon: CreditCard },
   { id: 'analytics', label: '数据分析', icon: BarChart3 },
   { id: 'server-monitor', label: '服务器监控', icon: Server },
   { id: 'settings', label: '系统设置', icon: Settings },
