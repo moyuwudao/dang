@@ -42,14 +42,13 @@ class SubscriptionState {
   }
 }
 
-class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
-  SubscriptionNotifier() : super(const SubscriptionState());
-
-  Future<void> fetchSubscription() async {
+class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
+  @override
+  Future<SubscriptionState> build() async {
     try {
       final response = await CloudApiService.instance.get('/subscription');
       final data = response.data['data'];
-      state = SubscriptionState(
+      return SubscriptionState(
         isActive: data['status'] == 'active',
         planId: data['planId'],
         planName: data['planName'],
@@ -61,12 +60,32 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
         balanceCents: data['balanceCents'] ?? 0,
       );
     } catch (e) {
-      state = const SubscriptionState();
+      return const SubscriptionState();
+    }
+  }
+
+  Future<void> fetchSubscription() async {
+    try {
+      final response = await CloudApiService.instance.get('/subscription');
+      final data = response.data['data'];
+      state = AsyncData(SubscriptionState(
+        isActive: data['status'] == 'active',
+        planId: data['planId'],
+        planName: data['planName'],
+        totalQuota: data['totalQuota'] ?? 0,
+        usedQuota: data['usedQuota'] ?? 0,
+        expiresAt: data['expiresAt'] != null
+            ? DateTime.parse(data['expiresAt'])
+            : null,
+        balanceCents: data['balanceCents'] ?? 0,
+      ));
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
     }
   }
 }
 
-final subscriptionNotifierProvider = StateNotifierProvider<SubscriptionNotifier, SubscriptionState>((ref) {
+final subscriptionNotifierProvider = AsyncNotifierProvider<SubscriptionNotifier, SubscriptionState>(() {
   return SubscriptionNotifier();
 });
 
