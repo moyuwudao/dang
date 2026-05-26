@@ -174,24 +174,28 @@ A / B / C / 有其他想法
 | **换方案**（允许） | SSH heredoc 失败 → GitHub MCP push + SSH pull | 使用了完全不同的传输通道 | ✅ 继续 |
 | **换方案**（允许） | 多行代码 inline 失败 → 拆成多个单行命令 | 代码结构变了 | ✅ 继续 |
 
-### PowerShell 转义陷阱（Windows 环境特别警告）
+### PowerShell 转义陷阱（已解决，不再讨论）
 
-在 Windows PowerShell 终端执行 SSH 命令时，以下方式**注定会断裂**，不要尝试：
+在 Windows PowerShell 终端执行多行 SSH 命令时，以下方式**必然断裂**，永远不要尝试：
 
 ```
 ❌ ssh changji "cat > /tmp/fix.py << 'EOF'
 print('hello')
-EOF"                    → heredoc 在 PowerShell 中肯定截断
+EOF"                    → heredoc 在 PowerShell 中必然截断
 
 ❌ ssh changji "python3 -c 'import sys\nprint(1)'"
-                        → 换行符和引号在 PowerShell 中肯定变形
-
-❌ ssh changji "echo 'line1\nline2' > file"
-                        → \n 不会展开为换行
-
-✅ 正确做法：Write 本地文件 → rsync/scp 上传 → SSH 执行
-✅ 或：GitHub MCP push → SSH git pull
+                        → 换行符和引号在 PowerShell 中必然变形
 ```
+
+**唯一正确做法**：
+```
+✅ wsl bash -c "ssh changji 'cat > /tmp/fix.py << EOF
+代码任意写
+EOF
+python3 /tmp/fix.py'"
+```
+
+> **不讨论、不调试、不重试**。直接用 `wsl bash -c "ssh ..."` 一条命令完成。
 
 ### 命令超时自动处理（不等待确认）
 

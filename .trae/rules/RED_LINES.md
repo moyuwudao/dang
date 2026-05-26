@@ -208,38 +208,51 @@ description: 安全红线规则 - 绝对不能碰的区域和操作
 
 #### 5.5 PowerShell + SSH 跨环境规则（强制执行）
 
-**环境限制**：在 Windows PowerShell 终端通过 SSH 执行远程命令时，引号嵌套和 heredoc 极易断裂。
+**核心原则**：在 Windows PowerShell 终端**禁止直接通过 SSH 传递多行代码或 heredoc**。必须使用 WSL bash 作为中转。
+
+**为什么必须这样做**：
+- PowerShell 的引号和转义规则与 bash 完全不同
+- heredoc（`cat << 'EOF'`）在 PowerShell SSH 中必然断裂
+- 不要试图"调试引号格式" —— 这是环境根本限制，换了也没用
+- WSL 已配置且 bash 完美支持所有 bash 语法
 
 **绝对不能做**：
-- ❌ 在 SSH 命令中使用 `cat << 'EOF'` 或 `cat << 'PYEOF'` 等多行 heredoc
-- ❌ 在 PowerShell 中嵌套多层引号（单引号套双引号套单引号）
+- ❌ 直接 `ssh changji "cat << 'EOF' ... EOF"` —— heredoc 必然断裂
+- ❌ 在 SSH 命令中嵌套多层引号（单引号套双引号套单引号）
 - ❌ 用 `python3 -c '...'` 在 SSH 中传递多行 Python 代码
 - ❌ 用 `printf` 拼接多行内容到 SSH 远程文件
-- ❌ 试图通过"换一种引号格式"来解决引号问题（这是环境根本限制，换了也没用）
+- ❌ 试图通过"换一种引号格式"来解决引号问题
+- ❌ 不要在输出中说"PowerShell 转义太复杂了" —— 已经有解决方案了
 
 **正确替代方案（按优先级）**：
-```
-方案 1（首选）：Write 工具写本地临时文件 → scp/rsync 到服务器 → SSH 执行
-  1. Write file: d:\trae_projects\dang\tmp\fix.py
-  2. rsync -av d:/trae_projects/dang/tmp/ changji:/tmp/
-  3. ssh changji "python3 /tmp/fix.py"
 
-方案 2：使用 GitHub MCP 推送文件 → SSH pull
+```
+方案 1（首选，一行搞定）：WSL bash 代理 SSH —— 解决一切引号问题
+
+  # 多行代码直接传（bash 正确解析 heredoc）
+  wsl bash -c "ssh changji 'cat > /tmp/fix.py << EOF
+  这里写任意多行 Python/SQL/Shell 代码
+  不需要任何转义
+  引号、变量、换行符全部正确传递
+  EOF
+  python3 /tmp/fix.py'"
+
+  # 单行命令也推荐用 wsl bash，避免引号意外
+  wsl bash -c "ssh changji '《任何 bash 命令》'"
+
+方案 2（备选）：Write 工具写本地文件 → WSL rsync 到服务器 → WSL SSH 执行
+  1. Write file: d:\trae_projects\dang\tmp\fix.py
+  2. wsl bash -c "rsync -av /mnt/d/trae_projects/dang/tmp/ changji:/tmp/"
+  3. wsl bash -c "ssh changji 'python3 /tmp/fix.py'"
+
+方案 3（代码同步场景）：GitHub MCP 推送 → SSH git pull
   1. GitHub MCP push_files → 推送到仓库
   2. ssh changji "cd /path && git pull"
-
-方案 3：单行简短的 Python/SQL 用 SSH 直接传
-  ssh changji "python3 -c '单行代码'"  # 仅限单行，不嵌套引号
 ```
 
-**"换引号格式"不是"换方案"！**
+**一句话记忆**：
+> 任何需要引号、多行代码、heredoc 的 SSH 操作 → 统一用 `wsl bash -c "ssh changji '...'"`。不再讨论 PowerShell 引号问题。
 
-| ❌ 这不是方案 B（禁止） | ✅ 这才是方案 B（允许） |
-|---|---|
-| `cat > /tmp/fix.py << 'EOF'` → 失败 | `Write` 本地文件 → `scp` 到服务器 |
-| 换 `cat > /tmp/fix.py << PYEOF` → 又失败 | 用 GitHub MCP 推送 → SSH `git pull` |
-| 换 `python3 -c '...'` → 又失败 | 拆成多个单行 SSH 命令 |
-| 换 `printf '...' > /tmp/fix.py` → 又失败 | — |
 
 #### 5.6 重试判断标准（完整版）
 
