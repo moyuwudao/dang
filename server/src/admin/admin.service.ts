@@ -9,6 +9,7 @@ import { Subscription } from '../subscription/entities/subscription.entity';
 import { ApiKey } from '../api-key/entities/api-key.entity';
 import { UserBalance } from '../subscription/entities/user-balance.entity';
 import { RechargeRecord } from '../subscription/entities/recharge-record.entity';
+import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
 import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
@@ -26,6 +27,8 @@ export class AdminService {
     private balanceRepo: Repository<UserBalance>,
     @InjectRepository(RechargeRecord)
     private rechargeRepo: Repository<RechargeRecord>,
+    @InjectRepository(ApiUsageLog)
+    private apiUsageLogRepo: Repository<ApiUsageLog>,
     private subscriptionService: SubscriptionService,
   ) {}
 
@@ -366,5 +369,141 @@ export class AdminService {
     }
 
     return data;
+  }
+
+  // API 调用日志查询
+  async getApiUsageLogs(
+    page = 1,
+    limit = 20,
+    userId?: string,
+    provider?: string,
+  ) {
+    const qb = this.apiUsageLogRepo.createQueryBuilder('log')
+      .leftJoinAndSelect('log.user', 'u')
+      .orderBy('log.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (userId) {
+      qb.where('log.userId = :userId', { userId });
+    }
+
+    if (provider) {
+      qb.andWhere('log.provider = :provider', { provider });
+    }
+
+    const [logs, total] = await qb.getManyAndCount();
+
+    return {
+      items: logs.map(log => ({
+        id: log.id,
+        userId: log.userId,
+        userPhone: log.user?.phone,
+        provider: log.provider,
+        model: log.model,
+        promptTokens: log.promptTokens,
+        completionTokens: log.completionTokens,
+        quotaConsumed: log.quotaConsumed,
+        createdAt: log.createdAt,
+      })),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // 手动调整用户配额
+  async adjustUserQuota(userId: string, amount: number, reason?: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('用户不存在');
+    }
+
+    // 获取用户当前订阅
+    const subscription = await this.subscriptionRepo.findOne({
+      where: { userId, status: 'active' },
+    });
+
+    if (!subscription) {
+      throw new BadRequestException('用户无有效订阅');
+    }
+
+    // 调整配额
+    subscription.totalQuota += amount;
+    await this.subscriptionRepo.save(subscription);
+
+    // 记录调整日志
+    const record = this.rechargeRepo.create({
+      userId,
+      amountCents: 0,
+      type: 'adjustment',
+      status: 'completed',
+      remark: reason || `手动调整配额: ${amount > 0 ? '+' : ''}${amount}`,
+    });
+    await this.rechargeRepo.save(record);
+
+    return {
+      userId,
+      amount,
+      newTotalQuota: subscription.totalQuota,
+      newRemainingQuota: subscription.totalQuota - subscription.usedQuota,
+    };
+  }
+
+  // 收入统计
+  async getRevenueStats(startDate?: string, endDate?: string) {
+    const qb = this.rechargeRepo.createQueryBuilder('r')
+      .where('r.type = :type', { type: 'recharge' })
+      .andWhere('r.status = :status', { status: 'completed' });
+
+    if (startDate) {
+      qb.andWhere('r.createdAt >= :start', { start: new Date(startDate) });
+    }
+    if (endDate) {
+      qb.andWhere('r.createdAt <= :end', { end: new Date(endDate) });
+    }
+
+    const totalRevenue = await qb
+      .clone()
+      .select('COALESCE(SUM(r.amountCents), 0)', 'sum')
+      .getRawOne()
+      .then(r => parseInt(r.sum, 10));
+
+    const totalOrders = await qb
+      .clone()
+      .getCount();
+
+    const byPaymentMethod = await qb
+      .clone()
+      .select('r.paymentMethod', 'method')
+      .addSelect('COALESCE(SUM(r.amountCents), 0)', 'sum')
+      .addSelect('COUNT(r.id)', 'count')
+      .groupBy('r.paymentMethod')
+      .getRawMany();
+
+    const byDay = await qb
+      .clone()
+      .select('DATE(r.createdAt)', 'date')
+      .addSelect('COALESCE(SUM(r.amountCents), 0)', 'sum')
+      .addSelect('COUNT(r.id)', 'count')
+      .groupBy('DATE(r.createdAt)')
+      .orderBy('DATE(r.createdAt)', 'DESC')
+      .limit(30)
+      .getRawMany();
+
+    return {
+      totalRevenue,
+      totalOrders,
+      byPaymentMethod: byPaymentMethod.map(r => ({
+        method: r.method || 'unknown',
+        amount: parseInt(r.sum, 10),
+        count: parseInt(r.count, 10),
+      })),
+      byDay: byDay.map(r => ({
+        date: r.date,
+        amount: parseInt(r.sum, 10),
+        count: parseInt(r.count, 10),
+      })),
+    };
   }
 }

@@ -435,4 +435,29 @@ export const paymentAPI = {
   },
 };
 
+// 管理后台 API
+export const adminAPI = {
+  getRevenueStats: async (startDate?: string, endDate?: string): Promise<ApiResponse<any>> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/admin/revenue-stats', {
+      params: { startDate, endDate },
+    });
+    return response.data;
+  },
+
+  getApiUsageLogs: async (page = 1, limit = 20, userId?: string, provider?: string): Promise<ApiResponse<any>> => {
+    const response = await axiosInstance.get<ApiResponse<any>>('/admin/api-usage-logs', {
+      params: { page, limit, userId, provider },
+    });
+    return response.data;
+  },
+
+  adjustUserQuota: async (userId: string, amount: number, reason?: string): Promise<ApiResponse<any>> => {
+    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/adjust-quota`, {
+      amount,
+      reason,
+    });
+    return response.data;
+  },
+};
+
 export default axiosInstance;

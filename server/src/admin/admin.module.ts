@@ -11,6 +11,7 @@ import { Subscription } from '../subscription/entities/subscription.entity';
 import { ApiKey } from '../api-key/entities/api-key.entity';
 import { UserBalance } from '../subscription/entities/user-balance.entity';
 import { RechargeRecord } from '../subscription/entities/recharge-record.entity';
+import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
 import { AuditLog } from './entities/audit-log.entity';
 
 @Module({
@@ -22,6 +23,7 @@ import { AuditLog } from './entities/audit-log.entity';
       ApiKey,
       UserBalance,
       RechargeRecord,
+      ApiUsageLog,
       AuditLog,
     ]),
     AuthModule,

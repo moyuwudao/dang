@@ -119,4 +119,41 @@ export class AdminController {
     const data = await this.adminService.getRevenueTrend(days ? parseInt(days, 10) : 7);
     return { code: 200, message: 'success', data };
   }
+
+  // API 调用日志
+  @Get('api-usage-logs')
+  async getApiUsageLogs(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('userId') userId?: string,
+    @Query('provider') provider?: string,
+  ) {
+    const data = await this.adminService.getApiUsageLogs(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      userId,
+      provider,
+    );
+    return { code: 200, message: 'success', data };
+  }
+
+  // 手动调整用户配额
+  @Post('users/:id/adjust-quota')
+  async adjustUserQuota(
+    @Param('id') userId: string,
+    @Body() data: { amount: number; reason?: string },
+  ) {
+    const result = await this.adminService.adjustUserQuota(userId, data.amount, data.reason);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  // 收入统计
+  @Get('revenue-stats')
+  async getRevenueStats(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const data = await this.adminService.getRevenueStats(startDate, endDate);
+    return { code: 200, message: 'success', data };
+  }
 }
