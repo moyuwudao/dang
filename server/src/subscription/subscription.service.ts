@@ -59,6 +59,11 @@ export class SubscriptionService {
 
     const remainingQuota = subscription.totalQuota - subscription.usedQuota;
 
+    // 获取套餐的API策略
+    const apiPolicies = await this.planApiPolicyRepository.find({
+      where: { planId: subscription.planId },
+    });
+
     return {
       code: 200,
       message: 'success',
@@ -71,6 +76,12 @@ export class SubscriptionService {
         usedQuota: subscription.usedQuota,
         remainingQuota: Math.max(0, remainingQuota),
         balanceCents: userBalance?.balanceCents || 0,
+        apiPolicies: apiPolicies.map(p => ({
+          provider: p.provider,
+          modelPattern: p.modelPattern,
+          multiplier: p.multiplier,
+          isAllowed: p.isAllowed,
+        })),
       },
     };
   }

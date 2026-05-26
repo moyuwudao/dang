@@ -46,6 +46,16 @@ class SubscriptionMineScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             _buildQuotaCard(context, subscriptionState, l10n),
+            const SizedBox(height: 24),
+            Text(
+              'API 配置',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildApiPoliciesCard(context, subscriptionState, l10n),
             const SizedBox(height: 100), // 为下拉刷新提供空间
           ],
         ),
@@ -176,4 +186,107 @@ class SubscriptionMineScreen extends ConsumerWidget {
       ),
     );
   }
-}
+
+  Widget _buildApiPoliciesCard(BuildContext context, SubscriptionState state, AppLocalizations l10n) {
+    if (state.apiPolicies.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: const Center(
+          child: Text(
+            '暂无API配置信息',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final providerNames = {
+      'qwen': '通义千问',
+      'deepseek': 'DeepSeek',
+      'openai': 'OpenAI',
+      'anthropic': 'Anthropic',
+      'gemini': 'Gemini',
+      'grok': 'Grok',
+      'all': '全部',
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...state.apiPolicies.map((policy) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                          Text(
+                            providerNames[policy.provider] ?? policy.provider,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (policy.modelPattern != null)
+                            Text(
+                              '模型: ${policy.modelPattern}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: policy.isAllowed
+                            ? AppColors.primary.withOpacity(0.1)
+                            : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        policy.isAllowed ? '${policy.multiplier}x' : '禁用',
+                        style: TextStyle(
+                          color: policy.isAllowed ? AppColors.primary : Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+            const SizedBox(height: 8),
+            const Text(
+              '消耗倍数：每次调用消耗的配额单位倍数',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }

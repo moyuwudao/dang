@@ -2,6 +2,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/cloud_api_service.dart';
 import '../models/plan_model.dart';
 
+class ApiPolicy {
+  final String provider;
+  final String? modelPattern;
+  final double multiplier;
+  final bool isAllowed;
+
+  const ApiPolicy({
+    required this.provider,
+    this.modelPattern,
+    required this.multiplier,
+    this.isAllowed = true,
+  });
+
+  factory ApiPolicy.fromJson(Map<String, dynamic> json) {
+    return ApiPolicy(
+      provider: json['provider'] ?? '',
+      modelPattern: json['modelPattern'],
+      multiplier: (json['multiplier'] ?? 1.0).toDouble(),
+      isAllowed: json['isAllowed'] ?? true,
+    );
+  }
+}
+
 class SubscriptionState {
   final bool isActive;
   final String? planId;
@@ -10,6 +33,7 @@ class SubscriptionState {
   final int usedQuota;
   final DateTime? expiresAt;
   final int balanceCents;
+  final List<ApiPolicy> apiPolicies;
 
   const SubscriptionState({
     this.isActive = false,
@@ -19,6 +43,7 @@ class SubscriptionState {
     this.usedQuota = 0,
     this.expiresAt,
     this.balanceCents = 0,
+    this.apiPolicies = const [],
   });
 
   SubscriptionState copyWith({
@@ -29,6 +54,7 @@ class SubscriptionState {
     int? usedQuota,
     DateTime? expiresAt,
     int? balanceCents,
+    List<ApiPolicy>? apiPolicies,
   }) {
     return SubscriptionState(
       isActive: isActive ?? this.isActive,
@@ -38,6 +64,7 @@ class SubscriptionState {
       usedQuota: usedQuota ?? this.usedQuota,
       expiresAt: expiresAt ?? this.expiresAt,
       balanceCents: balanceCents ?? this.balanceCents,
+      apiPolicies: apiPolicies ?? this.apiPolicies,
     );
   }
 }
@@ -48,6 +75,9 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
     try {
       final response = await CloudApiService.instance.get('/subscription');
       final data = response.data['data'];
+      final policies = (data['apiPolicies'] as List<dynamic>?)
+          ?.map((e) => ApiPolicy.fromJson(e))
+          .toList() ?? [];
       return SubscriptionState(
         isActive: data['status'] == 'active',
         planId: data['planId'],
@@ -58,6 +88,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
             ? DateTime.parse(data['expiresAt'])
             : null,
         balanceCents: data['balanceCents'] ?? 0,
+        apiPolicies: policies,
       );
     } catch (e) {
       return const SubscriptionState();
@@ -68,6 +99,9 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
     try {
       final response = await CloudApiService.instance.get('/subscription');
       final data = response.data['data'];
+      final policies = (data['apiPolicies'] as List<dynamic>?)
+          ?.map((e) => ApiPolicy.fromJson(e))
+          .toList() ?? [];
       state = AsyncData(SubscriptionState(
         isActive: data['status'] == 'active',
         planId: data['planId'],
@@ -78,6 +112,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
             ? DateTime.parse(data['expiresAt'])
             : null,
         balanceCents: data['balanceCents'] ?? 0,
+        apiPolicies: policies,
       ));
     } catch (e, stack) {
       state = AsyncError(e, stack);
