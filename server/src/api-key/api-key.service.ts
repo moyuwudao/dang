@@ -334,7 +334,7 @@ export class ApiKeyService {
   }
 
   private async checkOpenAI(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
-    const url = baseUrl || 'https://api.openai.com/v1/models';
+    const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '') + '/models';
     const startTime = Date.now();
     
     try {
@@ -353,21 +353,29 @@ export class ApiKeyService {
           modelsAvailable: response.data?.data?.length || 0,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        throw new Error('OpenAI API Key 无效或已过期');
+      }
       throw new Error(`OpenAI API 连接失败: ${error.message}`);
     }
   }
 
   private async checkAnthropic(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
-    const url = baseUrl || 'https://api.anthropic.com/v1/models';
+    const url = (baseUrl || 'https://api.anthropic.com/v1').replace(/\/$/, '') + '/messages';
     const startTime = Date.now();
     
     try {
-      const response = await firstValueFrom(
-        this.httpService.get(url, {
+      await firstValueFrom(
+        this.httpService.post(url, {
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'hi' }],
+        }, {
           headers: {
             'x-api-key': apiKey,
             'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
           },
           timeout: 10000,
         }),
@@ -377,23 +385,43 @@ export class ApiKeyService {
         responseTime: Date.now() - startTime,
         details: {
           provider: 'anthropic',
-          status: response.status,
-          modelsAvailable: response.data?.data?.length || 0,
+          status: 200,
+          note: '使用 messages API 验证',
         },
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        throw new Error('Anthropic API Key 无效或已过期');
+      }
+      if (error.response?.status === 400 || error.response?.status === 429) {
+        return {
+          responseTime: Date.now() - startTime,
+          details: {
+            provider: 'anthropic',
+            status: error.response.status,
+            note: 'API Key 有效，但请求被限制（正常）',
+          },
+        };
+      }
       throw new Error(`Anthropic API 连接失败: ${error.message}`);
     }
   }
 
   private async checkQwen(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
-    const url = baseUrl || 'https://dashscope.aliyuncs.com/api/v1/models';
+    const url = (baseUrl || 'https://dashscope.aliyuncs.com/compatible-mode/v1').replace(/\/$/, '') + '/chat/completions';
     const startTime = Date.now();
     
     try {
-      const response = await firstValueFrom(
-        this.httpService.get(url, {
-          headers: { Authorization: `Bearer ${apiKey}` },
+      await firstValueFrom(
+        this.httpService.post(url, {
+          model: 'qwen-turbo',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1,
+        }, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
           timeout: 10000,
         }),
       );
@@ -402,23 +430,43 @@ export class ApiKeyService {
         responseTime: Date.now() - startTime,
         details: {
           provider: 'qwen',
-          status: response.status,
-          modelsAvailable: response.data?.data?.length || 0,
+          status: 200,
+          note: '使用 chat/completions API 验证',
         },
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        throw new Error('通义千问 API Key 无效或已过期');
+      }
+      if (error.response?.status === 400 || error.response?.status === 429) {
+        return {
+          responseTime: Date.now() - startTime,
+          details: {
+            provider: 'qwen',
+            status: error.response.status,
+            note: 'API Key 有效，但请求被限制（正常）',
+          },
+        };
+      }
       throw new Error(`通义千问 API 连接失败: ${error.message}`);
     }
   }
 
   private async checkDeepSeek(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
-    const url = baseUrl || 'https://api.deepseek.com/v1/models';
+    const url = (baseUrl || 'https://api.deepseek.com/v1').replace(/\/$/, '') + '/chat/completions';
     const startTime = Date.now();
     
     try {
-      const response = await firstValueFrom(
-        this.httpService.get(url, {
-          headers: { Authorization: `Bearer ${apiKey}` },
+      await firstValueFrom(
+        this.httpService.post(url, {
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1,
+        }, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
           timeout: 10000,
         }),
       );
@@ -427,22 +475,37 @@ export class ApiKeyService {
         responseTime: Date.now() - startTime,
         details: {
           provider: 'deepseek',
-          status: response.status,
-          modelsAvailable: response.data?.data?.length || 0,
+          status: 200,
+          note: '使用 chat/completions API 验证',
         },
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        throw new Error('DeepSeek API Key 无效或已过期');
+      }
+      if (error.response?.status === 400 || error.response?.status === 429) {
+        return {
+          responseTime: Date.now() - startTime,
+          details: {
+            provider: 'deepseek',
+            status: error.response.status,
+            note: 'API Key 有效，但请求被限制（正常）',
+          },
+        };
+      }
       throw new Error(`DeepSeek API 连接失败: ${error.message}`);
     }
   }
 
   private async checkGemini(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
-    const url = baseUrl || `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     const startTime = Date.now();
     
     try {
-      const response = await firstValueFrom(
-        this.httpService.get(url, {
+      await firstValueFrom(
+        this.httpService.post(url, {
+          contents: [{ parts: [{ text: 'hi' }] }],
+        }, {
           timeout: 10000,
         }),
       );
@@ -451,23 +514,43 @@ export class ApiKeyService {
         responseTime: Date.now() - startTime,
         details: {
           provider: 'gemini',
-          status: response.status,
-          modelsAvailable: response.data?.models?.length || 0,
+          status: 200,
+          note: '使用 generateContent API 验证',
         },
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 400 && error.response?.data?.error?.message?.includes('API key')) {
+        throw new Error('Gemini API Key 无效或已过期');
+      }
+      if (error.response?.status === 429) {
+        return {
+          responseTime: Date.now() - startTime,
+          details: {
+            provider: 'gemini',
+            status: 429,
+            note: 'API Key 有效，但请求被限制（正常）',
+          },
+        };
+      }
       throw new Error(`Gemini API 连接失败: ${error.message}`);
     }
   }
 
   private async checkGrok(apiKey: string, baseUrl?: string): Promise<{ responseTime: number; details: any }> {
-    const url = baseUrl || 'https://api.x.ai/v1/models';
+    const url = (baseUrl || 'https://api.x.ai/v1').replace(/\/$/, '') + '/chat/completions';
     const startTime = Date.now();
     
     try {
-      const response = await firstValueFrom(
-        this.httpService.get(url, {
-          headers: { Authorization: `Bearer ${apiKey}` },
+      await firstValueFrom(
+        this.httpService.post(url, {
+          model: 'grok-2',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1,
+        }, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
           timeout: 10000,
         }),
       );
@@ -476,11 +559,24 @@ export class ApiKeyService {
         responseTime: Date.now() - startTime,
         details: {
           provider: 'grok',
-          status: response.status,
-          modelsAvailable: response.data?.data?.length || 0,
+          status: 200,
+          note: '使用 chat/completions API 验证',
         },
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        throw new Error('Grok API Key 无效或已过期');
+      }
+      if (error.response?.status === 400 || error.response?.status === 429) {
+        return {
+          responseTime: Date.now() - startTime,
+          details: {
+            provider: 'grok',
+            status: error.response.status,
+            note: 'API Key 有效，但请求被限制（正常）',
+          },
+        };
+      }
       throw new Error(`Grok API 连接失败: ${error.message}`);
     }
   }
@@ -508,7 +604,10 @@ export class ApiKeyService {
           baseUrl,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        throw new Error('自定义 API Key 无效或已过期');
+      }
       throw new Error(`自定义 API 连接失败: ${error.message}`);
     }
   }
