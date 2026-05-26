@@ -20,7 +20,7 @@ export class Plan {
   @Column({ default: 'subscription' })
   type: string; // subscription | package | recharge
 
-  @Column({ default: 'all' })
+  @Column({ name: 'api_policy_type', default: 'all' })
   apiPolicyType: string; // all | domestic | basic | custom
 
   @Column('simple-array', { nullable: true })
