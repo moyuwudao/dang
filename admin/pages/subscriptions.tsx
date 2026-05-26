@@ -68,8 +68,7 @@ export default function SubscriptionsPage() {
     setSubsLoading(true);
     setError(null);
     try {
-      const status = statusFilter === 'all' ? undefined : statusFilter;
-      const data = await adminAPI.getSubscriptions(subPage, subsPerPage, status);
+      const data = await adminAPI.getSubscriptions(subPage, subsPerPage);
       setSubscriptions(data.items);
       setSubTotal(data.total);
       setSubTotalPages(data.totalPages);
