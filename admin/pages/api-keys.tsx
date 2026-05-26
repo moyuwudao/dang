@@ -124,7 +124,7 @@ export default function ApiKeysPage() {
     setSubmitting(true);
     try {
       await apiKeyAPI.createApiKey({
-        provider: newKey.provider,
+        provider: newKey.provider as ApiKeyProvider,
         name: newKey.name.trim(),
         description: newKey.description.trim() || undefined,
         model: newKey.model.trim(),
