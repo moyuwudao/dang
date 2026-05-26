@@ -35,7 +35,7 @@ interface ApiPolicy {
 interface PlanItem {
   id: string;
   name: string;
-  type: string;
+  type?: string;
 }
 
 const PROVIDER_OPTIONS = [
