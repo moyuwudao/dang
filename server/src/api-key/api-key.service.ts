@@ -168,11 +168,11 @@ export class ApiKeyService {
       apiKey.apiSecretEncrypted = CryptoUtil.encrypt(dto.apiSecret);
     }
 
-    Object.assign(apiKey, {
-      ...dto,
-      apiKeyEncrypted: apiKey.apiKeyEncrypted,
-      apiSecretEncrypted: apiKey.apiSecretEncrypted,
-    });
+    const updateData: any = { ...dto };
+    delete updateData.apiKey;
+    delete updateData.apiSecret;
+    
+    Object.assign(apiKey, updateData);
 
     await this.apiKeyRepository.save(apiKey);
 
