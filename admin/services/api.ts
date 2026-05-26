@@ -370,6 +370,11 @@ export const adminAPI = {
     return response.data;
   },
 
+  updateSubscription: async (id: string, data: any): Promise<any> => {
+    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/subscriptions/${id}`, data);
+    return response.data;
+  },
+
   getRechargeRecords: async (page = 1, limit = 20): Promise<any> => {
     const response = await axiosInstance.get<ApiResponse<any>>('/admin/recharge-records', {
       params: { page, limit },
