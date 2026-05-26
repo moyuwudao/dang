@@ -13,7 +13,6 @@ import { AiModule } from './ai/ai.module';
 import { PaymentModule } from './payment/payment.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -31,10 +30,6 @@ import { JwtModule } from '@nestjs/jwt';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: false, // 数据库 schema 已同步，关闭自动同步
       logging: false,
-    }),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'changji_jwt_secret_change_me',
-      signOptions: { expiresIn: '15m' },
     }),
     ScheduleModule.forRoot(),
     AuthModule,
