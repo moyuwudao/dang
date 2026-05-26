@@ -407,7 +407,7 @@ export const monitorAPI = {
     return response.data;
   },
 
-  getTrendData: async (days = 7): Promise<any[]> => {
+  getTrendData: async (days = 7): Promise<any> => {
     const response = await axiosInstance.get<ApiResponse<any[]>>('/monitor/metrics/trend', {
       params: { days },
     });
