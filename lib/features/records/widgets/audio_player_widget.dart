@@ -6,6 +6,9 @@ import 'package:just_audio/just_audio.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/services/app_logger.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
+
+// l10n keys used: audioNotFound, audioInvalid, playerInitFailed, playbackFailed, audioPlayback, shareButton, pauseButton, recordButton
 
 class AudioPlayerWidget extends ConsumerStatefulWidget {
   final String audioPath;
@@ -45,7 +48,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
         if (mounted) {
           setState(() {
             _fileExists = false;
-            _errorMessage = '音频文件不存在: ${widget.audioPath}';
+            _errorMessage = '${AppLocalizations.of(context)!.audioNotFound}: ${widget.audioPath}';
           });
         }
         AppLogger().e('AudioPlayer', '文件不存在: ${widget.audioPath}');
@@ -66,7 +69,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = '音频文件无效(太小: ${stat.size} bytes)';
+            _errorMessage = '${AppLocalizations.of(context)!.audioInvalid} (${stat.size} bytes)';
           });
         }
         return;
@@ -127,7 +130,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = '播放器初始化失败: $e';
+          _errorMessage = '${AppLocalizations.of(context)!.playerInitFailed}: $e';
         });
       }
     }
@@ -145,7 +148,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = '播放失败: $e';
+        _errorMessage = '${AppLocalizations.of(context)!.playbackFailed}: $e';
       });
     }
   }
@@ -155,22 +158,23 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
   }
 
   Future<void> _shareAudio() async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       final file = File(widget.audioPath);
       if (!await file.exists()) {
         setState(() {
-          _errorMessage = '音频文件不存在';
+          _errorMessage = l10n.audioNotFound;
         });
         return;
       }
 
       await Share.shareXFiles(
         [XFile(widget.audioPath)],
-        text: '畅记录音',
+        text: l10n.audioPlayback,
       );
     } catch (e) {
       setState(() {
-        _errorMessage = '分享失败: $e';
+        _errorMessage = '${l10n.shareButton} $e';
       });
     }
   }
@@ -203,6 +207,8 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     if (_errorMessage != null) {
       return Card(
         child: Padding(
@@ -248,7 +254,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '音频播放',
+                    l10n.audioPlayback,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -330,7 +336,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
                   child: ElevatedButton.icon(
                     onPressed: _togglePlay,
                     icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                    label: Text(_isPlaying ? '暂停' : '播放'),
+                    label: Text(_isPlaying ? l10n.pauseButton : l10n.recordButton),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
@@ -342,7 +348,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
                   child: OutlinedButton.icon(
                     onPressed: _shareAudio,
                     icon: const Icon(Icons.share),
-                    label: const Text('分享'),
+                    label: Text(l10n.shareButton),
                   ),
                 ),
               ],

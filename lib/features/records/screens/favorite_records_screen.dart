@@ -8,6 +8,7 @@ import '../../../core/widgets/empty_state_widget.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/models/tool_output_model.dart';
 import '../../../data/repositories/tool_output_repository.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../providers/record_provider.dart';
 
 class FavoriteRecordsScreen extends ConsumerStatefulWidget {
@@ -47,11 +48,12 @@ class _FavoriteRecordsScreenState extends ConsumerState<FavoriteRecordsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final favoriteRecordsAsync = ref.watch(favoriteRecordsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('收藏'),
+        title: Text(l10n.favorites),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -74,8 +76,8 @@ class _FavoriteRecordsScreenState extends ConsumerState<FavoriteRecordsScreen> {
                   children: [
                     Icon(Icons.bookmark, color: AppColors.primary, size: 18),
                     const SizedBox(width: 8),
-                    const Text(
-                      '记录收藏',
+                    Text(
+                      l10n.favoriteRecords,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -88,11 +90,11 @@ class _FavoriteRecordsScreenState extends ConsumerState<FavoriteRecordsScreen> {
             favoriteRecordsAsync.when(
               data: (records) {
                 if (records.isEmpty) {
-                  return const SliverToBoxAdapter(
+                  return SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.all(16),
                       child: Text(
-                        '暂无收藏记录',
+                        l10n.noFavoriteRecords,
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
                     ),
@@ -112,7 +114,7 @@ class _FavoriteRecordsScreenState extends ConsumerState<FavoriteRecordsScreen> {
                 child: Center(child: CircularProgressIndicator()),
               ),
               error: (error, stack) => SliverToBoxAdapter(
-                child: Center(child: Text('加载失败: $error')),
+                child: Center(child: Text('${l10n.loadFailed}: $error')),
               ),
             ),
 
@@ -124,8 +126,8 @@ class _FavoriteRecordsScreenState extends ConsumerState<FavoriteRecordsScreen> {
                   children: [
                     Icon(Icons.output, color: AppColors.secondary, size: 18),
                     const SizedBox(width: 8),
-                    const Text(
-                      '工具输出收藏',
+                    Text(
+                      l10n.toolOutputFavorites,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -140,11 +142,11 @@ class _FavoriteRecordsScreenState extends ConsumerState<FavoriteRecordsScreen> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (_favoriteToolOutputs.isEmpty)
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Text(
-                    '暂无收藏的工具输出',
+                    l10n.noFavoriteToolOutputs,
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ),
@@ -178,6 +180,7 @@ class _FavoriteRecordCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
@@ -197,14 +200,14 @@ class _FavoriteRecordCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _formatDate(record.createdAt),
+                          _formatDate(context, record.createdAt),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: AppColors.textTertiary,
                               ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _buildInfoText(record),
+                          _buildInfoText(context, record),
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: AppColors.textTertiary,
                               ),
@@ -212,7 +215,7 @@ class _FavoriteRecordCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  _buildStatusBadge(),
+                  _buildStatusBadge(context),
                   const SizedBox(width: 8),
                   const Icon(
                     Icons.star,
@@ -222,7 +225,7 @@ class _FavoriteRecordCard extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                record.content ?? '暂无内容',
+                record.content ?? l10n.noContent,
                 style: Theme.of(context).textTheme.bodyLarge,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
@@ -282,7 +285,8 @@ class _FavoriteRecordCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatusBadge() {
+  Widget _buildStatusBadge(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (record.transcriptionStatus == TranscriptionStatus.none) {
       return const SizedBox.shrink();
     }
@@ -293,19 +297,19 @@ class _FavoriteRecordCard extends ConsumerWidget {
     switch (record.transcriptionStatus) {
       case TranscriptionStatus.pending:
         color = AppColors.warning;
-        text = '待转写';
+        text = l10n.statusPending;
         break;
       case TranscriptionStatus.processing:
         color = AppColors.info;
-        text = '转写中';
+        text = l10n.statusProcessing;
         break;
       case TranscriptionStatus.success:
         color = AppColors.success;
-        text = '已完成';
+        text = l10n.statusCompleted;
         break;
       case TranscriptionStatus.failed:
         color = AppColors.error;
-        text = '失败';
+        text = l10n.statusFailed;
         break;
       case TranscriptionStatus.none:
         return const SizedBox.shrink();
@@ -328,34 +332,36 @@ class _FavoriteRecordCard extends ConsumerWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}年${date.month}月${date.day}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  String _formatDate(BuildContext context, DateTime date) {
+    final l10n = AppLocalizations.of(context)!;
+    return '${date.year}${l10n.year}${date.month}${l10n.month}${date.day}${l10n.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  String _buildInfoText(RecordModel record) {
+  String _buildInfoText(BuildContext context, RecordModel record) {
+    final l10n = AppLocalizations.of(context)!;
     final parts = <String>[];
 
     switch (record.type) {
       case RecordType.audio:
-        parts.add('语音记录');
+        parts.add(l10n.typeVoice);
         break;
       case RecordType.ocr:
-        parts.add('OCR识别');
+        parts.add(l10n.typeOcr);
         break;
       case RecordType.text:
-        parts.add('文本记录');
+        parts.add(l10n.typeText);
         break;
     }
 
     if (record.content != null && record.content!.isNotEmpty) {
-      parts.add('${record.content!.length}字');
+      parts.add('${record.content!.length}${l10n.characters}');
     }
 
     return parts.join(' · ');
   }
 }
 
-class _FavoriteToolOutputCard extends StatelessWidget {
+class _FavoriteToolOutputCard extends ConsumerWidget {
   final ToolOutputModel output;
   final VoidCallback onUnfavorite;
 
@@ -365,7 +371,8 @@ class _FavoriteToolOutputCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
@@ -405,7 +412,7 @@ class _FavoriteToolOutputCard extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.star, color: Colors.amber),
                     onPressed: onUnfavorite,
-                    tooltip: '取消收藏',
+                    tooltip: l10n.unfavorite,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -450,6 +457,7 @@ class _FavoriteToolOutputCard extends StatelessWidget {
   }
 
   void _showDetail(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -495,7 +503,7 @@ class _FavoriteToolOutputCard extends StatelessWidget {
                             icon: const Icon(Icons.share_outlined),
                             onPressed: () {
                               Share.share(
-                                '${output.title}\n\n${output.content}\n\n来自畅记 App',
+                                '${output.title}\n\n${output.content}\n\n${l10n.appName}',
                                 subject: output.title,
                               );
                             },
@@ -508,8 +516,8 @@ class _FavoriteToolOutputCard extends StatelessWidget {
                               );
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('已复制到剪贴板')),
+                                  SnackBar(
+                                      content: Text(l10n.copiedToClipboard)),
                                 );
                               }
                             },

@@ -1,6 +1,6 @@
-import { Controller, Post, Body, Get, Put, UseGuards, Req, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Put, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, UpdateProfileDto, SendSmsCodeDto } from './dto';
+import { RegisterDto, LoginDto, RefreshTokenDto, UpdateProfileDto, SendSmsCodeDto, SmsLoginDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -64,12 +64,11 @@ export class AuthController {
 
   @Post('send-sms-code')
   async sendSmsCode(@Body() dto: SendSmsCodeDto) {
-    return {
-      code: 200,
-      message: '验证码已发送',
-      data: {
-        needCaptcha: false,
-      },
-    };
+    return this.authService.sendSmsCode(dto.phone);
+  }
+
+  @Post('sms-login')
+  async smsLogin(@Body() dto: SmsLoginDto) {
+    return this.authService.smsLogin(dto);
   }
 }

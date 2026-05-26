@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/audio_processor.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
+
+// l10n keys used: selectAll, cancelButton, transcribeTitle
 
 class ChunkSelectionDialog extends StatefulWidget {
   final List<AudioChunkInfo> chunks;
@@ -34,6 +37,7 @@ class _ChunkSelectionDialogState extends State<ChunkSelectionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,7 +45,7 @@ class _ChunkSelectionDialogState extends State<ChunkSelectionDialog> {
           Text(widget.title),
           const SizedBox(height: 8),
           Text(
-            '共 ${widget.chunks.length} 段，已选 ${_selectedIndices.length} 段',
+            '${widget.chunks.length} / ${_selectedIndices.length}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -53,7 +57,7 @@ class _ChunkSelectionDialogState extends State<ChunkSelectionDialog> {
           children: [
             // 全选按钮
             CheckboxListTile(
-              title: const Text('全选'),
+              title: Text(l10n.selectAll),
               value: _selectAll,
               onChanged: (_) => _toggleSelectAll(),
               controlAffinity: ListTileControlAffinity.leading,
@@ -68,7 +72,7 @@ class _ChunkSelectionDialogState extends State<ChunkSelectionDialog> {
                   final chunk = widget.chunks[index];
                   final isSelected = _selectedIndices.contains(chunk.index);
                   return CheckboxListTile(
-                    title: Text('第 ${chunk.index + 1} 段'),
+                    title: Text('${chunk.index + 1}'),
                     subtitle: Text(
                       '${chunk.durationText} (${(chunk.size / 1024).toStringAsFixed(0)} KB)',
                     ),
@@ -98,13 +102,13 @@ class _ChunkSelectionDialogState extends State<ChunkSelectionDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(l10n.cancelButton),
         ),
         ElevatedButton(
           onPressed: _selectedIndices.isEmpty
               ? null
               : () => Navigator.pop(context, _selectedIndices.toList()..sort()),
-          child: const Text('开始转写'),
+          child: Text(l10n.transcribeTitle),
         ),
       ],
     );

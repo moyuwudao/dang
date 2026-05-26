@@ -43,17 +43,17 @@ class _LogScreenState extends State<LogScreen> {
 
   List<LogEntry> get _filteredEntries {
     var entries = _logger.entries;
-    
+
     // 按级别筛选
     if (_filterLevel != LogLevel.debug) {
       entries = entries.where((e) => e.level.index >= _filterLevel.index).toList();
     }
-    
+
     // 按标签筛选
     if (_filterTag != null && _filterTag!.isNotEmpty) {
       entries = entries.where((e) => e.tag == _filterTag).toList();
     }
-    
+
     // 按关键词搜索
     if (_searchKeyword.isNotEmpty) {
       final lower = _searchKeyword.toLowerCase();
@@ -62,7 +62,7 @@ class _LogScreenState extends State<LogScreen> {
         e.tag.toLowerCase().contains(lower)
       ).toList();
     }
-    
+
     return entries.reversed.toList();
   }
 

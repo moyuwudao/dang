@@ -12,46 +12,70 @@ final favoriteRecordsProvider = StreamProvider<List<RecordModel>>((ref) {
   return repository.watchFavoriteRecords();
 });
 
-final paginatedRecordsProvider = StateNotifierProvider<PaginatedRecordsNotifier, AsyncValue<List<RecordModel>>>((ref) {
-  final notifier = PaginatedRecordsNotifier(ref.watch(recordRepositoryProvider));
-  ref.listen(recordsProvider, (_, __) {
-    notifier.reset();
-  });
-  return notifier;
+final paginatedRecordsProvider = AsyncNotifierProvider<PaginatedRecordsNotifier, List<RecordModel>>(() {
+  return PaginatedRecordsNotifier();
 });
 
-class PaginatedRecordsNotifier extends StateNotifier<AsyncValue<List<RecordModel>>> {
-  final RecordRepository _repository;
+class PaginatedRecordsNotifier extends AsyncNotifier<List<RecordModel>> {
   final int _pageSize = 20;
   int _currentPage = 0;
   bool _hasMore = true;
   bool _isLoading = false;
 
-  PaginatedRecordsNotifier(this._repository) : super(const AsyncValue.data([])) {
-    loadMore();
+  RecordRepository get _repository => ref.read(recordRepositoryProvider);
+
+  @override
+  Future<List<RecordModel>> build() async {
+    _currentPage = 0;
+    _hasMore = true;
+    _isLoading = false;
+    return _loadMoreInternal();
   }
 
-  Future<void> loadMore() async {
-    if (_isLoading || !_hasMore) return;
-    
+  Future<List<RecordModel>> _loadMoreInternal() async {
+    if (_isLoading || !_hasMore) return state.valueOrNull ?? [];
+
     _isLoading = true;
-    
+
     try {
       final newRecords = await _repository.getRecordsWithPagination(
         _currentPage * _pageSize,
         _pageSize,
       );
-      
+
       if (newRecords.length < _pageSize) {
         _hasMore = false;
       }
-      
+
       final currentData = state.valueOrNull ?? [];
-      state = AsyncValue.data([...currentData, ...newRecords]);
-      
       _currentPage++;
+      return [...currentData, ...newRecords];
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      throw AsyncError(e, stack);
+    } finally {
+      _isLoading = false;
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (_isLoading || !_hasMore) return;
+
+    state = const AsyncLoading();
+    try {
+      final newRecords = await _repository.getRecordsWithPagination(
+        _currentPage * _pageSize,
+        _pageSize,
+      );
+
+      if (newRecords.length < _pageSize) {
+        _hasMore = false;
+      }
+
+      final currentData = state.valueOrNull ?? [];
+      _currentPage++;
+      state = AsyncData([...currentData, ...newRecords]);
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
     } finally {
       _isLoading = false;
     }
@@ -61,20 +85,25 @@ class PaginatedRecordsNotifier extends StateNotifier<AsyncValue<List<RecordModel
   bool get isLoading => _isLoading;
 
   Future<void> reset() async {
-    _currentPage = 0;
-    _hasMore = true;
-    _isLoading = false;
-    state = const AsyncValue.data([]);
-    await loadMore();
+    state = const AsyncLoading();
+    try {
+      _currentPage = 0;
+      _hasMore = true;
+      _isLoading = false;
+      final records = await _loadMoreInternal();
+      state = AsyncData(records);
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
+    }
   }
 }
 
 final recordDetailProvider = FutureProvider.family<RecordModel?, int>((ref, id) async {
   final repository = ref.watch(recordRepositoryProvider);
-  
+
   // 监听数据库变化，自动刷新详情
   ref.watch(recordsProvider);
-  
+
   return repository.getRecordById(id);
 });
 
@@ -93,35 +122,39 @@ final allTagsProvider = FutureProvider<List<String>>((ref) {
   return repository.getAllTags();
 });
 
-class RecordNotifier extends StateNotifier<AsyncValue<void>> {
-  final RecordRepository _repository;
+class RecordNotifier extends AsyncNotifier<void> {
+  RecordRepository get _repository => ref.read(recordRepositoryProvider);
 
-  RecordNotifier(this._repository) : super(const AsyncValue.data(null));
+  @override
+  Future<void> build() async {
+    // 不需要初始化状态
+    return;
+  }
 
   Future<void> createAudioRecord(String audioPath) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     try {
       await _repository.createRecordFromFields(
         type: RecordType.audio,
         audioPath: audioPath,
       );
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 
   Future<void> createOCRRecord(String imagePath, String content) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     try {
       await _repository.createRecordFromFields(
         type: RecordType.ocr,
         imagePath: imagePath,
         content: content,
       );
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 
@@ -129,7 +162,7 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await _repository.updateRecordContent(id, content);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 
@@ -137,7 +170,7 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await _repository.updateTags(id, tags);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 
@@ -145,7 +178,7 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await _repository.toggleFavorite(id, isFavorite);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 
@@ -153,7 +186,7 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await _repository.deleteRecord(id);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 
@@ -161,7 +194,7 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await _repository.addAiAnalysis(id, result);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 
@@ -169,7 +202,7 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await _repository.removeAiAnalysis(id, roleId);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 
@@ -177,7 +210,7 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await _repository.updateSupplements(id, supplements);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 
@@ -185,12 +218,11 @@ class RecordNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       await _repository.updateRecordType(id, type);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 }
 
-final recordNotifierProvider = StateNotifierProvider<RecordNotifier, AsyncValue<void>>((ref) {
-  final repository = ref.watch(recordRepositoryProvider);
-  return RecordNotifier(repository);
+final recordNotifierProvider = AsyncNotifierProvider<RecordNotifier, void>(() {
+  return RecordNotifier();
 });

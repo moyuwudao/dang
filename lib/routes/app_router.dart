@@ -35,6 +35,7 @@ import '../features/workbench/tools/tool_configs.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/register_screen.dart';
 import '../features/auth/screens/profile_screen.dart';
+import '../features/auth/screens/sms_login_test_screen.dart';
 import '../features/subscription/screens/subscription_store_screen.dart';
 import '../features/subscription/screens/subscription_mine_screen.dart';
 import '../features/subscription/screens/subscription_orders_screen.dart';
@@ -389,6 +390,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoute.profile.name,
         pageBuilder: (context, state) =>
             _slideLeftTransitionPage(const ProfileScreen(), state),
+      ),
+      GoRoute(
+        path: '/sms-login-test',
+        pageBuilder: (context, state) =>
+            _slideLeftTransitionPage(const SmsLoginTestScreen(), state),
       ),
       GoRoute(
         path: '/subscription/store',

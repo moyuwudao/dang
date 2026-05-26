@@ -5,10 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/record_model.dart';
 import 'app_logger.dart';
 
-final statsServiceProvider = ChangeNotifierProvider<StatsService>((ref) {
-  final service = StatsService();
-  service.init();
-  return service;
+final statsServiceProvider = AsyncNotifierProvider<StatsNotifier, UsageStats>(() {
+  return StatsNotifier();
 });
 
 class UsageStats {
@@ -178,204 +176,212 @@ class UsageStats {
       totalApiCalls > 0 ? (apiSuccessCalls / totalApiCalls) * 100 : 0;
 }
 
-class StatsService extends ChangeNotifier {
+class StatsNotifier extends AsyncNotifier<UsageStats> {
   static const String _statsKey = 'usage_stats';
 
-  UsageStats _stats = UsageStats(
-    firstUseDate: DateTime.now(),
-    lastUseDate: DateTime.now(),
-  );
-
-  UsageStats get stats => _stats;
-
-  Future<void> init() async {
-    await _loadStats();
-    _updateLastUseDate();
+  @override
+  Future<UsageStats> build() async {
+    final stats = await _loadStats();
+    return _updateLastUseDate(stats);
   }
 
-  Future<void> _loadStats() async {
+  Future<UsageStats> _loadStats() async {
     final prefs = await SharedPreferences.getInstance();
     final statsJson = prefs.getString(_statsKey);
 
     if (statsJson != null) {
       try {
         final data = jsonDecode(statsJson) as Map<String, dynamic>;
-        _stats = UsageStats.fromJson(data);
+        return UsageStats.fromJson(data);
       } catch (e) {
         AppLogger().e('Stats', 'Failed to load stats: $e');
       }
     }
+    return UsageStats(
+      firstUseDate: DateTime.now(),
+      lastUseDate: DateTime.now(),
+    );
   }
 
-  Future<void> _saveStats() async {
+  Future<void> _saveStats(UsageStats stats) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_statsKey, jsonEncode(_stats.toJson()));
-    notifyListeners();
+    await prefs.setString(_statsKey, jsonEncode(stats.toJson()));
   }
 
-  void _updateLastUseDate() {
+  UsageStats _updateLastUseDate(UsageStats stats) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final lastUse = DateTime(_stats.lastUseDate.year, _stats.lastUseDate.month,
-        _stats.lastUseDate.day);
+    final lastUse = DateTime(stats.lastUseDate.year, stats.lastUseDate.month,
+        stats.lastUseDate.day);
 
     if (today.isAfter(lastUse)) {
-      _stats = _stats.copyWith(
+      final newStats = stats.copyWith(
         lastUseDate: now,
-        daysUsed: _stats.daysUsed + 1,
+        daysUsed: stats.daysUsed + 1,
       );
-      _saveStats();
+      _saveStats(newStats);
+      return newStats;
     }
+    return stats;
   }
 
-  void recordCreated(RecordType type) {
+  Future<void> recordCreated(RecordType type) async {
     final now = DateTime.now();
     final dateKey =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-    final newRecordsPerDay = Map<String, int>.from(_stats.recordsPerDay);
+    final newRecordsPerDay = Map<String, int>.from(state.valueOrNull!.recordsPerDay);
     newRecordsPerDay[dateKey] = (newRecordsPerDay[dateKey] ?? 0) + 1;
 
-    _stats = _stats.copyWith(
-      totalRecords: _stats.totalRecords + 1,
+    final newStats = state.valueOrNull!.copyWith(
+      totalRecords: state.valueOrNull!.totalRecords + 1,
       audioRecords: type == RecordType.audio
-          ? _stats.audioRecords + 1
-          : _stats.audioRecords,
+          ? state.valueOrNull!.audioRecords + 1
+          : state.valueOrNull!.audioRecords,
       ocrRecords:
-          type == RecordType.ocr ? _stats.ocrRecords + 1 : _stats.ocrRecords,
+          type == RecordType.ocr ? state.valueOrNull!.ocrRecords + 1 : state.valueOrNull!.ocrRecords,
       textRecords:
-          type == RecordType.text ? _stats.textRecords + 1 : _stats.textRecords,
+          type == RecordType.text ? state.valueOrNull!.textRecords + 1 : state.valueOrNull!.textRecords,
       lastUseDate: now,
       recordsPerDay: newRecordsPerDay,
     );
 
-    _saveStats();
+    state = AsyncData(newStats);
+    await _saveStats(newStats);
   }
 
-  void transcriptionCompleted(bool success) {
-    _stats = _stats.copyWith(
+  Future<void> transcriptionCompleted(bool success) async {
+    final newStats = state.valueOrNull!.copyWith(
       successfulTranscriptions: success
-          ? _stats.successfulTranscriptions + 1
-          : _stats.successfulTranscriptions,
+          ? state.valueOrNull!.successfulTranscriptions + 1
+          : state.valueOrNull!.successfulTranscriptions,
       failedTranscriptions: success
-          ? _stats.failedTranscriptions
-          : _stats.failedTranscriptions + 1,
+          ? state.valueOrNull!.failedTranscriptions
+          : state.valueOrNull!.failedTranscriptions + 1,
     );
-    _saveStats();
+    state = AsyncData(newStats);
+    await _saveStats(newStats);
   }
 
-  void favoriteToggled(bool isFavorite) {
-    _stats = _stats.copyWith(
+  Future<void> favoriteToggled(bool isFavorite) async {
+    final newStats = state.valueOrNull!.copyWith(
       favoriteRecords:
-          isFavorite ? _stats.favoriteRecords + 1 : _stats.favoriteRecords - 1,
+          isFavorite ? state.valueOrNull!.favoriteRecords + 1 : state.valueOrNull!.favoriteRecords - 1,
     );
-    _saveStats();
+    state = AsyncData(newStats);
+    await _saveStats(newStats);
   }
 
-  void tagsAdded(List<String> tags) {
-    final newTagsFrequency = Map<String, int>.from(_stats.tagsFrequency);
+  Future<void> tagsAdded(List<String> tags) async {
+    final newTagsFrequency = Map<String, int>.from(state.valueOrNull!.tagsFrequency);
 
     for (final tag in tags) {
       newTagsFrequency[tag] = (newTagsFrequency[tag] ?? 0) + 1;
     }
 
-    _stats = _stats.copyWith(
-      totalTags: _stats.totalTags + tags.length,
+    final newStats = state.valueOrNull!.copyWith(
+      totalTags: state.valueOrNull!.totalTags + tags.length,
       tagsFrequency: newTagsFrequency,
     );
-    _saveStats();
+    state = AsyncData(newStats);
+    await _saveStats(newStats);
   }
 
-  void aiSummaryGenerated() {
-    _stats = _stats.copyWith(
-      aiSummaryCount: _stats.aiSummaryCount + 1,
+  Future<void> aiSummaryGenerated() async {
+    final newStats = state.valueOrNull!.copyWith(
+      aiSummaryCount: state.valueOrNull!.aiSummaryCount + 1,
     );
-    _saveStats();
+    state = AsyncData(newStats);
+    await _saveStats(newStats);
   }
 
-  void exportTriggered() {
-    _stats = _stats.copyWith(
-      exportCount: _stats.exportCount + 1,
+  Future<void> exportTriggered() async {
+    final newStats = state.valueOrNull!.copyWith(
+      exportCount: state.valueOrNull!.exportCount + 1,
     );
-    _saveStats();
+    state = AsyncData(newStats);
+    await _saveStats(newStats);
   }
 
-  void shareTriggered() {
-    _stats = _stats.copyWith(
-      shareCount: _stats.shareCount + 1,
+  Future<void> shareTriggered() async {
+    final newStats = state.valueOrNull!.copyWith(
+      shareCount: state.valueOrNull!.shareCount + 1,
     );
-    _saveStats();
+    state = AsyncData(newStats);
+    await _saveStats(newStats);
   }
 
-  void apiTextCallCompleted(bool success, {String? toolId}) {
-    _recordApiCall(
-      apiTextCalls: _stats.apiTextCalls + 1,
+  Future<void> apiTextCallCompleted(bool success, {String? toolId}) async {
+    await _recordApiCall(
+      apiTextCalls: state.valueOrNull!.apiTextCalls + 1,
       apiSuccessCalls:
-          success ? _stats.apiSuccessCalls + 1 : _stats.apiSuccessCalls,
+          success ? state.valueOrNull!.apiSuccessCalls + 1 : state.valueOrNull!.apiSuccessCalls,
       apiFailedCalls:
-          success ? _stats.apiFailedCalls : _stats.apiFailedCalls + 1,
+          success ? state.valueOrNull!.apiFailedCalls : state.valueOrNull!.apiFailedCalls + 1,
       toolId: toolId,
     );
   }
 
-  void apiVoiceCallCompleted(bool success) {
-    _recordApiCall(
-      apiVoiceCalls: _stats.apiVoiceCalls + 1,
+  Future<void> apiVoiceCallCompleted(bool success) async {
+    await _recordApiCall(
+      apiVoiceCalls: state.valueOrNull!.apiVoiceCalls + 1,
       apiSuccessCalls:
-          success ? _stats.apiSuccessCalls + 1 : _stats.apiSuccessCalls,
+          success ? state.valueOrNull!.apiSuccessCalls + 1 : state.valueOrNull!.apiSuccessCalls,
       apiFailedCalls:
-          success ? _stats.apiFailedCalls : _stats.apiFailedCalls + 1,
+          success ? state.valueOrNull!.apiFailedCalls : state.valueOrNull!.apiFailedCalls + 1,
     );
   }
 
-  void apiImageCallCompleted(bool success) {
-    _recordApiCall(
-      apiImageCalls: _stats.apiImageCalls + 1,
+  Future<void> apiImageCallCompleted(bool success) async {
+    await _recordApiCall(
+      apiImageCalls: state.valueOrNull!.apiImageCalls + 1,
       apiSuccessCalls:
-          success ? _stats.apiSuccessCalls + 1 : _stats.apiSuccessCalls,
+          success ? state.valueOrNull!.apiSuccessCalls + 1 : state.valueOrNull!.apiSuccessCalls,
       apiFailedCalls:
-          success ? _stats.apiFailedCalls : _stats.apiFailedCalls + 1,
+          success ? state.valueOrNull!.apiFailedCalls : state.valueOrNull!.apiFailedCalls + 1,
     );
   }
 
-  void _recordApiCall({
+  Future<void> _recordApiCall({
     int? apiTextCalls,
     int? apiVoiceCalls,
     int? apiImageCalls,
     required int apiSuccessCalls,
     required int apiFailedCalls,
     String? toolId,
-  }) {
+  }) async {
     final now = DateTime.now();
     final dateKey =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-    final newApiCallsPerDay = Map<String, int>.from(_stats.apiCallsPerDay);
+    final newApiCallsPerDay = Map<String, int>.from(state.valueOrNull!.apiCallsPerDay);
     newApiCallsPerDay[dateKey] = (newApiCallsPerDay[dateKey] ?? 0) + 1;
 
-    final newApiCallsByTool = Map<String, int>.from(_stats.apiCallsByTool);
+    final newApiCallsByTool = Map<String, int>.from(state.valueOrNull!.apiCallsByTool);
     if (toolId != null) {
       newApiCallsByTool[toolId] = (newApiCallsByTool[toolId] ?? 0) + 1;
     }
 
-    _stats = _stats.copyWith(
-      apiTextCalls: apiTextCalls ?? _stats.apiTextCalls,
-      apiVoiceCalls: apiVoiceCalls ?? _stats.apiVoiceCalls,
-      apiImageCalls: apiImageCalls ?? _stats.apiImageCalls,
+    final newStats = state.valueOrNull!.copyWith(
+      apiTextCalls: apiTextCalls ?? state.valueOrNull!.apiTextCalls,
+      apiVoiceCalls: apiVoiceCalls ?? state.valueOrNull!.apiVoiceCalls,
+      apiImageCalls: apiImageCalls ?? state.valueOrNull!.apiImageCalls,
       apiSuccessCalls: apiSuccessCalls,
       apiFailedCalls: apiFailedCalls,
       apiCallsPerDay: newApiCallsPerDay,
       apiCallsByTool: newApiCallsByTool,
     );
 
-    _saveStats();
+    state = AsyncData(newStats);
+    await _saveStats(newStats);
   }
 
-  void resetStats() {
-    _stats = UsageStats(
+  Future<void> resetStats() async {
+    final newStats = UsageStats(
       firstUseDate: DateTime.now(),
       lastUseDate: DateTime.now(),
     );
-    _saveStats();
+    state = AsyncData(newStats);
+    await _saveStats(newStats);
   }
 }

@@ -10,6 +10,7 @@ import '../../../core/services/transcription_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../models/mindmap_plan.dart';
 import '../services/mindmap_service.dart';
 import '../services/mindmap_ai_service.dart';
@@ -36,6 +37,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
   final Map<String, bool> _expandedTags = {};
   List<SavedMindMap> _savedMindMaps = [];
   bool _isLoadingSaved = true;
+  late AppLocalizations _l10n;
 
   @override
   void initState() {
@@ -93,14 +95,14 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
           builder: (context, setDialogState) {
             final selectedCount = tagSelections.values.where((v) => v).length;
             return AlertDialog(
-              title: const Text('选择标签'),
+              title: Text(_l10n.selectTags),
               content: SizedBox(
                 width: double.maxFinite,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('已选择 $selectedCount 个标签'),
+                    Text('${_l10n.selected} $selectedCount ${_l10n.tags}'),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 6,
@@ -140,7 +142,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
                           }
                         });
                       },
-                      child: const Text('清空'),
+                      child: Text(_l10n.clearAll),
                     ),
                     TextButton(
                       onPressed: () {
@@ -150,12 +152,12 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
                           }
                         });
                       },
-                      child: const Text('全选'),
+                      child: Text(_l10n.selectAll),
                     ),
                     const Spacer(),
                     TextButton(
                       onPressed: () => Navigator.pop(context, null),
-                      child: const Text('取消'),
+                      child: Text(_l10n.cancelButton),
                     ),
                     TextButton(
                       onPressed: () {
@@ -165,7 +167,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
                             .toList();
                         Navigator.pop(context, selected);
                       },
-                      child: const Text('确认'),
+                      child: Text(_l10n.confirm),
                     ),
                   ],
                 ),
@@ -195,15 +197,15 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
             _nodes = nodes;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('AI脑图生成成功'),
+            SnackBar(
+              content: Text(_l10n.aiMindMapGeneratedSuccess),
               backgroundColor: AppColors.success,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('AI脑图生成失败，请检查API配置'),
+            SnackBar(
+              content: Text(_l10n.aiMindMapGenerationFailedCheckApiConfig),
               backgroundColor: AppColors.warning,
             ),
           );
@@ -213,7 +215,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('AI脑图生成失败: $e'),
+            content: Text('${_l10n.aiMindMapGenerationFailed}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -248,8 +250,8 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.save, color: AppColors.primary),
-              title: const Text('保存临时方案'),
-              subtitle: const Text('将当前脑图保存为临时方案'),
+              title: Text(_l10n.saveTemporaryPlan),
+              subtitle: Text(_l10n.saveCurrentMindMapAsTempPlan),
               onTap: () {
                 Navigator.pop(context);
                 _showSavePlanDialog();
@@ -258,8 +260,8 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
             ListTile(
               leading:
                   const Icon(Icons.folder_copy, color: AppColors.secondary),
-              title: const Text('按标签归档'),
-              subtitle: const Text('将脑图内容按标签归档到记录'),
+              title: Text(_l10n.archiveByTag),
+              subtitle: Text(_l10n.archiveMindMapContentByTag),
               onTap: () {
                 Navigator.pop(context);
                 _showArchiveByTagDialog();
@@ -281,24 +283,24 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('保存临时方案'),
+        title: Text(_l10n.saveTemporaryPlan),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: '方案名称',
-                  hintText: '输入方案名称',
+                decoration: InputDecoration(
+                  labelText: _l10n.planName,
+                  hintText: _l10n.inputPlanName,
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: contentController,
-                decoration: const InputDecoration(
-                  labelText: '方案内容',
-                  hintText: '输入方案内容',
+                decoration: InputDecoration(
+                  labelText: _l10n.planContent,
+                  hintText: _l10n.inputPlanContent,
                 ),
                 maxLines: 5,
               ),
@@ -308,7 +310,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(_l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
@@ -319,7 +321,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
                 Navigator.pop(context);
               }
             },
-            child: const Text('保存'),
+            child: Text(_l10n.saveButton),
           ),
         ],
       ),
@@ -351,13 +353,13 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('按标签归档'),
+          title: Text(_l10n.archiveByTag),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('选择要归档的标签：'),
+                Text('${_l10n.selectTagsToArchive}:'),
                 const SizedBox(height: 12),
                 ...tagSelections.keys.map((tag) {
                   return CheckboxListTile(
@@ -377,7 +379,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
+              child: Text(_l10n.cancelButton),
             ),
             TextButton(
               onPressed: () {
@@ -390,7 +392,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
                   Navigator.pop(context);
                 }
               },
-              child: const Text('归档'),
+              child: Text(_l10n.archiveButton),
             ),
           ],
         ),
@@ -424,7 +426,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已归档 $archivedCount 条记录'),
+            content: Text('${_l10n.archived} $archivedCount ${_l10n.records}'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -433,7 +435,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('归档失败: $e'),
+            content: Text('${_l10n.archiveFailed}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -443,14 +445,15 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('知识脑图'),
+        title: Text(_l10n.knowledgeMindMap),
         actions: [
           if (_nodes.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.save_outlined),
-              tooltip: '保存方案/归档',
+              tooltip: _l10n.savePlanOrArchive,
               onPressed: _showSaveOptions,
             ),
           if (_isAiGenerating)
@@ -470,7 +473,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
           else
             IconButton(
               icon: const Icon(Icons.auto_awesome),
-              tooltip: 'AI生成关联脑图',
+              tooltip: _l10n.aiGenerateRelatedMindMap,
               onPressed: _generateAiMindMap,
             ),
           Padding(
@@ -483,18 +486,18 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
               underline: const SizedBox(),
               icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
               style: const TextStyle(color: Colors.white),
-              items: const [
+              items: [
                 DropdownMenuItem(
                   value: MindMapViewType.byTag,
-                  child: Text('按标签'),
+                  child: Text(_l10n.byTag),
                 ),
                 DropdownMenuItem(
                   value: MindMapViewType.byDate,
-                  child: Text('按日期'),
+                  child: Text(_l10n.byDate),
                 ),
                 DropdownMenuItem(
                   value: MindMapViewType.outline,
-                  child: Text('大纲视图'),
+                  child: Text(_l10n.outlineView),
                 ),
               ],
               onChanged: (value) {
@@ -522,9 +525,9 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
                         color: AppColors.textTertiary,
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        '暂无数据，请先添加带有标签的记录',
-                        style: TextStyle(color: AppColors.textTertiary),
+                      Text(
+                        _l10n.noDataAddTaggedRecords,
+                        style: const TextStyle(color: AppColors.textTertiary),
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
@@ -539,7 +542,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
                                 ),
                               )
                             : const Icon(Icons.auto_awesome),
-                        label: const Text('AI生成关联脑图'),
+                        label: Text(_l10n.aiGenerateRelatedMindMap),
                       ),
                     ],
                   ),
@@ -554,18 +557,18 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
                             padding: const EdgeInsets.only(bottom: 12),
                             child: Row(
                               children: [
-                                const Chip(
-                                  avatar: Icon(Icons.auto_awesome,
+                                Chip(
+                                  avatar: const Icon(Icons.auto_awesome,
                                       size: 16, color: Colors.white),
-                                  label: Text('AI智能生成'),
+                                  label: Text(_l10n.aiGenerated),
                                   backgroundColor: AppColors.secondary,
-                                  labelStyle: TextStyle(color: Colors.white),
+                                  labelStyle: const TextStyle(color: Colors.white),
                                 ),
                                 const Spacer(),
                                 TextButton.icon(
                                   onPressed: _showSaveOptions,
                                   icon: const Icon(Icons.save, size: 16),
-                                  label: const Text('保存'),
+                                  label: Text(_l10n.saveButton),
                                 ),
                               ],
                             ),
@@ -610,7 +613,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
                     ),
                   ),
                   Text(
-                    '${node.children.length} 条',
+                    '${node.children.length} ${_l10n.records}',
                     style: const TextStyle(color: AppColors.textTertiary),
                   ),
                   const SizedBox(width: 8),
@@ -786,10 +789,10 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
           children: [
             const Icon(Icons.folder_open, color: AppColors.primary, size: 18),
             const SizedBox(width: 8),
-            const Text('已保存的脑图',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(_l10n.savedMindMaps,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const Spacer(),
-            Text('${_savedMindMaps.length} 份',
+            Text('${_savedMindMaps.length} ${_l10n.copies}',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
           ],
         ),
@@ -802,8 +805,8 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
               color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('暂无保存的脑图',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(_l10n.noSavedMindMaps,
+                style: const TextStyle(color: AppColors.textSecondary)),
           )
         else
           ..._savedMindMaps.map((mindMap) => _buildSavedMindMapCard(mindMap)),
@@ -871,20 +874,20 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+            child: Text(_l10n.close),
           ),
           TextButton(
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: mindMap.content));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('已复制到剪贴板'),
+                  SnackBar(
+                      content: Text(_l10n.copiedToClipboard),
                       backgroundColor: AppColors.success),
                 );
               }
             },
-            child: const Text('复制'),
+            child: Text(_l10n.copy),
           ),
         ],
       ),
@@ -896,8 +899,8 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
     await _loadSavedMindMaps();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('已删除'), backgroundColor: AppColors.success),
+        SnackBar(
+            content: Text(_l10n.deleted), backgroundColor: AppColors.success),
       );
     }
   }
@@ -929,8 +932,8 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('方案已保存'),
+          SnackBar(
+            content: Text(_l10n.planSaved),
             backgroundColor: AppColors.success,
           ),
         );
@@ -939,7 +942,7 @@ class _MindMapScreenState extends ConsumerState<MindMapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('保存失败: $e'),
+            content: Text('${_l10n.saveFailed}: $e'),
             backgroundColor: AppColors.error,
           ),
         );

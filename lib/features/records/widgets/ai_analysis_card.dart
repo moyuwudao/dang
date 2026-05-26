@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
+
+// l10n keys used: fullScreen, deleteButton, expand
 
 class AiAnalysisCard extends StatefulWidget {
   final String roleName;
@@ -50,6 +53,7 @@ class _AiAnalysisCardState extends State<AiAnalysisCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: Column(
@@ -73,13 +77,13 @@ class _AiAnalysisCardState extends State<AiAnalysisCard> {
                 IconButton(
                   icon: const Icon(Icons.fullscreen, size: 18),
                   onPressed: _showFullScreen,
-                  tooltip: '全屏查看',
+                  tooltip: l10n.fullScreen,
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline,
                       size: 18, color: AppColors.error),
                   onPressed: widget.onDelete,
-                  tooltip: '删除',
+                  tooltip: l10n.deleteButton,
                 ),
                 IconButton(
                   icon: Icon(
@@ -87,7 +91,7 @@ class _AiAnalysisCardState extends State<AiAnalysisCard> {
                     color: AppColors.textSecondary,
                   ),
                   onPressed: () => setState(() => _isExpanded = !_isExpanded),
-                  tooltip: _isExpanded ? '收起' : '展开',
+                  tooltip: _isExpanded ? l10n.expand : l10n.expand,
                 ),
               ],
             ),

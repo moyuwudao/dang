@@ -6,7 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../models/workbench_tool.dart';
 
 final workbenchProvider =
-    StateNotifierProvider<WorkbenchNotifier, WorkbenchState>((ref) {
+    AsyncNotifierProvider<WorkbenchNotifier, WorkbenchState>(() {
   return WorkbenchNotifier();
 });
 
@@ -88,12 +88,13 @@ class WorkbenchState {
   }
 }
 
-class WorkbenchNotifier extends StateNotifier<WorkbenchState> {
+class WorkbenchNotifier extends AsyncNotifier<WorkbenchState> {
   static const _toolsKey = 'workbench_tools';
   static const _layoutKey = 'workbench_layout';
 
-  WorkbenchNotifier() : super(const WorkbenchState()) {
-    _loadWorkbench();
+  @override
+  Future<WorkbenchState> build() async {
+    return _loadWorkbench();
   }
 
   static List<WorkbenchTool> get defaultTools => [
@@ -359,7 +360,7 @@ class WorkbenchNotifier extends StateNotifier<WorkbenchState> {
         ),
       ];
 
-  Future<void> _loadWorkbench() async {
+  Future<WorkbenchState> _loadWorkbench() async {
     final prefs = await SharedPreferences.getInstance();
 
     final toolsJson = prefs.getString(_toolsKey);
@@ -396,7 +397,7 @@ class WorkbenchNotifier extends StateNotifier<WorkbenchState> {
       );
     }
 
-    state = state.copyWith(
+    return WorkbenchState(
       tools: tools,
       layoutConfig: layout,
       isLoading: false,
@@ -405,47 +406,47 @@ class WorkbenchNotifier extends StateNotifier<WorkbenchState> {
 
   Future<void> _saveTools() async {
     final prefs = await SharedPreferences.getInstance();
-    final toolsJson = jsonEncode(state.tools.map((t) => t.toJson()).toList());
+    final toolsJson = jsonEncode(state.valueOrNull!.tools.map((t) => t.toJson()).toList());
     await prefs.setString(_toolsKey, toolsJson);
   }
 
   Future<void> _saveLayout() async {
     final prefs = await SharedPreferences.getInstance();
-    final layoutJson = jsonEncode(state.layoutConfig.toJson());
+    final layoutJson = jsonEncode(state.valueOrNull!.layoutConfig.toJson());
     await prefs.setString(_layoutKey, layoutJson);
   }
 
   void setEditMode(bool value) {
-    state = state.copyWith(isEditMode: value);
+    state = AsyncData(state.valueOrNull!.copyWith(isEditMode: value));
   }
 
   void setSelectedCategory(ToolCategory? category) {
     if (category == null) {
-      state = state.copyWith(clearSelectedCategory: true);
+      state = AsyncData(state.valueOrNull!.copyWith(clearSelectedCategory: true));
     } else {
-      state = state.copyWith(selectedCategory: category);
+      state = AsyncData(state.valueOrNull!.copyWith(selectedCategory: category));
     }
   }
 
   Future<void> toggleLayoutMode() async {
-    final newMode = state.layoutConfig.layoutMode == ToolLayoutMode.grid
+    final newMode = state.valueOrNull!.layoutConfig.layoutMode == ToolLayoutMode.grid
         ? ToolLayoutMode.list
         : ToolLayoutMode.grid;
-    state = state.copyWith(
-      layoutConfig: state.layoutConfig.copyWith(layoutMode: newMode),
-    );
+    state = AsyncData(state.valueOrNull!.copyWith(
+      layoutConfig: state.valueOrNull!.layoutConfig.copyWith(layoutMode: newMode),
+    ));
     await _saveLayout();
   }
 
   Future<void> setLayoutMode(ToolLayoutMode mode) async {
-    state = state.copyWith(
-      layoutConfig: state.layoutConfig.copyWith(layoutMode: mode),
-    );
+    state = AsyncData(state.valueOrNull!.copyWith(
+      layoutConfig: state.valueOrNull!.layoutConfig.copyWith(layoutMode: mode),
+    ));
     await _saveLayout();
   }
 
   Future<void> reorderTools(int oldIndex, int newIndex) async {
-    final tools = [...state.tools];
+    final tools = [...state.valueOrNull!.tools];
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
@@ -453,50 +454,50 @@ class WorkbenchNotifier extends StateNotifier<WorkbenchState> {
     tools.insert(newIndex, item);
 
     final order = tools.map((t) => t.id).toList();
-    state = state.copyWith(
+    state = AsyncData(state.valueOrNull!.copyWith(
       tools: tools,
-      layoutConfig: state.layoutConfig.copyWith(toolOrder: order),
-    );
+      layoutConfig: state.valueOrNull!.layoutConfig.copyWith(toolOrder: order),
+    ));
     await _saveTools();
     await _saveLayout();
   }
 
   Future<void> toggleToolVisibility(String toolId) async {
-    final visibility = {...state.layoutConfig.toolVisibility};
+    final visibility = {...state.valueOrNull!.layoutConfig.toolVisibility};
     visibility[toolId] = !(visibility[toolId] ?? true);
-    state = state.copyWith(
-      layoutConfig: state.layoutConfig.copyWith(toolVisibility: visibility),
-    );
+    state = AsyncData(state.valueOrNull!.copyWith(
+      layoutConfig: state.valueOrNull!.layoutConfig.copyWith(toolVisibility: visibility),
+    ));
     await _saveLayout();
   }
 
   Future<void> toggleShowInHome(String toolId) async {
-    final showInHome = {...state.layoutConfig.showInHome};
+    final showInHome = {...state.valueOrNull!.layoutConfig.showInHome};
     showInHome[toolId] = !(showInHome[toolId] ?? false);
-    state = state.copyWith(
-      layoutConfig: state.layoutConfig.copyWith(showInHome: showInHome),
-    );
+    state = AsyncData(state.valueOrNull!.copyWith(
+      layoutConfig: state.valueOrNull!.layoutConfig.copyWith(showInHome: showInHome),
+    ));
     await _saveLayout();
   }
 
   Future<void> openTool(String toolId) async {
-    final recent = [...state.layoutConfig.recentToolIds];
+    final recent = [...state.valueOrNull!.layoutConfig.recentToolIds];
     recent.remove(toolId);
     recent.insert(0, toolId);
     if (recent.length > WorkbenchLayoutConfig.maxRecentTools) {
       recent.removeRange(WorkbenchLayoutConfig.maxRecentTools, recent.length);
     }
-    state = state.copyWith(
-      layoutConfig: state.layoutConfig.copyWith(recentToolIds: recent),
-    );
+    state = AsyncData(state.valueOrNull!.copyWith(
+      layoutConfig: state.valueOrNull!.layoutConfig.copyWith(recentToolIds: recent),
+    ));
     await _saveLayout();
   }
 
   Future<void> resetToDefault() async {
-    state = state.copyWith(
+    state = AsyncData(state.valueOrNull!.copyWith(
       tools: defaultTools,
       layoutConfig: const WorkbenchLayoutConfig(),
-    );
+    ));
     await _saveTools();
     await _saveLayout();
   }

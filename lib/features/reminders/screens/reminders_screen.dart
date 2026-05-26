@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/app_logger.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class Reminder {
   final String id;
@@ -163,6 +164,7 @@ class RemindersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final reminders = ref.watch(remindersProvider);
     final notifier = ref.read(remindersProvider.notifier);
 
@@ -171,50 +173,52 @@ class RemindersScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('智能提醒'),
+        title: Text(l10n.smartReminders),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
       ),
       body: reminders.isEmpty
-          ? _buildEmptyState(context)
+          ? _buildEmptyState(context, l10n)
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 if (pendingReminders.isNotEmpty) ...[
                   _buildSectionTitle(
-                      context, '待处理 (${pendingReminders.length})'),
+                      context, '${l10n.statusPending} (${pendingReminders.length})'),
                   const SizedBox(height: 8),
                   ...pendingReminders.map((r) => _ReminderCard(
                         reminder: r,
                         onToggle: () => notifier.toggleComplete(r.id),
-                        onDelete: () => _confirmDelete(context, notifier, r),
-                        onEdit: () => _showEditDialog(context, notifier, r),
+                        onDelete: () => _confirmDelete(context, notifier, r, l10n),
+                        onEdit: () => _showEditDialog(context, notifier, r, l10n),
+                        l10n: l10n,
                       )),
                 ],
                 if (completedReminders.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   _buildSectionTitle(
-                      context, '已完成 (${completedReminders.length})'),
+                      context, '${l10n.statusCompleted} (${completedReminders.length})'),
                   const SizedBox(height: 8),
                   ...completedReminders.map((r) => _ReminderCard(
                         reminder: r,
                         onToggle: () => notifier.toggleComplete(r.id),
-                        onDelete: () => _confirmDelete(context, notifier, r),
-                        onEdit: () => _showEditDialog(context, notifier, r),
+                        onDelete: () => _confirmDelete(context, notifier, r, l10n),
+                        onEdit: () => _showEditDialog(context, notifier, r, l10n),
+                        l10n: l10n,
                       )),
                 ],
               ],
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddDialog(context, notifier),
+        onPressed: () => _showAddDialog(context, notifier, l10n),
         child: const Icon(Icons.add),
       ),
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, AppLocalizations l10n) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -226,14 +230,14 @@ class RemindersScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            '暂无提醒事项',
+            l10n.noReminders,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.textSecondary,
                 ),
           ),
           const SizedBox(height: 8),
           Text(
-            '点击右下角按钮添加提醒',
+            l10n.tapToAddReminder,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.textTertiary,
                 ),
@@ -253,7 +257,7 @@ class RemindersScreen extends ConsumerWidget {
     );
   }
 
-  void _showAddDialog(BuildContext context, RemindersNotifier notifier) {
+  void _showAddDialog(BuildContext context, RemindersNotifier notifier, AppLocalizations l10n) {
     final titleController = TextEditingController();
     final descController = TextEditingController();
     DateTime? selectedDate;
@@ -263,27 +267,27 @@ class RemindersScreen extends ConsumerWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('添加提醒'),
+          title: Text(l10n.addReminder),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: '标题',
-                    hintText: '输入提醒标题',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.title,
+                    hintText: l10n.title,
+                    border: const OutlineInputBorder(),
                   ),
                   autofocus: true,
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: descController,
-                  decoration: const InputDecoration(
-                    labelText: '描述（可选）',
-                    hintText: '输入提醒描述',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.description,
+                    hintText: l10n.description,
+                    border: const OutlineInputBorder(),
                   ),
                   maxLines: 3,
                 ),
@@ -291,7 +295,7 @@ class RemindersScreen extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.calendar_today),
                   title: Text(selectedDate == null
-                      ? '选择日期'
+                      ? l10n.selectDate
                       : '${selectedDate!.year}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}'),
                   trailing: selectedDate != null
                       ? IconButton(
@@ -337,7 +341,7 @@ class RemindersScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
+              child: Text(l10n.cancelButton),
             ),
             ElevatedButton(
               onPressed: () {
@@ -364,7 +368,7 @@ class RemindersScreen extends ConsumerWidget {
                   Navigator.pop(context);
                 }
               },
-              child: const Text('添加'),
+              child: Text(l10n.add),
             ),
           ],
         ),
@@ -373,7 +377,7 @@ class RemindersScreen extends ConsumerWidget {
   }
 
   void _showEditDialog(
-      BuildContext context, RemindersNotifier notifier, Reminder reminder) {
+      BuildContext context, RemindersNotifier notifier, Reminder reminder, AppLocalizations l10n) {
     final titleController = TextEditingController(text: reminder.title);
     final descController =
         TextEditingController(text: reminder.description ?? '');
@@ -387,24 +391,24 @@ class RemindersScreen extends ConsumerWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('编辑提醒'),
+          title: Text(l10n.editReminder),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: '标题',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.title,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: descController,
-                  decoration: const InputDecoration(
-                    labelText: '描述',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.description,
+                    border: const OutlineInputBorder(),
                   ),
                   maxLines: 3,
                 ),
@@ -412,7 +416,7 @@ class RemindersScreen extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.calendar_today),
                   title: Text(selectedDate == null
-                      ? '选择日期'
+                      ? l10n.selectDate
                       : '${selectedDate!.year}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}'),
                   trailing: selectedDate != null
                       ? IconButton(
@@ -452,7 +456,7 @@ class RemindersScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
+              child: Text(l10n.cancelButton),
             ),
             ElevatedButton(
               onPressed: () {
@@ -480,7 +484,7 @@ class RemindersScreen extends ConsumerWidget {
                   Navigator.pop(context);
                 }
               },
-              child: const Text('保存'),
+              child: Text(l10n.saveButton),
             ),
           ],
         ),
@@ -489,16 +493,16 @@ class RemindersScreen extends ConsumerWidget {
   }
 
   void _confirmDelete(
-      BuildContext context, RemindersNotifier notifier, Reminder reminder) {
+      BuildContext context, RemindersNotifier notifier, Reminder reminder, AppLocalizations l10n) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除"${reminder.title}"吗？'),
+        title: Text(l10n.confirmDeleteTitle),
+        content: Text('${l10n.confirmDelete} "${reminder.title}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
@@ -506,7 +510,7 @@ class RemindersScreen extends ConsumerWidget {
               Navigator.pop(context);
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('删除'),
+            child: Text(l10n.deleteButton),
           ),
         ],
       ),
@@ -519,12 +523,14 @@ class _ReminderCard extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
+  final AppLocalizations l10n;
 
   const _ReminderCard({
     required this.reminder,
     required this.onToggle,
     required this.onDelete,
     required this.onEdit,
+    required this.l10n,
   });
 
   @override
@@ -595,7 +601,7 @@ class _ReminderCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            _formatDateTime(reminder.remindAt!),
+                            _formatDateTime(context, reminder.remindAt!),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color:
                                   isOverdue ? AppColors.error : AppColors.info,
@@ -611,9 +617,9 @@ class _ReminderCard extends StatelessWidget {
                                 color: AppColors.error.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text(
-                                '已逾期',
-                                style: TextStyle(
+                              child: Text(
+                                l10n.overdue,
+                                style: const TextStyle(
                                   fontSize: 10,
                                   color: AppColors.error,
                                   fontWeight: FontWeight.w600,
@@ -631,7 +637,7 @@ class _ReminderCard extends StatelessWidget {
                 icon: const Icon(Icons.calendar_today,
                     color: AppColors.info, size: 20),
                 onPressed: () => _addToCalendar(context),
-                tooltip: '加入日历',
+                tooltip: l10n.addToCalendar,
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline,
@@ -645,18 +651,19 @@ class _ReminderCard extends StatelessWidget {
     );
   }
 
-  String _formatDateTime(DateTime dateTime) {
+  String _formatDateTime(BuildContext context, DateTime dateTime) {
+    final l10n = AppLocalizations.of(context)!;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final dateDay = DateTime(dateTime.year, dateTime.month, dateTime.day);
 
     String dateStr;
     if (dateDay == today) {
-      dateStr = '今天';
+      dateStr = l10n.today;
     } else if (dateDay == today.add(const Duration(days: 1))) {
-      dateStr = '明天';
+      dateStr = l10n.tomorrow;
     } else {
-      dateStr = '${dateTime.month}月${dateTime.day}日';
+      dateStr = '${dateTime.month}${l10n.month}${dateTime.day}${l10n.day}';
     }
 
     return '$dateStr ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
@@ -682,9 +689,10 @@ class _ReminderCard extends StatelessWidget {
         await _launchUrl(url);
       } catch (e) {
         if (context.mounted) {
+          final l10n = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text('无法打开日历: $e'), backgroundColor: AppColors.error),
+                content: Text(l10n.cannotOpenCalendar(e.toString())), backgroundColor: AppColors.error),
           );
         }
       }

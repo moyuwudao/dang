@@ -95,7 +95,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.dashboard_outlined),
             onPressed: () => context.push('/workbench'),
-            tooltip: '工具台',
+            tooltip: l10n.workbench,
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -222,9 +222,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Text(
-                        '添加标签（可选）',
-                        style: TextStyle(
+                      Text(
+                        l10n.addTagOptional,
+                        style: const TextStyle(
                           fontSize: 14,
                           color: AppColors.textSecondary,
                         ),
@@ -273,8 +273,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('保存成功'),
+            SnackBar(
+              content: Text(l10n.saveSuccess),
               backgroundColor: AppColors.success,
             ),
           );
@@ -283,7 +283,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('保存失败: $e'),
+              content: Text('${l10n.saveFailed}: $e'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -295,7 +295,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildHomeQuickActions() {
-    final homeTools = ref.watch(workbenchProvider.select((s) => s.homeTools));
+    final workbenchState = ref.watch(workbenchProvider);
+    final homeTools = workbenchState.valueOrNull?.tools.where((t) => 
+      t.isEnabled && (workbenchState.valueOrNull?.layoutConfig.showInHome[t.id] ?? false)
+    ).toList() ?? [];
 
     if (homeTools.isEmpty) {
       return const SizedBox.shrink();
@@ -374,7 +377,7 @@ class RecordSearchDelegate extends SearchDelegate {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      '未找到相关记录',
+                      AppLocalizations.of(context)!.noSearchResults,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -394,7 +397,7 @@ class RecordSearchDelegate extends SearchDelegate {
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stack) => Center(
-            child: Text('搜索失败: $error'),
+            child: Text('${AppLocalizations.of(context)!.searchFailed}: $error'),
           ),
         );
       },
@@ -409,6 +412,7 @@ class _SearchRecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -425,18 +429,18 @@ class _SearchRecordCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _formatDate(record.createdAt),
+                      _formatDate(context, l10n, record.createdAt),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textTertiary,
                           ),
                     ),
                   ),
-                  _buildStatusBadge(),
+                  _buildStatusBadge(context, l10n),
                 ],
               ),
               const SizedBox(height: 12),
               Text(
-                record.content ?? '暂无内容',
+                record.content ?? l10n.noContent,
                 style: Theme.of(context).textTheme.bodyLarge,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
@@ -495,26 +499,26 @@ class _SearchRecordCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBadge() {
+  Widget _buildStatusBadge(BuildContext context, AppLocalizations l10n) {
     Color color;
     String text;
 
     switch (record.transcriptionStatus) {
       case TranscriptionStatus.pending:
         color = AppColors.warning;
-        text = '待转写';
+        text = l10n.statusPending;
         break;
       case TranscriptionStatus.processing:
         color = AppColors.info;
-        text = '转写中';
+        text = l10n.statusProcessing;
         break;
       case TranscriptionStatus.success:
         color = AppColors.success;
-        text = '已完成';
+        text = l10n.statusCompleted;
         break;
       case TranscriptionStatus.failed:
         color = AppColors.error;
-        text = '失败';
+        text = l10n.statusFailed;
         break;
       case TranscriptionStatus.none:
         color = AppColors.textTertiary;
@@ -543,20 +547,20 @@ class _SearchRecordCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(BuildContext context, AppLocalizations l10n, DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
 
     if (diff.inMinutes < 1) {
-      return '刚刚';
+      return l10n.justNow;
     } else if (diff.inHours < 1) {
-      return '${diff.inMinutes}分钟前';
+      return '${diff.inMinutes}${l10n.minutesAgo}';
     } else if (diff.inDays < 1) {
-      return '${diff.inHours}小时前';
+      return '${diff.inHours}${l10n.hoursAgo}';
     } else if (diff.inDays < 7) {
-      return '${diff.inDays}天前';
+      return '${diff.inDays}${l10n.daysAgo}';
     } else {
-      return '${date.month}月${date.day}日';
+      return '${date.month}${l10n.month}${date.day}${l10n.day}';
     }
   }
 }

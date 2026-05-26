@@ -7,6 +7,7 @@ import '../../../core/widgets/tag_selector.dart';
 import '../../../data/models/tool_output_model.dart';
 import '../../../data/repositories/record_repository.dart';
 import '../../../data/repositories/tool_output_repository.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class ToolOutputsScreen extends ConsumerStatefulWidget {
   const ToolOutputsScreen({super.key});
@@ -69,20 +70,21 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
   }
 
   Future<void> _deleteOutput(int id) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: const Text('删除后无法恢复，是否继续？'),
+        title: Text(l10n.confirmDelete),
+        content: const Text('确定要删除这条工具输出吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('删除'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -94,8 +96,8 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
       await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('已删除'),
+          SnackBar(
+            content: Text(l10n.deleteSuccess),
             backgroundColor: AppColors.success,
           ),
         );
@@ -104,6 +106,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
   }
 
   Future<void> _updateOutput(int id, List<String> tags) async {
+    final l10n = AppLocalizations.of(context)!;
     final repository = ref.read(toolOutputRepositoryProvider);
     await repository.updateToolOutput(
       id: id,
@@ -115,8 +118,8 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
     setState(() => _editingId = null);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('已保存'),
+        SnackBar(
+          content: Text(l10n.saveSuccess),
           backgroundColor: AppColors.success,
         ),
       );
@@ -130,6 +133,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
   }
 
   Future<void> _showTagSelector(int id, List<String> currentTags) async {
+    final l10n = AppLocalizations.of(context)!;
     final recordRepo = ref.read(recordRepositoryProvider);
     final allExistingTags = await recordRepo.getAllTags();
     final localAllTags = {...allExistingTags, ...currentTags}.toList();
@@ -166,9 +170,9 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  '标签管理',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                Text(
+                  l10n.tagManagement,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -221,9 +225,9 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
                 ),
                 const SizedBox(height: 16),
                 if (selectedTags.isNotEmpty) ...[
-                  const Text(
-                    '已选标签',
-                    style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                  Text(
+                    l10n.selectedTags,
+                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -247,9 +251,9 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
                   const SizedBox(height: 16),
                 ],
                 if (localAllTags.any((t) => !selectedTags.contains(t))) ...[
-                  const Text(
-                    '可选标签',
-                    style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                  Text(
+                    l10n.availableTags,
+                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -287,7 +291,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
                       await _loadData();
                       if (mounted) Navigator.pop(context);
                     },
-                    child: const Text('保存'),
+                    child: Text(l10n.saveButton),
                   ),
                 ),
               ],
@@ -307,6 +311,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
   }
 
   void _showDetail(ToolOutputModel output) {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -352,7 +357,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
                             icon: const Icon(Icons.share_outlined),
                             onPressed: () {
                               Share.share(
-                                '${output.title}\n\n${output.content}\n\n来自畅记 App',
+                                '${output.title}\n\n${output.content}\n\n${l10n.appName}',
                                 subject: output.title,
                               );
                             },
@@ -365,8 +370,8 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
                               );
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('已复制到剪贴板')),
+                                  SnackBar(
+                                      content: Text(l10n.copiedToClipboard)),
                                 );
                               }
                             },
@@ -428,6 +433,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         title: _isSearching
@@ -435,7 +441,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
                 controller: _searchController,
                 focusNode: _searchFocusNode,
                 decoration: InputDecoration(
-                  hintText: '搜索输出内容...',
+                  hintText: l10n.searchOutputContent,
                   border: InputBorder.none,
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.clear),
@@ -448,7 +454,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
                 onChanged: (_) => _applyFilters(),
                 autofocus: true,
               )
-            : const Text('工具台输出'),
+            : Text(l10n.toolOutputTitle),
         centerTitle: !_isSearching,
         actions: [
           IconButton(
@@ -479,6 +485,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
   }
 
   Widget _buildEmptyView() {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -490,7 +497,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            _outputs.isEmpty ? '暂无工具输出' : '没有符合条件的输出',
+            _outputs.isEmpty ? '暂无工具输出' : '没有匹配的工具输出',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[600],
@@ -498,7 +505,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _outputs.isEmpty ? '使用工具后保存的内容会显示在这里' : '尝试调整搜索条件',
+            _outputs.isEmpty ? l10n.toolOutputSavedHint : l10n.adjustSearchCriteria,
             style: TextStyle(
               fontSize: 13,
               color: Colors.grey[500],
@@ -527,6 +534,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
   }
 
   Widget _buildOutputCard(ToolOutputModel output) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -618,18 +626,18 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
                   _buildActionButton(
                     icon: Icons.edit_outlined,
                     onPressed: () => _startEditing(output),
-                    tooltip: '编辑',
+                    tooltip: l10n.edit,
                   ),
                   _buildActionButton(
                     icon: Icons.label_outlined,
                     onPressed: () => _showTagSelector(output.id, output.tags),
-                    tooltip: '标签',
+                    tooltip: l10n.tags,
                   ),
                   _buildActionButton(
                     icon: Icons.delete_outline,
                     color: AppColors.error,
                     onPressed: () => _deleteOutput(output.id),
-                    tooltip: '删除',
+                    tooltip: l10n.delete,
                   ),
                 ],
               ),
@@ -667,6 +675,7 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
   }
 
   Widget _buildEditingCard(ToolOutputModel output) {
+    final l10n = AppLocalizations.of(context)!;
     final List<String> editTags = List.from(output.tags);
 
     return Card(
@@ -679,9 +688,9 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
           children: [
             TextField(
               controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: '标题',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.title,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
@@ -699,11 +708,11 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 8),
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 '添加标签（可选）',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
@@ -731,12 +740,12 @@ class _ToolOutputsScreenState extends ConsumerState<ToolOutputsScreen> {
               children: [
                 TextButton(
                   onPressed: () => setState(() => _editingId = null),
-                  child: const Text('取消'),
+                  child: Text(l10n.cancelButton),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () => _updateOutput(output.id, editTags),
-                  child: const Text('保存'),
+                  child: Text(l10n.saveButton),
                 ),
               ],
             ),

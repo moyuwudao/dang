@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/markdown_viewer.dart';
 import '../../../core/widgets/expandable_text_field.dart';
+import '../../../l10n/generated/app_localizations.dart';
+
+// l10n keys used: expand, fullScreen, cancelButton, saveButton, editButton, noContent, saveSuccess, inputContent
 
 class ExpandableTextSection extends StatefulWidget {
   final String title;
@@ -35,6 +38,8 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
   late bool _isExpanded;
   late bool _isEditing;
   late TextEditingController _textController;
+
+  AppLocalizations get _l10n => AppLocalizations.of(context)!;
 
   @override
   void initState() {
@@ -80,8 +85,8 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
         fullscreenDialog: true,
         builder: (context) => FullScreenEditorScreen(
           controller: _textController,
-          hintText: '输入内容...',
-          title: '编辑${widget.title}',
+          hintText: _l10n.inputContent,
+          title: '${_l10n.editButton}${widget.title}',
         ),
       ),
     );
@@ -103,7 +108,7 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
           TextButton.icon(
             onPressed: () => setState(() => _isExpanded = true),
             icon: const Icon(Icons.expand_more, size: 16),
-            label: const Text('展开查看更多'),
+            label: Text(_l10n.expand),
             style: TextButton.styleFrom(
               padding: EdgeInsets.zero,
               minimumSize: Size.zero,
@@ -163,7 +168,7 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
                   IconButton(
                     icon: const Icon(Icons.fullscreen, size: 20),
                     onPressed: _showFullScreen,
-                    tooltip: '全屏查看',
+                    tooltip: _l10n.fullScreen,
                   ),
                 if (widget.editable)
                   _isEditing
@@ -172,13 +177,13 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
                             IconButton(
                               icon: const Icon(Icons.close, size: 20),
                               onPressed: _cancelEdit,
-                              tooltip: '取消',
+                              tooltip: _l10n.cancelButton,
                             ),
                             IconButton(
                               icon: const Icon(Icons.check,
                                   size: 20, color: AppColors.success),
                               onPressed: _saveEdit,
-                              tooltip: '保存',
+                              tooltip: _l10n.saveButton,
                             ),
                           ],
                         )
@@ -191,7 +196,7 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
                               setState(() => _isEditing = true);
                             }
                           },
-                          tooltip: '编辑',
+                          tooltip: _l10n.editButton,
                         ),
                 IconButton(
                   icon: Icon(
@@ -210,14 +215,14 @@ class _ExpandableTextSectionState extends State<ExpandableTextSection> {
                   ? _isEditing
                       ? ExpandableTextField(
                           controller: _textController,
-                          hintText: '输入内容...',
+                          hintText: _l10n.inputContent,
                           minLines: 5,
                           maxLines: 15,
                         )
                       : _buildContentText(context)
-                  : const Text(
-                      '暂无内容',
-                      style: TextStyle(
+                  : Text(
+                      _l10n.noContent,
+                      style: const TextStyle(
                         color: AppColors.textTertiary,
                         fontStyle: FontStyle.italic,
                       ),
@@ -250,6 +255,8 @@ class _FullScreenTextViewState extends State<_FullScreenTextView> {
   late bool _isEditing;
   late TextEditingController _textController;
 
+  AppLocalizations get _l10n => AppLocalizations.of(context)!;
+
   @override
   void initState() {
     super.initState();
@@ -271,8 +278,8 @@ class _FullScreenTextViewState extends State<_FullScreenTextView> {
       _isEditing = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('保存成功'),
+      SnackBar(
+        content: Text(_l10n.saveSuccess),
         backgroundColor: AppColors.success,
       ),
     );
@@ -331,7 +338,7 @@ class _FullScreenTextViewState extends State<_FullScreenTextView> {
                   fontSize: 16,
                 ),
                 decoration: InputDecoration(
-                  hintText: '输入内容...',
+                  hintText: _l10n.inputContent,
                   filled: true,
                   fillColor: Theme.of(context).colorScheme.surface,
                   border: OutlineInputBorder(

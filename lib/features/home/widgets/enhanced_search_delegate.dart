@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/record_model.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../records/providers/record_provider.dart';
 
 class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
@@ -46,6 +47,7 @@ class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
   }
 
   Widget _buildSearchResults(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Consumer(
       builder: (context, ref, child) {
         final allTagsAsync = ref.watch(allTagsProvider);
@@ -72,7 +74,7 @@ class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(
                             Icons.local_offer_outlined,
@@ -81,7 +83,7 @@ class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
                           ),
                           SizedBox(width: 6),
                           Text(
-                            '标签',
+                            l10n.tags,
                             style: TextStyle(
                               fontSize: 13,
                               color: AppColors.textSecondary,
@@ -200,7 +202,7 @@ class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            '未找到相关记录',
+                            l10n.noSearchResults,
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   color: AppColors.textSecondary,
                                 ),
@@ -214,13 +216,13 @@ class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
                     itemCount: records.length,
                     itemBuilder: (context, index) {
                       final record = records[index];
-                      return _SearchRecordCard(record: record);
+                      return _SearchRecordCard(record: record, l10n: l10n);
                     },
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => Center(
-                  child: Text('搜索失败: $error'),
+                  child: Text('${l10n.searchFailed}: $error'),
                 ),
               ),
             ),
@@ -233,8 +235,9 @@ class EnhancedRecordSearchDelegate extends SearchDelegate<List<String>> {
 
 class _SearchRecordCard extends StatelessWidget {
   final RecordModel record;
+  final AppLocalizations l10n;
 
-  const _SearchRecordCard({required this.record});
+  const _SearchRecordCard({required this.record, required this.l10n});
 
   @override
   Widget build(BuildContext context) {
@@ -267,7 +270,7 @@ class _SearchRecordCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                record.content ?? '暂无内容',
+                record.content ?? l10n.noContent,
                 style: Theme.of(context).textTheme.bodyLarge,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
@@ -333,15 +336,15 @@ class _SearchRecordCard extends StatelessWidget {
     switch (record.transcriptionStatus) {
       case TranscriptionStatus.pending:
         color = AppColors.warning;
-        text = '待转写';
+        text = l10n.statusPending;
         break;
       case TranscriptionStatus.processing:
         color = AppColors.info;
-        text = '转写中';
+        text = l10n.transcribing;
         break;
       case TranscriptionStatus.success:
         color = AppColors.success;
-        text = '已完成';
+        text = l10n.statusCompleted;
         break;
       case TranscriptionStatus.failed:
         color = AppColors.error;

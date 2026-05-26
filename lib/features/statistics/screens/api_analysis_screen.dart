@@ -2,64 +2,71 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/stats_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class ApiAnalysisScreen extends ConsumerWidget {
   const ApiAnalysisScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statsService = ref.watch(statsServiceProvider);
-    final stats = statsService.stats;
+    final l10n = AppLocalizations.of(context)!;
+    final statsAsync = ref.watch(statsServiceProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('API调用分析'),
+        title: Text(l10n.apiCallAnalysis),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildOverviewCards(context, stats),
-            const SizedBox(height: 24),
-            _buildApiCallsChart(context, stats),
-            const SizedBox(height: 24),
-            _buildToolUsageChart(context, stats),
-            const SizedBox(height: 24),
-            _buildDailyCallsChart(context, stats),
-          ],
+      body: statsAsync.when(
+        data: (stats) => SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              _buildOverviewCards(context, stats),
+              const SizedBox(height: 24),
+              _buildApiCallsChart(context, stats),
+              const SizedBox(height: 24),
+              _buildToolUsageChart(context, stats),
+              const SizedBox(height: 24),
+              _buildDailyCallsChart(context, stats),
+            ],
+          ),
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Text('${l10n.loadFailed}: $error'),
         ),
       ),
     );
   }
 
   Widget _buildOverviewCards(BuildContext context, UsageStats stats) {
-    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final cards = [
       _StatCard(
         icon: Icons.api,
-        label: '总调用次数',
+        label: l10n.totalCalls,
         value: stats.totalApiCalls.toString(),
         color: const Color(0xFF6366F1),
       ),
       _StatCard(
         icon: Icons.check_circle,
-        label: '成功率',
+        label: l10n.successRate,
         value: '${stats.apiSuccessRate.toStringAsFixed(1)}%',
         color: const Color(0xFF10B981),
       ),
       _StatCard(
         icon: Icons.text_fields,
-        label: '文本调用',
+        label: l10n.textCalls,
         value: stats.apiTextCalls.toString(),
         color: const Color(0xFF8B5CF6),
       ),
       _StatCard(
         icon: Icons.mic,
-        label: '语音调用',
+        label: l10n.voiceCalls,
         value: stats.apiVoiceCalls.toString(),
         color: const Color(0xFFEC4899),
       ),
@@ -77,6 +84,7 @@ class ApiAnalysisScreen extends ConsumerWidget {
   }
 
   Widget _buildApiCallsChart(BuildContext context, UsageStats stats) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return Card(
@@ -88,20 +96,20 @@ class ApiAnalysisScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'API调用类型分布',
+              l10n.apiCallTypeDistribution,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                _buildTypeBar('文本', stats.apiTextCalls, const Color(0xFF8B5CF6),
+                _buildTypeBar(l10n.text, stats.apiTextCalls, const Color(0xFF8B5CF6),
                     stats.totalApiCalls),
                 const SizedBox(width: 12),
-                _buildTypeBar('语音', stats.apiVoiceCalls,
+                _buildTypeBar(l10n.voice, stats.apiVoiceCalls,
                     const Color(0xFFEC4899), stats.totalApiCalls),
                 const SizedBox(width: 12),
-                _buildTypeBar('图片', stats.apiImageCalls,
+                _buildTypeBar(l10n.image, stats.apiImageCalls,
                     const Color(0xFFF59E0B), stats.totalApiCalls),
               ],
             ),
@@ -111,7 +119,7 @@ class ApiAnalysisScreen extends ConsumerWidget {
                 Expanded(
                   child: _ActivityItem(
                     icon: Icons.image,
-                    label: '图片调用',
+                    label: l10n.imageCalls,
                     value: stats.apiImageCalls.toString(),
                     color: const Color(0xFFF59E0B),
                   ),
@@ -120,7 +128,7 @@ class ApiAnalysisScreen extends ConsumerWidget {
                 Expanded(
                   child: _ActivityItem(
                     icon: Icons.cancel,
-                    label: '失败次数',
+                    label: l10n.failedCalls,
                     value: stats.apiFailedCalls.toString(),
                     color: const Color(0xFFEF4444),
                   ),
@@ -182,6 +190,7 @@ class ApiAnalysisScreen extends ConsumerWidget {
   }
 
   Widget _buildToolUsageChart(BuildContext context, UsageStats stats) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final toolUsage = stats.apiCallsByTool;
 
@@ -189,9 +198,9 @@ class ApiAnalysisScreen extends ConsumerWidget {
       return Card(
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(child: Text('暂无工具调用数据')),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(child: Text(l10n.noToolCallData)),
         ),
       );
     }
@@ -210,7 +219,7 @@ class ApiAnalysisScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '工具调用使用量',
+              l10n.toolCallUsage,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
@@ -258,7 +267,7 @@ class ApiAnalysisScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '还有 ${sortedTools.length - 10} 个工具...',
+                  l10n.moreTools(sortedTools.length - 10),
                   style: const TextStyle(
                       color: AppColors.textTertiary, fontSize: 12),
                 ),
@@ -302,6 +311,7 @@ class ApiAnalysisScreen extends ConsumerWidget {
   }
 
   Widget _buildDailyCallsChart(BuildContext context, UsageStats stats) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final dailyCalls = stats.apiCallsPerDay;
 
@@ -309,9 +319,9 @@ class ApiAnalysisScreen extends ConsumerWidget {
       return Card(
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(child: Text('暂无每日调用数据')),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(child: Text(l10n.noDailyCallData)),
         ),
       );
     }
@@ -332,7 +342,7 @@ class ApiAnalysisScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '近7天API调用趋势',
+              l10n.recent7DaysApiTrend,
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),

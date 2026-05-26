@@ -32,11 +32,11 @@ final tingwuServiceProvider = Provider<TingwuService>((ref) {
 
 final transcriptionServiceProvider = Provider<TranscriptionService>((ref) {
   final sharedClient = ref.read(sharedHttpClientProvider);
-  final statsService = ref.read(statsServiceProvider);
+  final statsService = ref.read(statsServiceProvider.notifier);
   final realtimeService = ref.read(realtimeTranscriptionServiceProvider);
   final tingwuService = ref.read(tingwuServiceProvider);
   return TranscriptionService(
-    httpClient: sharedClient, 
+    httpClient: sharedClient,
     statsService: statsService,
     realtimeTranscriptionService: realtimeService,
     tingwuService: tingwuService,
@@ -46,7 +46,7 @@ final transcriptionServiceProvider = Provider<TranscriptionService>((ref) {
 class TranscriptionService {
   final HttpClient _httpClient;
   final AudioProcessor _audioProcessor;
-  final StatsService? _statsService;
+  final StatsNotifier? _statsService;
   final RealtimeTranscriptionService _realtimeTranscriptionService;
   TingwuService? _tingwuService;
 
@@ -75,7 +75,7 @@ class TranscriptionService {
   TranscriptionService({
     HttpClient? httpClient,
     AudioProcessor? audioProcessor,
-    StatsService? statsService,
+    StatsNotifier? statsService,
     RealtimeTranscriptionService? realtimeTranscriptionService,
     TingwuService? tingwuService,
   })  : _httpClient = httpClient ?? HttpClient(),

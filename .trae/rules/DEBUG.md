@@ -56,7 +56,10 @@ flutter devices
 
 ### 运行 Debug 版本
 
+⚠️ `flutter run` 是持续运行命令，不适合自动化脚本。需要手动 Ctrl+C 停止。
+
 ```bash
+# ⚠️ 持续运行命令，不适合自动化脚本。需要手动 Ctrl+C 停止
 # 选择设备运行
 flutter run -d <device-id>
 
@@ -69,7 +72,10 @@ flutter run
 
 ### 运行 Release 版本
 
+⚠️ `flutter run --release` 是持续运行命令，不适合自动化脚本。需要手动 Ctrl+C 停止。
+
 ```bash
+# ⚠️ 持续运行命令，不适合自动化脚本。需要手动 Ctrl+C 停止
 flutter run --release
 ```
 
@@ -113,6 +119,8 @@ flutter hotrestart
 
 ### flutter logs
 
+⚠️ 持续输出命令，自动化场景请使用 `adb logcat -d`
+
 ```bash
 # 查看 Android 日志
 flutter logs
@@ -127,11 +135,11 @@ flutter logs -d <device-id>
 # 进入 adb
 adb shell
 
-# 查看 Flutter 日志
-logcat -s flutter
+# 查看 Flutter 日志（dump 模式，输出后退出）
+logcat -d -s flutter
 
-# 查看所有日志
-logcat
+# 查看所有日志（dump 模式，输出后退出）
+logcat -d
 
 # 过滤某个 tag
 logcat -s myapp
@@ -207,7 +215,7 @@ adb start-server
 flutter logs
 
 # 2. 用 adb 查看更详细的 crash 日志
-adb logcat | grep -i crash
+adb logcat -d | grep -i crash
 ```
 
 ### 热重载不生效
@@ -275,6 +283,85 @@ flutter build apk --analyze-size
 
 ---
 
+## 服务器端问题排查（Admin 后台）
+
+> **优先使用 Chrome DevTools MCP** → 详见 [PLAYWRIGHT_E2E.md](PLAYWRIGHT_E2E.md)
+
+### 使用 Chrome DevTools MCP 快速诊断
+
+```
+1. 打开 admin 面板并截图
+   mcp_Chrome_DevTools_MCP_navigate_page(type="url", url="http://101.133.238.249/admin/dashboard")
+   mcp_Chrome_DevTools_MCP_take_screenshot(fullPage=true)
+
+2. 检查控制台错误
+   mcp_Chrome_DevTools_MCP_list_console_messages(types=["error"])
+
+3. 检查 API 请求是否正常
+   mcp_Chrome_DevTools_MCP_list_network_requests(resourceTypes=["xhr", "fetch"])
+
+4. 如果是按钮问题，按 PLAYWRIGHT_E2E.md 的按钮排查 SOP 执行
+```
+
+### 服务器端配置排查（传统方式）
+
+1. **检查路由配置**
+   ```bash
+   # 查看 next.config.js
+   cat admin/next.config.js
+   ```
+   - 确认 `trailingSlash: true` 配置
+   - 确认部署的代码版本与配置一致
+
+2. **检查 Nginx 配置**
+   ```bash
+   cat /etc/nginx/sites-available/admin
+   ```
+   - 确保配置支持带斜杠的 URL
+   - 添加缓存控制头防止旧代码缓存
+
+3. **验证 API 连接**
+   ```bash
+   curl --connect-timeout 5 --max-time 10 http://101.133.238.249/api/v1/auth/me
+   ```
+
+4. **使用 Playwright 测试验证**
+   ```bash
+   npx playwright test --timeout=60000
+   ```
+
+**解决方案**：
+
+```nginx
+# Nginx 配置示例
+server {
+    listen 80;
+    server_name _;
+    root /var/www/html/admin;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ $uri.html /index.html;
+        add_header Cache-Control no-cache;
+    }
+
+    location /_next/ {
+        expires 1y;
+        add_header Cache-Control public;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000;
+    }
+}
+```
+
+**根本原因**：
+- 前端配置了 `trailingSlash: true`，但服务器部署的是旧版本代码
+- 缓存导致浏览器使用过期的 JavaScript 代码
+
+---
+
 ## 总结
 
 | 操作 | 命令 |
@@ -289,3 +376,11 @@ flutter build apk --analyze-size
 ---
 
 *开发时多使用热重载，发布前用 Release 测试。*
+
+---
+
+## 更新记录
+
+| 日期 | 更新内容 |
+|-----|---------|
+| 2026-05-25 | 安全修复：flutter run/logs/logcat 标注持续运行命令；adb logcat 改为 -d dump 模式；curl 加超时；playwright 加 --timeout |

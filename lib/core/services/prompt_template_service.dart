@@ -233,7 +233,7 @@ class PromptTemplateService {
     await incrementUseCount(templateId);
 
     final prompt = template.template.replaceAll('{{content}}', content);
-    final apiService = ref.read(apiServiceProvider);
+    final apiService = ApiService();
 
     final response = await apiService.chatCompletionWithSystem(
       prompt,

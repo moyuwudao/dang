@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../models/tool_template.dart';
 
 class TemplateSelector extends StatelessWidget {
@@ -16,6 +17,7 @@ class TemplateSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -23,9 +25,9 @@ class TemplateSelector extends StatelessWidget {
           children: [
             const Icon(Icons.auto_fix_high, color: AppColors.primary, size: 18),
             const SizedBox(width: 8),
-            const Text(
-              '选择模板',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              l10n.selectTemplate,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             if (selectedTemplate != null)
@@ -82,6 +84,7 @@ class _TemplateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -124,9 +127,9 @@ class _TemplateCard extends StatelessWidget {
                       color: AppColors.secondary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
-                      '内置',
-                      style: TextStyle(fontSize: 9, color: AppColors.secondary),
+                    child: Text(
+                      l10n.builtIn,
+                      style: const TextStyle(fontSize: 9, color: AppColors.secondary),
                     ),
                   ),
               ],
@@ -144,13 +147,13 @@ class _TemplateCard extends StatelessWidget {
             ),
             const Spacer(),
             if (isSelected)
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.check_circle, size: 14, color: AppColors.primary),
-                  SizedBox(width: 4),
+                  const Icon(Icons.check_circle, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 4),
                   Text(
-                    '已选择',
-                    style: TextStyle(fontSize: 11, color: AppColors.primary),
+                    l10n.selected,
+                    style: const TextStyle(fontSize: 11, color: AppColors.primary),
                   ),
                 ],
               ),

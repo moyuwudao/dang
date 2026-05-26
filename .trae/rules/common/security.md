@@ -58,7 +58,7 @@ Before ANY commit:
 
 - Enforce HTTPS for all external communication
 - Validate SSL certificates
-- Set request timeouts
+- Set request timeouts (e.g., `connectTimeout: 10s, receiveTimeout: 30s`)
 - Implement retry with backoff
 - Consider certificate pinning for high-security apps
 

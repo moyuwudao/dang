@@ -5,6 +5,8 @@ import { Subscription } from './entities/subscription.entity';
 import { Plan } from './entities/plan.entity';
 import { UserBalance } from './entities/user-balance.entity';
 import { RechargeRecord } from './entities/recharge-record.entity';
+import { PlanApiPolicy } from './entities/plan-api-policy.entity';
+import { ApiUsageLog } from './entities/api-usage-log.entity';
 import { CreatePlanDto, RechargeDto, RefundDto } from './dto';
 
 @Injectable()
@@ -18,6 +20,10 @@ export class SubscriptionService {
     private userBalanceRepository: Repository<UserBalance>,
     @InjectRepository(RechargeRecord)
     private rechargeRecordRepository: Repository<RechargeRecord>,
+    @InjectRepository(PlanApiPolicy)
+    private planApiPolicyRepository: Repository<PlanApiPolicy>,
+    @InjectRepository(ApiUsageLog)
+    private apiUsageLogRepository: Repository<ApiUsageLog>,
   ) {}
 
   async getSubscription(userId: string) {
@@ -367,5 +373,149 @@ export class SubscriptionService {
       });
       await this.userBalanceRepository.save(userBalance);
     }
+  }
+
+  // 获取套餐的API策略
+  async getPlanApiPolicies(planId: string) {
+    return this.planApiPolicyRepository.find({
+      where: { planId },
+    });
+  }
+
+  // 创建或更新套餐API策略
+  async setPlanApiPolicy(planId: string, provider: string, multiplier: number, modelPattern?: string) {
+    let policy = await this.planApiPolicyRepository.findOne({
+      where: { planId, provider },
+    });
+
+    if (policy) {
+      policy.multiplier = multiplier;
+      if (modelPattern) policy.modelPattern = modelPattern;
+    } else {
+      policy = this.planApiPolicyRepository.create({
+        planId,
+        provider,
+        multiplier,
+        modelPattern,
+        isAllowed: true,
+      });
+    }
+
+    return this.planApiPolicyRepository.save(policy);
+  }
+
+  // 计算API调用应消耗的配额
+  async calculateQuotaConsumption(userId: string, provider: string, model: string): Promise<number> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { userId, status: 'active' },
+      order: { expiresAt: 'DESC' },
+    });
+
+    if (!subscription) {
+      return 1; // 免费用户默认消耗1单位
+    }
+
+    const policies = await this.planApiPolicyRepository.find({
+      where: { planId: subscription.planId },
+    });
+
+    // 查找匹配的策略
+    const policy = policies.find(p => {
+      if (p.provider !== provider && p.provider !== 'all') return false;
+      if (!p.modelPattern) return true;
+      // 简单的通配符匹配
+      const pattern = p.modelPattern.replace('*', '.*');
+      const regex = new RegExp(`^${pattern}$`);
+      return regex.test(model);
+    });
+
+    return policy ? policy.multiplier : 1;
+  }
+
+  // 使用配额（带API差异化计算）
+  async consumeQuotaWithApi(userId: string, provider: string, model: string, tokens?: { prompt: number; completion: number }) {
+    const multiplier = await this.calculateQuotaConsumption(userId, provider, model);
+    const consumed = Math.ceil(multiplier);
+
+    // 记录使用日志
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { userId, status: 'active' },
+      order: { expiresAt: 'DESC' },
+    });
+
+    const log = this.apiUsageLogRepository.create({
+      userId,
+      subscriptionId: subscription?.id,
+      provider,
+      model,
+      promptTokens: tokens?.prompt || 0,
+      completionTokens: tokens?.completion || 0,
+      quotaConsumed: consumed,
+    });
+    await this.apiUsageLogRepository.save(log);
+
+    // 更新订阅配额
+    if (subscription) {
+      subscription.usedQuota += consumed;
+      subscription.balanceQuota = Math.max(0, subscription.totalQuota - subscription.usedQuota);
+      await this.subscriptionRepository.save(subscription);
+    }
+
+    return {
+      consumed,
+      multiplier,
+      remaining: subscription ? subscription.balanceQuota : 0,
+    };
+  }
+
+  // 检查用户是否有权限使用特定API
+  async canUseApi(userId: string, provider: string, model: string): Promise<{ allowed: boolean; reason?: string }> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { userId, status: 'active' },
+      order: { expiresAt: 'DESC' },
+    });
+
+    if (!subscription) {
+      // 免费用户只允许使用国产API
+      const domesticProviders = ['qwen', 'deepseek'];
+      if (!domesticProviders.includes(provider)) {
+        return { allowed: false, reason: '免费用户仅可使用国产API，请升级套餐' };
+      }
+      return { allowed: true };
+    }
+
+    // 检查套餐是否过期
+    if (new Date() > subscription.expiresAt) {
+      return { allowed: false, reason: '套餐已过期，请续费' };
+    }
+
+    // 检查配额
+    if (subscription.balanceQuota <= 0) {
+      return { allowed: false, reason: '配额已用完，请充值或升级套餐' };
+    }
+
+    // 检查API策略
+    const policies = await this.planApiPolicyRepository.find({
+      where: { planId: subscription.planId },
+    });
+
+    if (policies.length === 0) {
+      return { allowed: true }; // 没有策略限制，允许使用
+    }
+
+    const allowed = policies.some(p => {
+      if (p.provider === 'all') return true;
+      if (p.provider !== provider) return false;
+      if (!p.modelPattern) return p.isAllowed;
+      const pattern = p.modelPattern.replace('*', '.*');
+      const regex = new RegExp(`^${pattern}$`);
+      return regex.test(model) && p.isAllowed;
+    });
+
+    if (!allowed) {
+      return { allowed: false, reason: '当前套餐不支持使用该API，请升级套餐' };
+    }
+
+    return { allowed: true };
   }
 }

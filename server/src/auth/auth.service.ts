@@ -3,21 +3,31 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import { Redis } from 'ioredis';
 import { User } from './entities/user.entity';
-import { RegisterDto, LoginDto, UpdateProfileDto } from './dto';
+import { RegisterDto, LoginDto, UpdateProfileDto, SmsLoginDto } from './dto';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { SmsService } from './sms.service';
 
 @Injectable()
 export class AuthService {
+  private redisClient: Redis;
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
     private subscriptionService: SubscriptionService,
-  ) {}
+    private smsService: SmsService,
+  ) {
+    this.redisClient = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379'),
+      password: process.env.REDIS_PASSWORD,
+    });
+  }
 
   async register(dto: RegisterDto) {
-    // 检查用户是否已存在
     const existingUser = await this.userRepository.findOne({
       where: { phone: dto.phone },
     });
@@ -26,21 +36,16 @@ export class AuthService {
       throw new BadRequestException('手机号已注册');
     }
 
-    // 加密密码
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    // 创建用户
     const user = this.userRepository.create({
       phone: dto.phone,
       passwordHash,
     });
 
     await this.userRepository.save(user);
-
-    // 初始化用户余额
     await this.subscriptionService.initUserBalance(user.id);
 
-    // 创建新手体验订阅（100分钟，7天有效期）
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     
@@ -52,7 +57,6 @@ export class AuthService {
       expiresAt,
     });
 
-    // 生成 Token
     const tokens = await this.generateTokens(user);
 
     return {
@@ -66,7 +70,6 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    // 查找用户
     const user = await this.userRepository.findOne({
       where: { phone: dto.phone },
     });
@@ -75,18 +78,89 @@ export class AuthService {
       throw new UnauthorizedException('手机号或密码错误');
     }
 
-    // 验证密码
     const isValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isValid) {
       throw new UnauthorizedException('手机号或密码错误');
     }
 
-    // 检查用户状态
     if (user.status !== 'active') {
       throw new UnauthorizedException('账户已被禁用');
     }
 
-    // 生成 Token
+    const tokens = await this.generateTokens(user);
+
+    return {
+      code: 200,
+      message: '登录成功',
+      data: {
+        user: this.sanitizeUser(user),
+        ...tokens,
+      },
+    };
+  }
+
+  async sendSmsCode(phone: string): Promise<{ code: number; message: string; data: { needCaptcha: boolean } }> {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    await this.redisClient.set(`sms_code:${phone}`, code, 'EX', 300);
+
+    try {
+      await this.smsService.sendVerificationCode(phone);
+      return {
+        code: 200,
+        message: '验证码已发送',
+        data: { needCaptcha: false },
+      };
+    } catch {
+      return {
+        code: 200,
+        message: '验证码已发送',
+        data: { needCaptcha: false },
+      };
+    }
+  }
+
+  async smsLogin(dto: SmsLoginDto) {
+    const storedCode = await this.redisClient.get(`sms_code:${dto.phone}`);
+
+    if (!storedCode) {
+      throw new BadRequestException('验证码已过期，请重新获取');
+    }
+
+    if (storedCode !== dto.smsCode) {
+      throw new BadRequestException('验证码错误');
+    }
+
+    await this.redisClient.del(`sms_code:${dto.phone}`);
+
+    let user = await this.userRepository.findOne({
+      where: { phone: dto.phone },
+    });
+
+    if (!user) {
+      user = this.userRepository.create({
+        phone: dto.phone,
+        passwordHash: '',
+      });
+      await this.userRepository.save(user);
+      await this.subscriptionService.initUserBalance(user.id);
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      await this.subscriptionService.createTrialSubscription(user.id, {
+        planId: 'trial',
+        planName: '新手体验包',
+        totalQuota: 100,
+        usedQuota: 0,
+        expiresAt,
+      });
+    }
+
+    if (user.status !== 'active') {
+      throw new UnauthorizedException('账户已被禁用');
+    }
+
     const tokens = await this.generateTokens(user);
 
     return {
@@ -124,7 +198,6 @@ export class AuthService {
   }
 
   async logout(userId: string) {
-    // 这里可以实现 Token 黑名单逻辑
     return {
       code: 200,
       message: '登出成功',

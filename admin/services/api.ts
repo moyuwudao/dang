@@ -93,6 +93,16 @@ export const subscriptionAPI = {
     );
     return response.data.data;
   },
+
+  getPlanApiPolicies: async (planId: string): Promise<any[]> => {
+    const response = await axiosInstance.get<ApiResponse<any[]>>(`/subscription/plans/${planId}/policies`);
+    return response.data.data;
+  },
+
+  setPlanApiPolicy: async (planId: string, policy: { provider: string; multiplier: number; modelPattern?: string }): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>(`/subscription/plans/${planId}/policies`, policy);
+    return response.data.data;
+  },
 };
 
 export const apiKeyAPI = {

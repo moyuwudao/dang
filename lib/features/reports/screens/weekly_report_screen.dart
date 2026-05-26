@@ -8,6 +8,7 @@ import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class WeeklyReportScreen extends ConsumerStatefulWidget {
   const WeeklyReportScreen({super.key});
@@ -25,6 +26,7 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
   );
   List<SavedReport> _savedReports = [];
   bool _isLoadingSaved = true;
+  late AppLocalizations _l10n;
 
   @override
   void initState() {
@@ -44,11 +46,12 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('智能周报'),
+        title: Text(_l10n.smartWeeklyReport),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -68,7 +71,7 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.auto_awesome),
-                label: Text(_isGenerating ? '生成中...' : '生成周报'),
+                label: Text(_isGenerating ? _l10n.generating : _l10n.generateWeeklyReport),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -107,11 +110,11 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('时间范围',
+                    Text(_l10n.timeRange,
                         style: TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 14)),
                     const SizedBox(height: 4),
-                    Text('$startStr - $endStr（${_dateRange.duration.inDays}天）',
+                    Text('$startStr - $endStr（${_dateRange.duration.inDays}${_l10n.days}）',
                         style: TextStyle(
                             color: AppColors.textSecondary, fontSize: 13)),
                   ],
@@ -133,23 +136,23 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
           children: [
             const Icon(Icons.description, color: AppColors.primary, size: 18),
             const SizedBox(width: 8),
-            const Text('周报内容',
+            Text(_l10n.weeklyReportContent,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const Spacer(),
             IconButton(
               icon: const Icon(Icons.save_outlined, size: 20),
               onPressed: _saveReport,
-              tooltip: '保存',
+              tooltip: _l10n.saveButton,
             ),
             IconButton(
               icon: const Icon(Icons.share_outlined, size: 20),
               onPressed: _shareReport,
-              tooltip: '分享',
+              tooltip: _l10n.share,
             ),
             IconButton(
               icon: const Icon(Icons.copy, size: 20),
               onPressed: _copyReport,
-              tooltip: '复制',
+              tooltip: _l10n.copy,
             ),
           ],
         ),
@@ -179,10 +182,10 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
             Icon(Icons.summarize_outlined,
                 size: 64, color: AppColors.textTertiary),
             const SizedBox(height: 16),
-            Text('选择时间范围，一键生成周报',
+            Text(_l10n.selectDateRangeToGenerateReport,
                 style: TextStyle(color: AppColors.textTertiary, fontSize: 16)),
             const SizedBox(height: 8),
-            Text('AI将自动汇总该时间段内的所有记录',
+            Text(_l10n.aiWillSummarizeRecords,
                 style: TextStyle(color: AppColors.textTertiary, fontSize: 13)),
           ],
         ),
@@ -210,8 +213,8 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
       if (apiConfig == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('请先配置API Key'), backgroundColor: AppColors.error),
+            SnackBar(
+                content: Text(_l10n.pleaseConfigureApiKey), backgroundColor: AppColors.error),
           );
         }
         return;
@@ -229,8 +232,8 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
       if (filteredRecords.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('该时间段内没有记录'), backgroundColor: AppColors.warning),
+            SnackBar(
+                content: Text(_l10n.noRecordsInTimeRange), backgroundColor: AppColors.warning),
           );
         }
         return;
@@ -355,7 +358,7 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
 请详细、结构化，适合存档和复盘。''';
       }
 
-      final apiService = ref.read(apiServiceProvider);
+      final apiService = ApiService();
       final report = await apiService.chatCompletionWithSystem(
         buffer.toString(),
         systemPrompt: systemPrompt,
@@ -367,7 +370,7 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('生成失败: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text('${_l10n.generationFailed}: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -382,28 +385,28 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
 
     final nameController = TextEditingController(
       text:
-          '${_dateRange.start.month}月${_dateRange.start.day}日-${_dateRange.end.month}月${_dateRange.end.day}日周报',
+          '${_dateRange.start.month}${_l10n.month}${_dateRange.start.day}${_l10n.day}-${_dateRange.end.month}${_l10n.month}${_dateRange.end.day}${_l10n.day}${_l10n.weeklyReport}',
     );
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('保存周报'),
+        title: Text(_l10n.saveWeeklyReport),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(
-            labelText: '周报名称',
-            hintText: '输入周报名称',
+          decoration: InputDecoration(
+            labelText: _l10n.reportName,
+            hintText: _l10n.inputReportName,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(_l10n.cancelButton),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('保存'),
+            child: Text(_l10n.saveButton),
           ),
         ],
       ),
@@ -422,8 +425,8 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
       await _loadSavedReports();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('周报已保存'), backgroundColor: AppColors.success),
+          SnackBar(
+              content: Text(_l10n.weeklyReportSaved), backgroundColor: AppColors.success),
         );
       }
     }
@@ -433,13 +436,13 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
     if (_reportContent.isEmpty) return;
 
     final shareText =
-        '''${_dateRange.start.month}月${_dateRange.start.day}日-${_dateRange.end.month}月${_dateRange.end.day}日 周报
+        '''${_dateRange.start.month}${_l10n.month}${_dateRange.start.day}${_l10n.day}-${_dateRange.end.month}${_l10n.month}${_dateRange.end.day}${_l10n.day} ${_l10n.weeklyReport}
 
 $_reportContent
 
-来自畅记 App''';
+${_l10n.fromAppName(_l10n.appName)}''';
 
-    Share.share(shareText, subject: '智能周报');
+    Share.share(shareText, subject: _l10n.smartWeeklyReport);
   }
 
   Future<void> _copyReport() async {
@@ -447,8 +450,8 @@ $_reportContent
     await Clipboard.setData(ClipboardData(text: _reportContent));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('已复制到剪贴板'), backgroundColor: AppColors.success),
+        SnackBar(
+            content: Text(_l10n.copiedToClipboard), backgroundColor: AppColors.success),
       );
     }
   }
@@ -465,10 +468,10 @@ $_reportContent
           children: [
             const Icon(Icons.folder_open, color: AppColors.primary, size: 18),
             const SizedBox(width: 8),
-            const Text('已保存的周报',
+            Text(_l10n.savedWeeklyReports,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const Spacer(),
-            Text('${_savedReports.length} 份',
+            Text('${_savedReports.length} ${_l10n.reports}',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
           ],
         ),
@@ -481,7 +484,7 @@ $_reportContent
               color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('暂无保存的周报',
+            child: Text(_l10n.noSavedReports,
                 style: TextStyle(color: AppColors.textSecondary)),
           )
         else
@@ -550,7 +553,7 @@ $_reportContent
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+            child: Text(_l10n.close),
           ),
           TextButton(
             onPressed: () {
@@ -561,20 +564,20 @@ ${report.content}
 来自畅记 App''';
               Share.share(shareText, subject: report.title);
             },
-            child: const Text('分享'),
+            child: Text(_l10n.share),
           ),
           TextButton(
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: report.content));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('已复制到剪贴板'),
+                  SnackBar(
+                      content: Text(_l10n.copiedToClipboard),
                       backgroundColor: AppColors.success),
                 );
               }
             },
-            child: const Text('复制'),
+            child: Text(_l10n.copy),
           ),
         ],
       ),
@@ -586,8 +589,8 @@ ${report.content}
     await _loadSavedReports();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('已删除'), backgroundColor: AppColors.success),
+        SnackBar(
+            content: Text(_l10n.deleted), backgroundColor: AppColors.success),
       );
     }
   }

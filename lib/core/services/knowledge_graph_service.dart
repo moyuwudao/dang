@@ -94,7 +94,7 @@ class KnowledgeGraphService {
   }
 
   Future<List<Keyword>> extractKeywords(String content) async {
-    final apiService = ref.read(apiServiceProvider);
+    final apiService = ApiService();
 
     final prompt = '''
 请从以下文本中提取关键词，按照重要性排序：

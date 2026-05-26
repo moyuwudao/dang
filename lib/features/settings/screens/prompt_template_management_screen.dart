@@ -2,13 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/prompt_template_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/expandable_text_field.dart';
-
-final templateListProvider = FutureProvider<List<PromptTemplate>>((ref) async {
-  final service = ref.read(promptTemplateServiceProvider);
-  await service.initialize();
-  return service.getAllTemplates();
-});
+import '../../../l10n/generated/app_localizations.dart';
 
 class PromptTemplateManagementScreen extends ConsumerStatefulWidget {
   const PromptTemplateManagementScreen({super.key});
@@ -20,472 +14,325 @@ class PromptTemplateManagementScreen extends ConsumerStatefulWidget {
 
 class _PromptTemplateManagementScreenState
     extends ConsumerState<PromptTemplateManagementScreen> {
-  String _selectedCategory = 'all';
+  List<PromptTemplate> _templates = [];
+  bool _isLoading = true;
 
-  static const _categoryConfig = {
-    'all': {'label': '全部', 'icon': Icons.apps},
-    'solopreneur': {'label': '一人公司', 'icon': Icons.person},
-    'business': {'label': '商业', 'icon': Icons.business_center},
-    'productivity': {'label': '效率', 'icon': Icons.speed},
-    'creative': {'label': '创意', 'icon': Icons.palette},
-    'learning': {'label': '学习', 'icon': Icons.school},
-    'life': {'label': '生活', 'icon': Icons.favorite},
-    'fun': {'label': '趣味', 'icon': Icons.emoji_emotions},
-    'general': {'label': '通用', 'icon': Icons.category},
-  };
+  @override
+  void initState() {
+    super.initState();
+    _loadTemplates();
+  }
+
+  Future<void> _loadTemplates() async {
+    final service = ref.read(promptTemplateServiceProvider);
+    await service.initialize();
+    setState(() {
+      _templates = service.getAllTemplates();
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final templatesAsync = ref.watch(templateListProvider);
-
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prompt模板管理'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _showTemplateEditor(context),
-          ),
-        ],
+        title: Text(l10n.promptTemplateManagement),
       ),
-      body: Column(
-        children: [
-          _buildCategoryTabs(theme),
-          Expanded(
-            child: templatesAsync.when(
-              data: (templates) {
-                final filtered = _selectedCategory == 'all'
-                    ? templates
-                    : templates
-                        .where((t) => t.category == _selectedCategory)
-                        .toList();
-                if (filtered.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.description_outlined,
-                            size: 64, color: AppColors.textTertiary),
-                        SizedBox(height: 16),
-                        Text('暂无模板',
-                            style: TextStyle(
-                                color: AppColors.textTertiary, fontSize: 16)),
-                        SizedBox(height: 8),
-                        Text('点击右上角 + 创建新模板',
-                            style: TextStyle(
-                                color: AppColors.textTertiary, fontSize: 13)),
-                      ],
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) =>
-                      _buildTemplateCard(filtered[index]),
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('加载失败: $e')),
-            ),
-          ),
-        ],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _templates.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _templates.length,
+                  itemBuilder: (context, index) {
+                    final template = _templates[index];
+                    return _buildTemplateCard(template);
+                  },
+                ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddTemplateDialog(),
+        child: const Icon(Icons.add),
       ),
     );
   }
 
-  Widget _buildCategoryTabs(ThemeData theme) {
-    return SizedBox(
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: _categoryConfig.entries.map((entry) {
-          final isSelected = _selectedCategory == entry.key;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              avatar: Icon(entry.value['icon'] as IconData, size: 16),
-              label: Text(entry.value['label'] as String),
-              selected: isSelected,
-              onSelected: (_) => setState(() => _selectedCategory = entry.key),
+  Widget _buildEmptyState() {
+    final l10n = AppLocalizations.of(context)!;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            l10n.noPromptTemplates,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
             ),
-          );
-        }).toList(),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.addPromptTemplateHint,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[400],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTemplateCard(PromptTemplate template) {
-    final categoryLabel =
-        _categoryConfig[template.category]?['label'] as String? ??
-            template.category;
-
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _showTemplateDetail(context, template),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Text(
-                          template.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 15),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: template.isBuiltIn
-                                ? AppColors.info.withOpacity(0.1)
-                                : AppColors.success.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            template.isBuiltIn ? '内置' : '自定义',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: template.isBuiltIn
-                                  ? AppColors.info
-                                  : AppColors.success,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            categoryLabel,
-                            style: const TextStyle(
-                                fontSize: 10, color: AppColors.primary),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!template.isBuiltIn)
-                    PopupMenuButton<String>(
-                      onSelected: (action) {
-                        if (action == 'edit') {
-                          _showTemplateEditor(context, template: template);
-                        } else if (action == 'delete') {
-                          _confirmDelete(template);
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'edit', child: Text('编辑')),
-                        const PopupMenuItem(value: 'delete', child: Text('删除')),
-                      ],
-                    ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                template.description,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                template.template.length > 80
-                    ? '${template.template.substring(0, 80)}...'
-                    : template.template,
-                style: const TextStyle(
-                    fontSize: 12, color: AppColors.textTertiary),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+      child: ListTile(
+        leading: Icon(
+          _getCategoryIcon(template.category),
+          color: AppColors.primary,
         ),
-      ),
-    );
-  }
-
-  void _showTemplateDetail(BuildContext context, PromptTemplate template) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(template.name,
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(template.description,
-                  style: const TextStyle(color: AppColors.textSecondary)),
-              const SizedBox(height: 16),
-              const Text('模板内容',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              const SizedBox(height: 8),
+        title: Text(template.name),
+        subtitle: Text(
+          template.description,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (template.isBuiltIn)
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
+                  color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: SelectableText(
-                  template.template,
-                  style: const TextStyle(fontSize: 13, height: 1.6),
+                child: Text(
+                  l10n.defaultTemplate,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
-              if (!template.isBuiltIn) ...[
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _showTemplateEditor(context, template: template);
-                        },
-                        icon: const Icon(Icons.edit, size: 18),
-                        label: const Text('编辑'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _confirmDelete(template);
-                        },
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        label: const Text('删除'),
-                        style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.error),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: () => _showEditTemplateDialog(template),
+            ),
+            if (!template.isBuiltIn)
+              IconButton(
+                icon: const Icon(Icons.delete, size: 20, color: AppColors.error),
+                onPressed: () => _showDeleteConfirm(template),
+              ),
+          ],
         ),
+        onTap: () => _showEditTemplateDialog(template),
       ),
     );
   }
 
-  void _showTemplateEditor(BuildContext context, {PromptTemplate? template}) {
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'analysis':
+        return Icons.psychology;
+      case 'summary':
+        return Icons.summarize;
+      case 'chat':
+        return Icons.chat;
+      case 'custom':
+        return Icons.tune;
+      default:
+        return Icons.description;
+    }
+  }
+
+  void _showAddTemplateDialog() {
+    _showTemplateDialog();
+  }
+
+  void _showEditTemplateDialog(PromptTemplate template) {
+    _showTemplateDialog(template: template);
+  }
+
+  void _showTemplateDialog({PromptTemplate? template}) {
+    final l10n = AppLocalizations.of(context)!;
     final isEditing = template != null;
     final nameController = TextEditingController(text: template?.name ?? '');
-    final descController =
+    final descriptionController =
         TextEditingController(text: template?.description ?? '');
-    final contentController =
-        TextEditingController(text: template?.template ?? '');
-    String selectedCategory = template?.category ?? 'solopreneur';
+    final promptController = TextEditingController(text: template?.template ?? '');
+    String selectedCategory = template?.category ?? 'custom';
 
-    showModalBottomSheet(
+    final categories = [
+      _CategoryOption('analysis', l10n.analysis, Icons.psychology),
+      _CategoryOption('summary', l10n.summary, Icons.summarize),
+      _CategoryOption('chat', l10n.chat, Icons.chat),
+      _CategoryOption('custom', l10n.custom, Icons.tune),
+    ];
+
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-          ),
-          child: SingleChildScrollView(
+        builder: (context, setState) => AlertDialog(
+          title: Text(isEditing ? l10n.editPromptTemplate : l10n.addPromptTemplate),
+          content: SingleChildScrollView(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  isEditing ? '编辑模板' : '创建新模板',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 20),
                 TextField(
                   controller: nameController,
                   decoration: InputDecoration(
-                    labelText: '模板名称',
-                    hintText: '如：客户沟通复盘',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    labelText: l10n.templateName,
+                    hintText: l10n.templateNameHint,
                   ),
                 ),
-                const SizedBox(height: 12),
-                ExpandableTextField(
-                  controller: descController,
-                  labelText: '简短描述',
-                  hintText: '一句话描述模板用途',
-                  minLines: 2,
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedCategory,
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
                   decoration: InputDecoration(
-                    labelText: '分类',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    labelText: l10n.templateDescription,
+                    hintText: l10n.templateDescriptionHint,
                   ),
-                  items: _categoryConfig.entries
-                      .where((e) => e.key != 'all')
-                      .map((e) => DropdownMenuItem(
-                            value: e.key,
-                            child: Row(
-                              children: [
-                                Icon(e.value['icon'] as IconData, size: 16),
-                                const SizedBox(width: 8),
-                                Text(e.value['label'] as String),
-                              ],
-                            ),
-                          ))
-                      .toList(),
-                  onChanged: (v) => setModalState(() => selectedCategory = v!),
+                  maxLines: 2,
                 ),
-                const SizedBox(height: 12),
-                ExpandableTextField(
-                  controller: contentController,
-                  labelText: '模板内容',
-                  hintText: '使用 {{content}} 作为内容占位符',
-                  minLines: 5,
-                  maxLines: 10,
+                const SizedBox(height: 16),
+                Text(
+                  l10n.category,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  '提示：使用 {{content}} 表示用户录音/笔记内容的位置',
-                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: categories.map((cat) {
+                    final isSelected = selectedCategory == cat.value;
+                    return ChoiceChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(cat.icon, size: 16),
+                          const SizedBox(width: 4),
+                          Text(cat.label),
+                        ],
+                      ),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() => selectedCategory = cat.value);
+                        }
+                      },
+                    );
+                  }).toList(),
                 ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (nameController.text.isEmpty ||
-                          contentController.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('请填写模板名称和内容')),
-                        );
-                        return;
-                      }
-                      final service = ref.read(promptTemplateServiceProvider);
-                      final now = DateTime.now();
-                      final newTemplate = PromptTemplate(
-                        id: isEditing
-                            ? template.id
-                            : 'custom_${now.millisecondsSinceEpoch}',
-                        name: nameController.text,
-                        description: descController.text,
-                        template: contentController.text,
-                        category: selectedCategory,
-                        isBuiltIn: false,
-                        createdAt: isEditing ? template.createdAt : now,
-                        updatedAt: now,
-                      );
-                      if (isEditing) {
-                        service.updateTemplate(newTemplate);
-                      } else {
-                        service.addTemplate(newTemplate);
-                      }
-                      ref.invalidate(templateListProvider);
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(isEditing ? '模板已更新' : '模板已创建')),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(isEditing ? '保存修改' : '创建模板'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: promptController,
+                  decoration: InputDecoration(
+                    labelText: l10n.promptContent,
+                    hintText: l10n.promptContentHint,
+                    alignLabelWithHint: true,
                   ),
+                  maxLines: 5,
                 ),
               ],
             ),
           ),
+          actions: [
+            if (isEditing && !template.isBuiltIn)
+              TextButton(
+                onPressed: () async {
+                  final service = ref.read(promptTemplateServiceProvider);
+                  await service.deleteTemplate(template.id);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    _loadTemplates();
+                  }
+                },
+                style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                child: Text(l10n.deleteButton),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.cancel),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.templateNameRequired)),
+                  );
+                  return;
+                }
+
+                final service = ref.read(promptTemplateServiceProvider);
+                final newTemplate = PromptTemplate(
+                  id: isEditing ? template.id : DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: nameController.text,
+                  description: descriptionController.text,
+                  template: promptController.text,
+                  category: selectedCategory,
+                  createdAt: isEditing ? template.createdAt : DateTime.now(),
+                  updatedAt: DateTime.now(),
+                );
+                if (isEditing) {
+                  await service.updateTemplate(newTemplate);
+                } else {
+                  await service.addTemplate(newTemplate);
+                }
+
+                if (mounted) {
+                  Navigator.pop(context);
+                  _loadTemplates();
+                }
+              },
+              child: Text(l10n.saveButton),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  void _confirmDelete(PromptTemplate template) {
+  void _showDeleteConfirm(PromptTemplate template) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除模板「${template.name}」吗？此操作不可撤销。'),
+        title: Text(l10n.confirmDelete),
+        content: Text(l10n.confirmDeleteTemplateMessage(template.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
-          TextButton(
-            onPressed: () {
+          ElevatedButton(
+            onPressed: () async {
               final service = ref.read(promptTemplateServiceProvider);
-              service.deleteTemplate(template.id);
-              ref.invalidate(templateListProvider);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('模板已删除')),
-              );
+              await service.deleteTemplate(template.id);
+              if (mounted) {
+                Navigator.pop(context);
+                _loadTemplates();
+              }
             },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('删除'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: Text(l10n.deleteButton),
           ),
         ],
       ),
     );
   }
+}
+
+class _CategoryOption {
+  final String value;
+  final String label;
+  final IconData icon;
+
+  const _CategoryOption(this.value, this.label, this.icon);
 }

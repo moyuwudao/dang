@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/models/record_model.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class RecycleBinScreen extends ConsumerStatefulWidget {
   const RecycleBinScreen({super.key});
@@ -13,171 +13,160 @@ class RecycleBinScreen extends ConsumerStatefulWidget {
 }
 
 class _RecycleBinScreenState extends ConsumerState<RecycleBinScreen> {
-  List<RecycledRecord> _items = [];
+  List<RecycledRecord> _deletedNotes = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadItems();
+    _loadDeletedNotes();
   }
 
-  Future<void> _loadItems() async {
-    setState(() => _isLoading = true);
-    final items = await StorageServiceRecycleBin.getRecycleBinItems();
+  Future<void> _loadDeletedNotes() async {
+    final notes = await StorageServiceRecycleBin.getRecycleBinItems();
     setState(() {
-      _items = items;
+      _deletedNotes = notes;
       _isLoading = false;
     });
   }
 
-  Future<void> _permanentDelete(RecycledRecord item) async {
+  Future<void> _restoreNote(RecycledRecord note) async {
+    final l10n = AppLocalizations.of(context)!;
+    await StorageServiceRecycleBin.restoreFromRecycleBin(note.originalId);
+    await _loadDeletedNotes();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.restoreSuccess),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
+  }
+
+  Future<void> _permanentlyDelete(RecycledRecord note) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认永久删除'),
-        content: const Text('此操作不可恢复，是否继续？'),
+        title: Text(l10n.confirmPermanentDelete),
+        content: Text(l10n.permanentDeleteMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('永久删除'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: Text(l10n.deleteButton),
           ),
         ],
       ),
     );
 
-    if (confirmed == true) {
-      await StorageServiceRecycleBin.permanentDeleteFromRecycleBin(item.originalId);
-      await _loadItems();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('已永久删除'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
+    if (confirmed != true) return;
+
+    await StorageServiceRecycleBin.permanentDeleteFromRecycleBin(note.originalId);
+    await _loadDeletedNotes();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.permanentlyDeleted),
+          backgroundColor: AppColors.success,
+        ),
+      );
     }
   }
 
-  Future<void> _clearAll() async {
+  Future<void> _emptyRecycleBin() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清空回收站'),
-        content: Text('将永久删除${_items.length}条记录，此操作不可恢复，是否继续？'),
+        title: Text(l10n.emptyRecycleBin),
+        content: Text(l10n.emptyRecycleBinMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('清空'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: Text(l10n.emptyRecycleBin),
           ),
         ],
       ),
     );
 
-    if (confirmed == true) {
-      await StorageServiceRecycleBin.clearRecycleBin();
-      await _loadItems();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('回收站已清空'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    }
-  }
+    if (confirmed != true) return;
 
-  String _getRemainingDays(RecycledRecord item) {
-    final daysLeft = 7 - DateTime.now().difference(item.deletedAt).inDays;
-    if (daysLeft <= 0) return '即将清除';
-    return '剩余$daysLeft天';
-  }
+    await StorageServiceRecycleBin.clearRecycleBin();
+    await _loadDeletedNotes();
 
-  IconData _getTypeIcon(String type) {
-    switch (type) {
-      case 'audio':
-        return Icons.mic;
-      case 'ocr':
-        return Icons.camera_alt;
-      case 'text':
-        return Icons.text_fields;
-      default:
-        return Icons.note;
-    }
-  }
-
-  String _getTypeLabel(String type) {
-    switch (type) {
-      case 'audio':
-        return '语音';
-      case 'ocr':
-        return 'OCR';
-      case 'text':
-        return '文本';
-      default:
-        return '记录';
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.emptyRecycleBinSuccess),
+          backgroundColor: AppColors.success,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('回收站'),
+        title: Text(l10n.recycleBin),
         actions: [
-          if (_items.isNotEmpty)
-            TextButton.icon(
-              onPressed: _clearAll,
-              icon: const Icon(Icons.delete_forever, size: 18),
-              label: const Text('清空'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          if (_deletedNotes.isNotEmpty)
+            TextButton(
+              onPressed: _emptyRecycleBin,
+              child: Text(
+                l10n.emptyRecycleBin,
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _items.isEmpty
+          : _deletedNotes.isEmpty
               ? _buildEmptyState()
-              : _buildList(),
+              : _buildNotesList(),
     );
   }
 
   Widget _buildEmptyState() {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.delete_outline,
-            size: 64,
-            color: AppColors.textTertiary.withOpacity(0.5),
-          ),
+          Icon(Icons.delete_outline, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            '回收站为空',
+            l10n.noDeletedNotes,
             style: TextStyle(
               fontSize: 16,
-              color: AppColors.textTertiary,
+              color: Colors.grey[600],
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            '删除的记录将在这里保留7天',
+            l10n.deletedNotesHint,
             style: TextStyle(
-              fontSize: 13,
-              color: AppColors.textTertiary.withOpacity(0.7),
+              fontSize: 14,
+              color: Colors.grey[400],
             ),
           ),
         ],
@@ -185,121 +174,190 @@ class _RecycleBinScreenState extends ConsumerState<RecycleBinScreen> {
     );
   }
 
-  Widget _buildList() {
+  Widget _buildNotesList() {
+    final l10n = AppLocalizations.of(context)!;
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _items.length,
+      itemCount: _deletedNotes.length,
       itemBuilder: (context, index) {
-        final item = _items[index];
+        final note = _deletedNotes[index];
+        final deleteDate = note.deletedAt;
+        final remainingDays = 7 - DateTime.now().difference(deleteDate).inDays;
+
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+          child: ListTile(
+            leading: const Icon(Icons.delete, color: AppColors.error),
+            title: Text(
+              _getNoteTitle(note),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      _getTypeIcon(item.type),
-                      size: 18,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _getTypeLabel(item.type),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _getRemainingDays(item),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.warning,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
                 Text(
-                  item.content != null && item.content!.isNotEmpty
-                      ? (item.content!.length > 100
-                          ? '${item.content!.substring(0, 100)}...'
-                          : item.content!)
-                      : '无内容',
-                  style: const TextStyle(fontSize: 14),
-                  maxLines: 3,
+                  _getNoteContent(note),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '创建于 ${_formatDate(item.createdAt)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textTertiary,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '删除于 ${_formatDate(item.deletedAt)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textTertiary,
-                      ),
-                    ),
-                  ],
-                ),
-                if (item.tags.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    children: item.tags.map((tag) {
-                      return Chip(
-                        label: Text(tag, style: const TextStyle(fontSize: 11)),
-                        padding: EdgeInsets.zero,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        backgroundColor: AppColors.primary.withOpacity(0.1),
-                        side: BorderSide.none,
-                      );
-                    }).toList(),
+                const SizedBox(height: 4),
+                Text(
+                  '${l10n.deletedAt}: ${DateFormat('yyyy-MM-dd HH:mm').format(deleteDate)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
                   ),
-                ],
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () => _permanentDelete(item),
-                      icon: const Icon(Icons.delete_forever, size: 18),
-                      label: const Text('永久删除'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                      ),
+                ),
+                if (remainingDays > 0)
+                  Text(
+                    l10n.remainingDays(remainingDays),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: remainingDays <= 2 ? AppColors.error : AppColors.textSecondary,
                     ),
-                  ],
+                  ),
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.restore, color: AppColors.success),
+                  onPressed: () => _restoreNote(note),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_forever, color: AppColors.error),
+                  onPressed: () => _permanentlyDelete(note),
                 ),
               ],
             ),
+            onTap: () => _showNoteDetail(note),
           ),
         );
       },
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.month}/${date.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  String _getNoteTitle(RecycledRecord note) {
+    if (note.content != null && note.content!.isNotEmpty) {
+      final lines = note.content!.split('\n');
+      if (lines.isNotEmpty && lines.first.isNotEmpty) {
+        return lines.first.length > 30 ? '${lines.first.substring(0, 30)}...' : lines.first;
+      }
+    }
+    final l10n = AppLocalizations.of(context)!;
+    return l10n.untitledNote;
+  }
+
+  String _getNoteContent(RecycledRecord note) {
+    if (note.content != null && note.content!.isNotEmpty) {
+      final lines = note.content!.split('\n');
+      if (lines.length > 1) {
+        final content = lines.sublist(1).join('\n').trim();
+        if (content.isNotEmpty) {
+          return content.length > 50 ? '${content.substring(0, 50)}...' : content;
+        }
+      }
+    }
+    if (note.audioPath != null) {
+      return '[Audio Record]';
+    }
+    if (note.imagePath != null) {
+      return '[Image Record]';
+    }
+    final l10n = AppLocalizations.of(context)!;
+    return l10n.noContent;
+  }
+
+  void _showNoteDetail(RecycledRecord note) {
+    final l10n = AppLocalizations.of(context)!;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _getNoteTitle(note),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${l10n.deletedAt}: ${DateFormat('yyyy-MM-dd HH:mm').format(note.deletedAt)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const Divider(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    child: Text(note.content ?? l10n.noContent),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _restoreNote(note);
+                        },
+                        icon: const Icon(Icons.restore),
+                        label: Text(l10n.restore),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.success,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _permanentlyDelete(note);
+                        },
+                        icon: const Icon(Icons.delete_forever),
+                        label: Text(l10n.deleteButton),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.error,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }

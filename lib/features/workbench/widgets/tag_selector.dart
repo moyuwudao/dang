@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/repositories/record_repository.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class TagSelector extends ConsumerStatefulWidget {
   final List<String> selectedTags;
@@ -49,6 +50,7 @@ class _TagSelectorState extends ConsumerState<TagSelector> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (_isLoading) {
       return const Padding(
         padding: EdgeInsets.all(16),
@@ -57,11 +59,11 @@ class _TagSelectorState extends ConsumerState<TagSelector> {
     }
 
     if (_allTags.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
+      return Padding(
+        padding: const EdgeInsets.all(16),
         child: Text(
-          '暂无标签',
-          style: TextStyle(color: Colors.grey),
+          l10n.noTags,
+          style: const TextStyle(color: Colors.grey),
           textAlign: TextAlign.center,
         ),
       );

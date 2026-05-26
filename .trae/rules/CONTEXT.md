@@ -25,7 +25,7 @@ description: 上下文保持规则 - 多轮对话中的项目理解维护
 | `INTERACTION.md` | 什么时候该问、什么时候该做 |
 | `RED_LINES.md` | 安全红线、不能碰的区域 |
 | `NAMING_CONVENTIONS.md` | 项目的命名约定 |
-| `CODE_STYLE.md` | 代码风格规范 |
+| `dart/coding-style.md` | Dart 代码风格规范 |
 
 ### 项目文件
 
@@ -109,7 +109,7 @@ description: 上下文保持规则 - 多轮对话中的项目理解维护
 | 项目目标 | USER.md | 当 Walle 明确时 |
 | 技术栈 | PROJECT_SENSE.md | 依赖变更时 |
 | 命名约定 | NAMING_CONVENTIONS.md | 规则更新时 |
-| 代码风格 | CODE_STYLE.md | 规则更新时 |
+| 代码风格 | dart/coding-style.md | 规则更新时 |
 | 重要决策 | 对话中 | 决策时 |
 
 ### 不需要记忆的

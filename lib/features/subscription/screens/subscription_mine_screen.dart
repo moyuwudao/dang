@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../providers/subscription_provider.dart';
 
 class SubscriptionMineScreen extends ConsumerWidget {
@@ -8,35 +9,51 @@ class SubscriptionMineScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final subscriptionState = ref.watch(subscriptionNotifierProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+    final subscriptionState = subscriptionAsync.valueOrNull ?? const SubscriptionState();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('我的订阅'),
+        title: Text(l10n.mySubscription),
         backgroundColor: AppColors.background,
         elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildCurrentPlanCard(subscriptionState),
-          const SizedBox(height: 24),
-          const Text(
-            '额度详情',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
+            },
           ),
-          const SizedBox(height: 16),
-          _buildQuotaCard(subscriptionState),
         ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildCurrentPlanCard(context, subscriptionState, l10n),
+            const SizedBox(height: 24),
+            Text(
+              l10n.quotaDetails,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildQuotaCard(context, subscriptionState, l10n),
+            const SizedBox(height: 100), // 为下拉刷新提供空间
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCurrentPlanCard(SubscriptionState state) {
+  Widget _buildCurrentPlanCard(BuildContext context, SubscriptionState state, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -51,8 +68,8 @@ class SubscriptionMineScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '当前套餐',
+              Text(
+                l10n.currentPlan,
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
@@ -67,7 +84,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  state.isActive ? '生效中' : '已过期',
+                  state.isActive ? l10n.statusActive : l10n.statusExpired,
                   style: TextStyle(
                     color: state.isActive ? Colors.white : Colors.red[100],
                     fontSize: 12,
@@ -78,7 +95,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            state.planName ?? '免费版',
+            state.planName ?? l10n.freePlan,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
@@ -88,7 +105,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
           if (state.expiresAt != null) ...[
             const SizedBox(height: 8),
             Text(
-              '有效期至: ${state.expiresAt.toString().split(' ')[0]}',
+              '${l10n.createdAt}${state.expiresAt.toString().split(' ')[0]}',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.8),
                 fontSize: 14,
@@ -100,7 +117,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuotaCard(SubscriptionState state) {
+  Widget _buildQuotaCard(BuildContext context, SubscriptionState state, AppLocalizations l10n) {
     final progress = state.totalQuota > 0
         ? state.usedQuota / state.totalQuota
         : 0.0;
@@ -118,15 +135,15 @@ class SubscriptionMineScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '转写额度',
+              Text(
+                l10n.transcriptionQuota,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
-                '${state.totalQuota - state.usedQuota} 分钟剩余',
+                '${state.totalQuota - state.usedQuota} ${l10n.minutes}',
                 style: const TextStyle(
                   color: AppColors.success,
                   fontWeight: FontWeight.bold,
@@ -147,14 +164,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '已用 ${state.usedQuota} 分钟',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                '总计 ${state.totalQuota} 分钟',
+                '${l10n.minutesUsed(state.usedQuota, state.totalQuota)}',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,

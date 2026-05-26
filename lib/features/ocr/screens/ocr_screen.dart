@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/tag_selector.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../providers/ocr_provider.dart';
 
 class OCRScreen extends ConsumerStatefulWidget {
@@ -45,15 +46,18 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
         await _recognizeText(File(image.path));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('选择图片失败: $e')),
-      );
+      if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.selectImageFailed}: $e')),
+        );
+      }
     }
   }
 
   Future<void> _recognizeText(File imageFile) async {
     try {
-      final apiService = ref.read(apiServiceProvider);
+      final apiService = ApiService();
       final result = await apiService.recognizeImage(imageFile.path);
 
       setState(() {
@@ -64,9 +68,12 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
       setState(() {
         _isProcessing = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('文字识别失败: $e')),
-      );
+      if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.ocrFailed}: $e')),
+        );
+      }
     }
   }
 
@@ -81,9 +88,10 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
       );
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('记录已保存'),
+          SnackBar(
+            content: Text(l10n.recordSaved),
             backgroundColor: AppColors.success,
           ),
         );
@@ -91,8 +99,9 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
+          SnackBar(content: Text('${l10n.saveFailed}: $e')),
         );
       }
     }
@@ -100,17 +109,18 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('拍照识别'),
+        title: Text(l10n.photoOcr),
         actions: [
           if (_recognizedText != null)
             TextButton.icon(
               onPressed: _saveRecord,
               icon: const Icon(Icons.save, color: Colors.white),
-              label: const Text(
-                '保存',
-                style: TextStyle(color: Colors.white),
+              label: Text(
+                l10n.saveButton,
+                style: const TextStyle(color: Colors.white),
               ),
             ),
         ],
@@ -129,7 +139,7 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
           ElevatedButton.icon(
             onPressed: () => _pickImage(ImageSource.camera),
             icon: const Icon(Icons.camera_alt),
-            label: const Text('拍照'),
+            label: Text(AppLocalizations.of(context)!.takePhoto),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(200, 50),
             ),
@@ -138,7 +148,7 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
           ElevatedButton.icon(
             onPressed: () => _pickImage(ImageSource.gallery),
             icon: const Icon(Icons.photo_library),
-            label: const Text('从相册选择'),
+            label: Text(AppLocalizations.of(context)!.selectImage),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(200, 50),
             ),
@@ -149,6 +159,7 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
   }
 
   Widget _buildResultView() {
+    final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -173,12 +184,12 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
 
           // 识别结果
           if (_isProcessing)
-            const Center(
+            Center(
               child: Column(
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 8),
-                  Text('正在识别文字...'),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 8),
+                  Text(l10n.recognizingText),
                 ],
               ),
             )
@@ -188,7 +199,7 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
                 const Icon(Icons.text_fields, color: AppColors.primary),
                 const SizedBox(width: 8),
                 Text(
-                  '识别结果',
+                  l10n.recognitionResult,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -213,7 +224,7 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '标签',
+                  l10n.tags,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -240,7 +251,7 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
                   child: OutlinedButton.icon(
                     onPressed: () => _pickImage(ImageSource.camera),
                     icon: const Icon(Icons.camera_alt),
-                    label: const Text('重新拍照'),
+                    label: Text(l10n.retakePhoto),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -248,7 +259,7 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
                   child: OutlinedButton.icon(
                     onPressed: () => _pickImage(ImageSource.gallery),
                     icon: const Icon(Icons.photo_library),
-                    label: const Text('从相册选择'),
+                    label: Text(l10n.selectImage),
                   ),
                 ),
               ],
@@ -261,7 +272,7 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
               child: ElevatedButton.icon(
                 onPressed: _saveRecord,
                 icon: const Icon(Icons.save),
-                label: const Text('保存记录'),
+                label: Text(l10n.saveRecord),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                 ),

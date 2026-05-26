@@ -20,7 +20,7 @@ description: APK 构建异常案例集锦 - 收集所有构建问题及解决方
 >
 > **构建流程规范** → 详见 [BUILD.md](BUILD.md)
 >
-> **构建红线** → 详见 [BUILD_RED_LINES.md](BUILD_RED_LINES.md)
+> **构建规则** → 详见 [BUILD.md](BUILD.md)
 
 ---
 
@@ -136,11 +136,11 @@ java.io.FileNotFoundException: /home/mayn/dang/build/shared_preferences_android/
 ```
 
 ### 解决方案
-执行 `flutter clean` 清理构建缓存，然后重新构建：
+执行 `flutter clean` 清理构建缓存，然后重新构建（pub get 设 120 秒超时，build 设 20 分钟超时）：
 ```bash
 flutter clean
-flutter pub get
-flutter build apk --release
+timeout 120 flutter pub get
+timeout 1200 flutter build apk --release
 ```
 
 ---
@@ -172,8 +172,8 @@ flutter build apk --release
 ```powershell
 # ✅ 正确流程：
 # 1. 代码修改（Windows）
-# 2. 同步到 WSL
-wsl -d dang bash -c "rsync -av --delete /mnt/d/trae_projects/dang/lib/ /home/mayn/dang/lib/"
+# 2. 同步到 WSL（rsync 设 60 秒超时）
+wsl -d dang bash -c "rsync -av --timeout=60 --delete /mnt/d/trae_projects/dang/lib/ /home/mayn/dang/lib/"
 # 3. 构建 APK（详见 BUILD.md）
 # 4. 复制和验证 APK
 ```
@@ -182,8 +182,8 @@ wsl -d dang bash -c "rsync -av --delete /mnt/d/trae_projects/dang/lib/ /home/may
 
 ### 验证方法
 ```powershell
-# 检查 WSL 中的文件是否已更新
-wsl -d dang bash -c "cd /home/mayn/dang && git diff --stat"
+# 检查 WSL 中的文件是否已更新（设 30 秒超时）
+wsl -d dang bash -c "cd /home/mayn/dang && timeout 30 git diff --stat"
 ```
 
 ---
@@ -219,9 +219,9 @@ wsl -d dang bash -c '...flutter build apk --release...'
 
 **方案 B：直接验证构建结果**
 ```powershell
-# 如果 analyze 无法运行，直接运行 flutter build
+# 如果 analyze 无法运行，直接运行 flutter build（20 分钟超时）
 # 构建成功 = 代码无编译错误
-wsl -d dang bash -c 'export PATH="/home/mayn/flutter/bin:$PATH" && cd /home/mayn/dang && flutter build apk --release'
+wsl -d dang bash -c 'export PATH="/home/mayn/flutter/bin:$PATH" && cd /home/mayn/dang && timeout 1200 flutter build apk --release'
 ```
 
 **方案 C：检查 WSL 代理配置**
@@ -279,6 +279,7 @@ wsl -d dang bash -c 'echo "[wsl2]" > /etc/wsl.conf'
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-05-25 | 安全修复：flutter build 加 timeout 1200；pub get 加 timeout 120；rsync 加 --timeout=60；git diff 加 timeout 30 |
 | 2026-05-12 | 初始版本，包含所有案例 |
 | 2026-05-19 | 方案C重构：API 案例拆分到 API_TROUBLESHOOTING.md，保留纯构建案例 |
 | 2026-05-21 | 新增 CASE-008：WSL 代理警告导致命令提前退出 |

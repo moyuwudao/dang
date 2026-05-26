@@ -128,3 +128,32 @@ Before ANY commit:
 - Development workflow: `development-workflow.md`
 - Code review standards: `code-review.md`
 - Project-specific Git rules: Check project root
+
+## GitHub MCP 集成
+
+本项目可通过 GitHub MCP 直接在 IDE 内完成 Git 相关操作，无需手动执行命令。
+
+### 可用 MCP 工具速查
+
+| 操作 | MCP 工具 | 说明 |
+|------|---------|------|
+| 创建分支 | `mcp_GitHub_create_branch` | 从指定分支创建新分支 |
+| 创建/更新文件 | `mcp_GitHub_create_or_update_file` | 直接写入单个文件 |
+| 批量推送文件 | `mcp_GitHub_push_files` | 一次提交推送多个文件 |
+| 查看文件内容 | `mcp_GitHub_get_file_contents` | 读取仓库中任意文件 |
+| 查看提交历史 | `mcp_GitHub_list_commits` | 查看分支的提交记录 |
+| 创建 Issue | `mcp_GitHub_create_issue` | 创建新 Issue |
+| 管理 Issue | `mcp_GitHub_list_issues` / `_update_issue` / `_add_issue_comment` | Issue 全生命周期 |
+| 创建 PR | `mcp_GitHub_create_pull_request` | 创建 Pull Request |
+| 管理 PR | `mcp_GitHub_list_pull_requests` / `_get_pull_request` / `_merge_pull_request` | PR 审查与合并 |
+| PR 审查 | `mcp_GitHub_create_pull_request_review` / `_get_pull_request_reviews` | 代码审查 |
+| 代码搜索 | `mcp_GitHub_search_code` | 在仓库中搜索代码 |
+
+### 适用场景
+
+| 场景 | 推荐方式 |
+|------|---------|
+| 日常开发中的 git 操作 | 本地 `git` 命令（更快，支持 .gitignore） |
+| 部署时的分支/PR 管理 | GitHub MCP（无需切换终端，可在 IDE 内完成） |
+| 需要验证远程状态 | GitHub MCP（直接读取远程仓库内容） |
+| 批量文件操作 | GitHub MCP（`push_files` 一次提交多文件）

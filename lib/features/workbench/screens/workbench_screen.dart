@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../models/workbench_tool.dart';
 import '../providers/workbench_provider.dart';
 
@@ -15,54 +16,66 @@ class WorkbenchScreen extends ConsumerStatefulWidget {
 class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
   @override
   Widget build(BuildContext context) {
-    final workbenchState = ref.watch(workbenchProvider);
-    final isEditMode = workbenchState.isEditMode;
-    final layoutMode = workbenchState.layoutConfig.layoutMode;
-    final tools = workbenchState.visibleTools;
-    final selectedCategory = workbenchState.selectedCategory;
-    final recentTools = workbenchState.recentTools;
+    final l10n = AppLocalizations.of(context)!;
+    final workbenchAsync = ref.watch(workbenchProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('工具台'),
-        centerTitle: true,
-        actions: [
-          if (isEditMode)
-            TextButton(
-              onPressed: () {
-                ref.read(workbenchProvider.notifier).setEditMode(false);
-              },
-              child: const Text(
-                '完成',
-                style: TextStyle(color: Colors.white),
-              ),
-            )
-          else ...[
-            IconButton(
-              icon: const Icon(Icons.folder_open_outlined),
-              tooltip: '工具台输出',
-              onPressed: () => context.push('/tool-outputs'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings_outlined),
-              onPressed: () => _showWorkbenchSettings(context),
-            ),
-          ],
-        ],
-      ),
-      body: workbenchState.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _buildCategoryFilter(selectedCategory),
-                Expanded(
-                  child: isEditMode
-                      ? _buildReorderableView(tools, layoutMode)
-                      : _buildMainContent(tools, recentTools, layoutMode),
+    return workbenchAsync.when(
+      data: (workbenchState) {
+        final isEditMode = workbenchState.isEditMode;
+        final layoutMode = workbenchState.layoutConfig.layoutMode;
+        final tools = workbenchState.visibleTools;
+        final selectedCategory = workbenchState.selectedCategory;
+        final recentTools = workbenchState.recentTools;
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            title: Text(l10n.workbench),
+            centerTitle: true,
+            actions: [
+              if (isEditMode)
+                TextButton(
+                  onPressed: () {
+                    ref.read(workbenchProvider.notifier).setEditMode(false);
+                  },
+                  child: Text(
+                    l10n.done,
+                    style: TextStyle(color: Colors.white),
+                  ),
+                )
+              else ...[
+                IconButton(
+                  icon: const Icon(Icons.folder_open_outlined),
+                  tooltip: l10n.toolOutputs,
+                  onPressed: () => context.push('/tool-outputs'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () => _showWorkbenchSettings(context),
                 ),
               ],
-            ),
+            ],
+          ),
+          body: workbenchState.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                  children: [
+                    _buildCategoryFilter(selectedCategory),
+                    Expanded(
+                      child: isEditMode
+                          ? _buildReorderableView(tools, layoutMode)
+                          : _buildMainContent(tools, recentTools, layoutMode),
+                    ),
+                  ],
+                ),
+        );
+      },
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, _) => Scaffold(
+        body: Center(child: Text('Error: $error')),
+      ),
     );
   }
 
@@ -89,13 +102,13 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.history, size: 16, color: AppColors.textSecondary),
-            SizedBox(width: 6),
+            const Icon(Icons.history, size: 16, color: AppColors.textSecondary),
+            const SizedBox(width: 6),
             Text(
-              '最近使用',
-              style: TextStyle(
+              AppLocalizations.of(context)!.recentlyUsed,
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
@@ -157,12 +170,13 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
   }
 
   Widget _buildCategoryFilter(ToolCategory? selectedCategory) {
+    final l10n = AppLocalizations.of(context)!;
     final categories = [
-      (null, '全部'),
-      (ToolCategory.productivity, '效率'),
-      (ToolCategory.analysis, '分析'),
-      (ToolCategory.management, '管理'),
-      (ToolCategory.ai, 'AI'),
+      (null, l10n.allCategories),
+      (ToolCategory.productivity, l10n.productivityTools),
+      (ToolCategory.analysis, l10n.analysisTools),
+      (ToolCategory.management, l10n.managementTools),
+      (ToolCategory.ai, l10n.aiTools),
     ];
 
     return Container(
@@ -332,11 +346,12 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
   }
 
   Widget _buildCategoryBadge(ToolCategory category) {
+    final l10n = AppLocalizations.of(context)!;
     final labels = {
-      ToolCategory.productivity: ('效率', AppColors.primary),
-      ToolCategory.analysis: ('分析', const Color(0xFF06B6D4)),
-      ToolCategory.management: ('管理', const Color(0xFFF59E0B)),
-      ToolCategory.ai: ('AI', const Color(0xFF8B5CF6)),
+      ToolCategory.productivity: (l10n.productivityTools, AppColors.primary),
+      ToolCategory.analysis: (l10n.analysisTools, const Color(0xFF06B6D4)),
+      ToolCategory.management: (l10n.managementTools, const Color(0xFFF59E0B)),
+      ToolCategory.ai: (l10n.aiTools, const Color(0xFF8B5CF6)),
     };
     final (label, color) = labels[category]!;
     return Container(
@@ -434,6 +449,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
   }
 
   Widget _buildEmptyState() {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -444,17 +460,17 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
             color: AppColors.textTertiary.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
-          const Text(
-            '暂无工具',
-            style: TextStyle(
+          Text(
+            l10n.noTools,
+            style: const TextStyle(
               fontSize: 16,
               color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '请在设置中添加工具',
-            style: TextStyle(
+          Text(
+            l10n.addToolsInSettings,
+            style: const TextStyle(
               fontSize: 13,
               color: AppColors.textTertiary,
             ),
@@ -465,7 +481,9 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
   }
 
   void _showWorkbenchSettings(BuildContext context) {
-    final workbenchState = ref.read(workbenchProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final workbenchState = ref.read(workbenchProvider).valueOrNull;
+    if (workbenchState == null) return;
     final layoutMode = workbenchState.layoutConfig.layoutMode;
 
     showModalBottomSheet(
@@ -489,9 +507,9 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  '工作台设置',
-                  style: TextStyle(
+                Text(
+                  l10n.workbenchSettings,
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),
@@ -499,8 +517,8 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 const SizedBox(height: 20),
                 ListTile(
                   leading: const Icon(Icons.view_module_outlined, color: AppColors.primary),
-                  title: const Text('布局方式'),
-                  subtitle: Text(layoutMode == ToolLayoutMode.grid ? '卡片式' : '列表式'),
+                  title: Text(l10n.layout),
+                  subtitle: Text(layoutMode == ToolLayoutMode.grid ? l10n.cardLayout : l10n.listLayout),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -533,8 +551,8 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.reorder, color: AppColors.secondary),
-                  title: const Text('排序工具'),
-                  subtitle: const Text('拖拽调整工具顺序'),
+                  title: Text(l10n.sortTools),
+                  subtitle: Text(l10n.reorderTools),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pop(context);
@@ -543,8 +561,8 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.visibility_outlined, color: AppColors.info),
-                  title: const Text('显示/隐藏工具'),
-                  subtitle: const Text('自定义显示哪些工具'),
+                  title: Text(l10n.showHideTools),
+                  subtitle: Text(l10n.customizeVisibleTools),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.pop(context);
@@ -553,14 +571,14 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.restore, color: AppColors.warning),
-                  title: const Text('恢复默认'),
-                  subtitle: const Text('重置为初始布局'),
+                  title: Text(l10n.restoreDefault),
+                  subtitle: Text(l10n.resetToInitialLayout),
                   onTap: () {
                     ref.read(workbenchProvider.notifier).resetToDefault();
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('已恢复默认设置'),
+                      SnackBar(
+                        content: Text(l10n.settingsRestored),
                         backgroundColor: AppColors.success,
                       ),
                     );
@@ -575,14 +593,16 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
   }
 
   void _showToolVisibilityDialog(BuildContext context) {
-    final workbenchState = ref.read(workbenchProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final workbenchState = ref.read(workbenchProvider).valueOrNull;
+    if (workbenchState == null) return;
     final allTools = workbenchState.tools;
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('显示/隐藏工具'),
+          title: Text(l10n.showHideTools),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -616,7 +636,7 @@ class _WorkbenchScreenState extends ConsumerState<WorkbenchScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('完成'),
+              child: Text(l10n.done),
             ),
           ],
         );

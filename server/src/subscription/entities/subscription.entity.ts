@@ -28,6 +28,9 @@ export class Subscription {
   @Column({ default: 0 })
   usedQuota: number;
 
+  @Column({ default: 0 })
+  balanceQuota: number;
+
   @ManyToOne(() => User, user => user.subscriptions)
   @JoinColumn({ name: 'userId' })
   user: User;

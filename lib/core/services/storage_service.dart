@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ai_model_config.dart';
+import '../models/analysis_config.dart';
 import '../models/api_config.dart';
+import '../models/role.dart';
 import '../../data/models/record_model.dart';
 import 'app_logger.dart';
 
@@ -448,6 +450,22 @@ class StorageService {
     }
   }
 
+  // 兼容旧版 API - 直接操作模板列表
+  static Future<void> saveAnalysisTemplateList(
+      List<AnalysisTemplate> templates) async {
+    final config = AnalysisTemplateConfig(
+      defaultWeeklyReportTemplateId: '',
+      defaultMindMapTemplateId: '',
+      customTemplates: templates,
+    );
+    await saveAnalysisTemplates(config);
+  }
+
+  static Future<List<AnalysisTemplate>> getAnalysisTemplateList() async {
+    final config = await getAnalysisTemplates();
+    return config.customTemplates;
+  }
+
   // 自动分析配置
   static Future<void> saveAutoAnalysisConfig(AutoAnalysisConfig config) async {
     final prefs = await _prefs;
@@ -488,6 +506,151 @@ class StorageService {
         savedTemplates: [],
       );
     }
+  }
+
+  // ========== 工具AI配置 ==========
+  static const String _toolAiConfigKey = 'tool_ai_config';
+
+  static Future<Map<String, dynamic>> getToolAiConfig() async {
+    final prefs = await _prefs;
+    final configJson = prefs.getString(_toolAiConfigKey);
+    if (configJson == null) {
+      return {
+        'transcription_model': 'qwen-realtime',
+        'analysis_model': 'qwen-max',
+        'summary_model': 'qwen-turbo',
+      };
+    }
+    try {
+      return jsonDecode(configJson) as Map<String, dynamic>;
+    } catch (e) {
+      return {
+        'transcription_model': 'qwen-realtime',
+        'analysis_model': 'qwen-max',
+        'summary_model': 'qwen-turbo',
+      };
+    }
+  }
+
+  static Future<void> saveToolAiConfig(Map<String, dynamic> config) async {
+    final prefs = await _prefs;
+    await prefs.setString(_toolAiConfigKey, jsonEncode(config));
+  }
+
+  // ========== 分析配置 ==========
+  static const String _analysisConfigKey = 'analysis_config_v1';
+
+  static Future<AnalysisConfig> getAnalysisConfig() async {
+    final prefs = await _prefs;
+    final configJson = prefs.getString(_analysisConfigKey);
+    if (configJson == null) {
+      return const AnalysisConfig();
+    }
+    try {
+      return AnalysisConfig.fromJson(jsonDecode(configJson));
+    } catch (e) {
+      return const AnalysisConfig();
+    }
+  }
+
+  static Future<void> saveAnalysisConfig(AnalysisConfig config) async {
+    final prefs = await _prefs;
+    await prefs.setString(_analysisConfigKey, jsonEncode(config.toJson()));
+  }
+
+  // ========== 数据导出/导入 ==========
+  static Future<Map<String, dynamic>> exportAllData() async {
+    final prefs = await _prefs;
+    final data = <String, dynamic>{};
+
+    // 导出所有 SharedPreferences 数据
+    final keys = prefs.getKeys();
+    for (final key in keys) {
+      try {
+        final value = prefs.get(key);
+        if (value != null) {
+          data[key] = value;
+        }
+      } catch (e) {
+        // 跳过无法导出的值
+      }
+    }
+
+    return data;
+  }
+
+  static Future<void> importAllData(Map<String, dynamic> data) async {
+    final prefs = await _prefs;
+
+    // 清除现有数据
+    await prefs.clear();
+
+    // 导入数据
+    for (final entry in data.entries) {
+      final key = entry.key;
+      final value = entry.value;
+
+      try {
+        if (value is String) {
+          await prefs.setString(key, value);
+        } else if (value is int) {
+          await prefs.setInt(key, value);
+        } else if (value is double) {
+          await prefs.setDouble(key, value);
+        } else if (value is bool) {
+          await prefs.setBool(key, value);
+        } else if (value is List) {
+          await prefs.setStringList(key, value.cast<String>());
+        }
+      } catch (e) {
+        // 跳过无法导入的值
+      }
+    }
+  }
+
+  // ========== 角色管理 ==========
+  static const String _rolesKey = 'roles_v1';
+
+  static Future<List<Role>> getRoles() async {
+    final prefs = await _prefs;
+    final rolesJson = prefs.getStringList(_rolesKey);
+    if (rolesJson == null) return [];
+    try {
+      return rolesJson
+          .map((json) => Role.fromJson(jsonDecode(json) as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static Future<void> saveRoles(List<Role> roles) async {
+    final prefs = await _prefs;
+    await prefs.setStringList(
+      _rolesKey,
+      roles.map((r) => jsonEncode(r.toJson())).toList(),
+    );
+  }
+
+  static Future<void> addRole(Role role) async {
+    final roles = await getRoles();
+    roles.add(role);
+    await saveRoles(roles);
+  }
+
+  static Future<void> updateRole(Role updatedRole) async {
+    final roles = await getRoles();
+    final index = roles.indexWhere((r) => r.id == updatedRole.id);
+    if (index != -1) {
+      roles[index] = updatedRole;
+      await saveRoles(roles);
+    }
+  }
+
+  static Future<void> deleteRole(String id) async {
+    final roles = await getRoles();
+    roles.removeWhere((r) => r.id == id);
+    await saveRoles(roles);
   }
 }
 
@@ -691,13 +854,19 @@ class AnalysisTemplate {
     );
   }
 
+  String get prompt => systemPrompt;
+
+  bool get isDefault => isBuiltIn;
+
   AnalysisTemplate copyWith({
     String? id,
     String? name,
     String? description,
     String? type,
     String? systemPrompt,
+    String? prompt,
     bool? isBuiltIn,
+    bool? isDefault,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -706,8 +875,8 @@ class AnalysisTemplate {
       name: name ?? this.name,
       description: description ?? this.description,
       type: type ?? this.type,
-      systemPrompt: systemPrompt ?? this.systemPrompt,
-      isBuiltIn: isBuiltIn ?? this.isBuiltIn,
+      systemPrompt: prompt ?? systemPrompt ?? this.systemPrompt,
+      isBuiltIn: isDefault ?? isBuiltIn ?? this.isBuiltIn,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -903,6 +1072,20 @@ extension StorageServiceRecycleBin on StorageService {
   static Future<int> getRecycleBinCount() async {
     final items = await getRecycleBinItems();
     return items.length;
+  }
+
+  static Future<void> restoreFromRecycleBin(int originalId) async {
+    final prefs = await StorageService._prefs;
+    final itemsJson = prefs.getStringList(StorageService._recycleBinKey) ?? [];
+    final items = itemsJson
+        .map((json) =>
+            RecycledRecord.fromJson(jsonDecode(json) as Map<String, dynamic>))
+        .toList();
+    final remainingItems = items.where((r) => r.originalId != originalId).toList();
+    await prefs.setStringList(
+      StorageService._recycleBinKey,
+      remainingItems.map((r) => jsonEncode(r.toJson())).toList(),
+    );
   }
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -6,7 +7,19 @@ import '../../../core/services/transcription_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../providers/settings_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/screens/login_screen.dart';
+import '../../auth/screens/profile_screen.dart';
 import '../../subscription/providers/subscription_provider.dart';
+import 'multi_api_config_screen.dart';
+import 'api_key_wizard_screen.dart';
+import 'role_management_screen.dart';
+import 'auto_analysis_settings_screen.dart';
+import 'tool_ai_config_screen.dart';
+import 'backup_management_screen.dart';
+import 'recycle_bin_screen.dart';
+import 'log_screen.dart';
+import 'analysis_template_settings_screen.dart';
+import 'prompt_template_management_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -42,11 +55,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.auto_fix_high), text: 'AI配置'),
-            Tab(icon: Icon(Icons.storage_outlined), text: '数据管理'),
-            Tab(icon: Icon(Icons.account_circle_outlined), text: '账户中心'),
-            Tab(icon: Icon(Icons.settings_outlined), text: '系统设置'),
+          tabs: [
+            Tab(icon: const Icon(Icons.auto_fix_high), text: l10n.aiConfig),
+            Tab(icon: const Icon(Icons.storage_outlined), text: l10n.dataManagement),
+            Tab(icon: const Icon(Icons.account_circle_outlined), text: l10n.accountManagement),
+            Tab(icon: const Icon(Icons.settings_outlined), text: l10n.settingsTitle),
           ],
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textSecondary,
@@ -77,12 +90,12 @@ class AiConfigTab extends ConsumerWidget {
       children: [
         _buildSection(
           context,
-          title: '调试工具',
+          title: l10n.debugTools,
           children: [
             ListTile(
               leading: const Icon(Icons.terminal, color: AppColors.warning),
-              title: const Text('运行日志'),
-              subtitle: const Text('查看APP运行日志，用于排查问题'),
+              title: Text(l10n.viewLogs),
+              subtitle: Text(l10n.viewLogs),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/logs'),
             ),
@@ -95,8 +108,8 @@ class AiConfigTab extends ConsumerWidget {
             ListTile(
               leading:
                   const Icon(Icons.auto_fix_high, color: AppColors.success),
-              title: const Text('快速配置向导'),
-              subtitle: const Text('3步完成AI服务配置，推荐新手使用'),
+              title: Text(l10n.apiKeySettings),
+              subtitle: Text(l10n.quickConfigWizardDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/api-key-wizard'),
             ),
@@ -109,8 +122,8 @@ class AiConfigTab extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.dns, color: AppColors.secondary),
-              title: const Text('多API配置管理'),
-              subtitle: const Text('为语音/图像/文本配置独立API，支持多平台'),
+              title: Text(l10n.apiConfigManagement),
+              subtitle: Text(l10n.multiApiConfigDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/multi-api'),
             ),
@@ -118,20 +131,20 @@ class AiConfigTab extends ConsumerWidget {
         ),
         _buildSection(
           context,
-          title: 'AI角色管理',
+          title: l10n.aiRoleManagement,
           children: [
             ListTile(
               leading: const Icon(Icons.psychology, color: AppColors.secondary),
-              title: const Text('AI分析角色'),
-              subtitle: const Text('管理系统角色和自定义分析角色'),
+              title: Text(l10n.aiRoleManagement),
+              subtitle: Text(l10n.aiAnalysisRolesDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/roles'),
             ),
             ListTile(
               leading: const Icon(Icons.description_outlined,
                   color: AppColors.purple),
-              title: const Text('Prompt模板管理'),
-              subtitle: const Text('管理内置和自定义AI分析模板'),
+              title: Text(l10n.promptTemplateManagement),
+              subtitle: Text(l10n.promptTemplateManagementDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/prompt-templates'),
             ),
@@ -139,13 +152,13 @@ class AiConfigTab extends ConsumerWidget {
         ),
         _buildSection(
           context,
-          title: '工具AI配置',
+          title: l10n.toolAiConfig,
           children: [
             ListTile(
               leading:
                   const Icon(Icons.settings_outlined, color: AppColors.success),
-              title: const Text('工具方案配置'),
-              subtitle: const Text('管理各工具的AI模板，支持新增和删除'),
+              title: Text(l10n.toolConfigTitle),
+              subtitle: Text(l10n.toolConfigDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/tool-ai-config'),
             ),
@@ -153,12 +166,12 @@ class AiConfigTab extends ConsumerWidget {
         ),
         _buildSection(
           context,
-          title: '自动分析',
+          title: l10n.autoAnalysis,
           children: [
             ListTile(
               leading: const Icon(Icons.smart_toy, color: AppColors.primary),
-              title: const Text('自动分析设置'),
-              subtitle: const Text('转写完成后自动进行AI分析'),
+              title: Text(l10n.autoAnalysis),
+              subtitle: Text(l10n.autoAnalysisDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/auto-analysis'),
             ),
@@ -180,19 +193,19 @@ class DataManagementTab extends ConsumerWidget {
       children: [
         _buildSection(
           context,
-          title: '数据统计',
+          title: l10n.dataStatistics,
           children: [
             ListTile(
               leading: const Icon(Icons.bar_chart, color: AppColors.info),
-              title: const Text('使用统计'),
-              subtitle: const Text('查看记录趋势和热门标签'),
+              title: Text(l10n.usageStatistics),
+              subtitle: Text(l10n.usageStatsDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/statistics'),
             ),
             ListTile(
               leading: const Icon(Icons.api_outlined, color: AppColors.success),
-              title: const Text('API调用分析'),
-              subtitle: const Text('查看API调用统计和工具使用量'),
+              title: Text(l10n.apiCallAnalysis),
+              subtitle: Text(l10n.apiCallAnalysisDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/statistics/api-analysis'),
             ),
@@ -204,15 +217,15 @@ class DataManagementTab extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.backup_outlined, color: AppColors.info),
-              title: const Text('备份管理'),
-              subtitle: const Text('数据备份、导出和恢复'),
+              title: Text(l10n.dataBackup),
+              subtitle: Text(l10n.backupManagementDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/backup'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_sweep, color: AppColors.warning),
-              title: const Text('回收站'),
-              subtitle: const Text('查看和管理已删除的记录'),
+              title: Text(l10n.recycleBin),
+              subtitle: Text(l10n.recycleBinDesc),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/recycle-bin'),
             ),
@@ -264,8 +277,10 @@ class SystemSettingsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final themeMode = ref.watch(themeModeProvider);
-    final locale = ref.watch(localeProvider);
+    final themeModeAsync = ref.watch(themeModeProvider);
+    final themeMode = themeModeAsync.valueOrNull ?? ThemeMode.system;
+    final localeAsync = ref.watch(localeProvider);
+    final locale = localeAsync.valueOrNull ?? const Locale('zh');
 
     return ListView(
       children: [
@@ -355,6 +370,8 @@ class SystemSettingsTab extends ConsumerWidget {
 
   void _showThemeModeDialog(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final themeModeAsync = ref.watch(themeModeProvider);
+    final currentThemeMode = themeModeAsync.valueOrNull ?? ThemeMode.system;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -365,6 +382,9 @@ class SystemSettingsTab extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.light_mode),
               title: Text(l10n.lightTheme),
+              trailing: currentThemeMode == ThemeMode.light
+                  ? const Icon(Icons.check, color: AppColors.primary)
+                  : null,
               onTap: () {
                 ref
                     .read(themeModeProvider.notifier)
@@ -375,6 +395,9 @@ class SystemSettingsTab extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.dark_mode),
               title: Text(l10n.darkTheme),
+              trailing: currentThemeMode == ThemeMode.dark
+                  ? const Icon(Icons.check, color: AppColors.primary)
+                  : null,
               onTap: () {
                 ref
                     .read(themeModeProvider.notifier)
@@ -385,6 +408,9 @@ class SystemSettingsTab extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.settings_suggest),
               title: Text(l10n.systemTheme),
+              trailing: currentThemeMode == ThemeMode.system
+                  ? const Icon(Icons.check, color: AppColors.primary)
+                  : null,
               onTap: () {
                 ref
                     .read(themeModeProvider.notifier)
@@ -400,6 +426,8 @@ class SystemSettingsTab extends ConsumerWidget {
 
   void _showLanguageDialog(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final localeAsync = ref.watch(localeProvider);
+    final currentLocale = localeAsync.valueOrNull ?? const Locale('zh');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -410,7 +438,7 @@ class SystemSettingsTab extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.language),
               title: Text(l10n.english),
-              trailing: ref.watch(localeProvider).languageCode == 'en'
+              trailing: currentLocale.languageCode == 'en'
                   ? const Icon(Icons.check, color: AppColors.primary)
                   : null,
               onTap: () {
@@ -421,7 +449,7 @@ class SystemSettingsTab extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.language),
               title: Text(l10n.chinese),
-              trailing: ref.watch(localeProvider).languageCode == 'zh'
+              trailing: currentLocale.languageCode == 'zh'
                   ? const Icon(Icons.check, color: AppColors.primary)
                   : null,
               onTap: () {
@@ -442,16 +470,16 @@ class SystemSettingsTab extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('重新转写'),
-        content: const Text('将处理所有未正常转写的录音，是否继续？'),
+        title: Text(l10n.retryFailedTranscriptions),
+        content: Text(l10n.retryFailedTranscriptionsConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('确认'),
+            child: Text(l10n.confirm),
           ),
         ],
       ),
@@ -475,7 +503,7 @@ class SystemSettingsTab extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${l10n.transcribeError}: $e'),
+            content: Text('${l10n.retranscribeError}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -489,62 +517,65 @@ class AccountCenterTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authNotifierProvider);
-    final subscriptionState = ref.watch(subscriptionNotifierProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final authAsync = ref.watch(authNotifierProvider);
+    final authState = authAsync.valueOrNull ?? const AuthState();
+    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+    final subscriptionState = subscriptionAsync.valueOrNull ?? const SubscriptionState();
 
     return ListView(
       children: [
-        _buildUserCard(context, authState),
+        _buildUserCard(context, authState, l10n),
         const SizedBox(height: 16),
-        _buildSubscriptionCard(context, subscriptionState),
+        _buildSubscriptionCard(context, subscriptionState, l10n),
         const SizedBox(height: 16),
         _buildSection(
           context,
-          title: '账户管理',
+          title: l10n.accountManagement,
           children: [
             if (!authState.isLoggedIn) ...[
               ListTile(
                 leading: const Icon(Icons.login, color: AppColors.primary),
-                title: const Text('登录/注册'),
-                subtitle: const Text('解锁云端AI服务，注册送100分钟'),
+                title: Text(l10n.loginRegisterDesc),
+                subtitle: Text(l10n.loginSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/login'),
               ),
             ] else ...[
               ListTile(
                 leading: const Icon(Icons.person, color: AppColors.primary),
-                title: const Text('个人信息'),
+                title: Text(l10n.personalInfo),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/profile'),
               ),
               ListTile(
                 leading: const Icon(Icons.workspace_premium, color: AppColors.warning),
-                title: const Text('我的订阅'),
+                title: Text(l10n.mySubscription),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _checkLoginAndNavigate(context, '/subscription/mine'),
               ),
               ListTile(
                 leading: const Icon(Icons.shopping_cart, color: AppColors.success),
-                title: const Text('购买套餐'),
+                title: Text(l10n.purchasePlan),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _checkLoginAndNavigate(context, '/subscription/store'),
               ),
               ListTile(
                 leading: const Icon(Icons.account_balance_wallet, color: AppColors.primary),
-                title: const Text('充值中心'),
+                title: Text(l10n.rechargeCenter),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _checkLoginAndNavigate(context, '/subscription/recharge'),
               ),
               ListTile(
                 leading: const Icon(Icons.receipt_long, color: AppColors.info),
-                title: const Text('交易记录'),
+                title: Text(l10n.transactionRecords),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _checkLoginAndNavigate(context, '/subscription/orders'),
               ),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout, color: AppColors.error),
-                title: const Text('退出登录'),
+                title: Text(l10n.logout),
                 onTap: () => _showLogoutConfirm(context, ref),
               ),
             ],
@@ -553,15 +584,15 @@ class AccountCenterTab extends ConsumerWidget {
         const SizedBox(height: 16),
         _buildSection(
           context,
-          title: 'AI服务配置',
+          title: l10n.aiServiceConfig,
           children: [
             ListTile(
               leading: const Icon(Icons.cloud, color: AppColors.primary),
-              title: const Text('云端AI服务'),
+              title: Text(l10n.cloudAiService),
               subtitle: Text(
                 authState.isLoggedIn
-                    ? '使用云端分配的API Key'
-                    : '登录后开启云端AI服务',
+                    ? l10n.cloudAiServiceLoggedIn
+                    : l10n.cloudAiServiceNotLoggedIn,
               ),
               trailing: Switch(
                 value: ref.watch(cloudApiEnabledProvider) && authState.isLoggedIn,
@@ -577,8 +608,8 @@ class AccountCenterTab extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.key, color: AppColors.secondary),
-              title: const Text('本地API配置'),
-              subtitle: const Text('使用自己的API Key'),
+              title: Text(l10n.localApiConfig),
+              subtitle: Text(l10n.apiKeyHelp),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/api-key'),
             ),
@@ -590,8 +621,8 @@ class AccountCenterTab extends ConsumerWidget {
 
   void _checkLoginAndNavigate(BuildContext context, String route) {
     final container = ProviderScope.containerOf(context);
-    final authState = container.read(authNotifierProvider);
-    if (!authState.isLoggedIn) {
+    final authState = container.read(authNotifierProvider).valueOrNull;
+    if (!(authState?.isLoggedIn ?? false)) {
       _showLoginPrompt(context);
       return;
     }
@@ -599,6 +630,7 @@ class AccountCenterTab extends ConsumerWidget {
   }
 
   void _showLoginPrompt(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -608,14 +640,14 @@ class AccountCenterTab extends ConsumerWidget {
           children: [
             const Icon(Icons.lock_outline, size: 48, color: AppColors.primary),
             const SizedBox(height: 16),
-            const Text(
-              '该功能需要登录后使用',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              l10n.loginSubtitle,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
-              '登录后即可使用云端AI服务、购买套餐等功能',
-              style: TextStyle(color: AppColors.textSecondary),
+            Text(
+              l10n.loginRegisterDesc,
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -632,13 +664,13 @@ class AccountCenterTab extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('去登录'),
+                child: Text(l10n.loginNow),
               ),
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('暂不登录'),
+              child: Text(l10n.cancel),
             ),
           ],
         ),
@@ -646,7 +678,7 @@ class AccountCenterTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildUserCard(BuildContext context, AuthState state) {
+  Widget _buildUserCard(BuildContext context, AuthState state, AppLocalizations l10n) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
@@ -671,7 +703,7 @@ class AccountCenterTab extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            state.isLoggedIn ? state.user?.nickname ?? '用户' : '未登录',
+            state.isLoggedIn ? state.user?.nickname ?? l10n.user : l10n.notLoggedIn,
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -698,7 +730,7 @@ class AccountCenterTab extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              child: const Text('登录/注册'),
+              child: Text(l10n.loginRegisterDesc),
             ),
           ],
         ],
@@ -706,7 +738,7 @@ class AccountCenterTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildSubscriptionCard(BuildContext context, SubscriptionState state) {
+  Widget _buildSubscriptionCard(BuildContext context, SubscriptionState state, AppLocalizations l10n) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
@@ -721,9 +753,9 @@ class AccountCenterTab extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '当前套餐',
-                style: TextStyle(
+              Text(
+                l10n.currentPlan,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -737,7 +769,7 @@ class AccountCenterTab extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  state.isActive ? '生效中' : '已过期',
+                  state.isActive ? l10n.statusActive : l10n.statusExpired,
                   style: TextStyle(
                     fontSize: 12,
                     color: state.isActive ? AppColors.success : AppColors.error,
@@ -748,7 +780,7 @@ class AccountCenterTab extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            state.planName ?? '免费版',
+            state.planName ?? l10n.freePlan,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -763,7 +795,7 @@ class AccountCenterTab extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '已用 ${state.usedQuota} / ${state.totalQuota} 分钟',
+            l10n.minutesUsed(state.usedQuota, state.totalQuota),
             style: const TextStyle(
               fontSize: 12,
               color: AppColors.textSecondary,
@@ -775,15 +807,16 @@ class AccountCenterTab extends ConsumerWidget {
   }
 
   void _showLogoutConfirm(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认退出'),
-        content: const Text('退出后将无法使用云端AI服务'),
+        title: Text(l10n.confirmLogout),
+        content: Text(l10n.logoutConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -793,7 +826,7 @@ class AccountCenterTab extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
             ),
-            child: const Text('退出'),
+            child: Text(l10n.logout),
           ),
         ],
       ),

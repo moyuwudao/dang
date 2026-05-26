@@ -6,6 +6,7 @@ import '../../../core/services/prompt_template_service.dart';
 import '../../../core/services/role_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../../workbench/tools/tool_configs.dart';
 
 enum RolePickerTab { system, custom, template, tool }
@@ -117,6 +118,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
   }
 
   Widget _buildHeader() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       children: [
         const SizedBox(height: 8),
@@ -129,15 +131,15 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
           ),
         ),
         const SizedBox(height: 12),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
               Text(
-                '选择AI分析角色',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                l10n.selectAiRole,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              Spacer(),
+              const Spacer(),
               // 管理按钮已移除
             ],
           ),
@@ -147,11 +149,12 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
   }
 
   Widget _buildSearchBar() {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: TextField(
         decoration: InputDecoration(
-          hintText: '搜索角色或模板...',
+          hintText: l10n.searchRoleOrTemplate,
           prefixIcon: const Icon(Icons.search, size: 20),
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
           border: OutlineInputBorder(
@@ -204,6 +207,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
   }
 
   Widget _buildSystemRolesTab() {
+    final l10n = AppLocalizations.of(context)!;
     final filtered = _systemRoles
         .where((r) =>
             r.name.toLowerCase().contains(_searchQuery) ||
@@ -211,7 +215,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
         .toList();
 
     if (filtered.isEmpty) {
-      return _buildEmptyState('暂无匹配的系统角色');
+      return _buildEmptyState(l10n.noMatchingSystemRole);
     }
 
     return ListView.builder(
@@ -225,6 +229,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
   }
 
   Widget _buildCustomRolesTab() {
+    final l10n = AppLocalizations.of(context)!;
     final filtered = _customRoles
         .where((r) =>
             r.name.toLowerCase().contains(_searchQuery) ||
@@ -233,8 +238,8 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
 
     if (filtered.isEmpty) {
       return _buildEmptyStateWithAction(
-        '暂无自定义角色',
-        '点击管理按钮创建你的专属AI角色',
+        l10n.noCustomRole,
+        l10n.clickToCreateRole,
         widget.onManageRoles != null
             ? () {
                 Navigator.pop(context);
@@ -255,11 +260,12 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
   }
 
   Widget _buildTemplatesTab() {
+    final l10n = AppLocalizations.of(context)!;
     final templateService = ref.read(promptTemplateServiceProvider);
     final categories = templateService.getCategories();
 
     if (_templates.isEmpty) {
-      return _buildEmptyState('暂无模板');
+      return _buildEmptyState(l10n.noTemplate);
     }
 
     // Get frequently used templates first
@@ -276,13 +282,13 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
       children: [
         // Frequently used section at the top
         if (frequentlyUsed.isNotEmpty && _searchQuery.isEmpty) ...[
-          const Row(
+          Row(
             children: [
-              Icon(Icons.star, color: Colors.amber, size: 16),
-              SizedBox(width: 6),
+              const Icon(Icons.star, color: Colors.amber, size: 16),
+              const SizedBox(width: 6),
               Text(
-                '常用模板',
-                style: TextStyle(
+                l10n.frequentlyUsedTemplates,
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primary,
@@ -365,6 +371,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
   }
 
   Widget _buildToolsTab() {
+    final l10n = AppLocalizations.of(context)!;
     final filteredTools = _tools
         .where((t) =>
             t.title.toLowerCase().contains(_searchQuery) ||
@@ -378,20 +385,20 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
         .toList();
 
     if (filteredTools.isEmpty) {
-      return _buildEmptyState('暂无匹配的工具');
+      return _buildEmptyState(l10n.noMatchingTool);
     }
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         if (_searchQuery.isEmpty && recentTools.isNotEmpty) ...[
-          const Row(
+          Row(
             children: [
-              Icon(Icons.star, color: Colors.amber, size: 16),
-              SizedBox(width: 6),
+              const Icon(Icons.star, color: Colors.amber, size: 16),
+              const SizedBox(width: 6),
               Text(
-                '常用工具',
-                style: TextStyle(
+                l10n.frequentlyUsedTools,
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primary,
@@ -713,6 +720,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
     String subtitle,
     VoidCallback? onAction,
   ) {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -730,7 +738,7 @@ class _AiRolePickerState extends ConsumerState<AiRolePicker>
             ElevatedButton.icon(
               onPressed: onAction,
               icon: const Icon(Icons.add, size: 16),
-              label: const Text('创建角色'),
+              label: Text(l10n.createRole),
             ),
           ],
         ],

@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: admin/**, server/**
 description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作指导
 ---
 
@@ -12,10 +13,11 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 **适用范围**：所有对该服务器的部署、配置、维护操作
 **服务器IP**：101.133.238.249（公网）/ 172.24.29.151（内网）
 **操作系统**：Ubuntu 22.04.5 LTS
-**文档版本**：v1.7
+**文档版本**：v1.8
 
+> **MCP 连接** → 详见 `aliyun-servers` MCP（mcp-server-ssh）
 > **安全红线** → 详见 [RED_LINES.md](RED_LINES.md)
-> **构建红线** → 详见 [BUILD_RED_LINES.md](BUILD_RED_LINES.md)
+> **构建规则** → 详见 [BUILD.md](BUILD.md)
 
 ---
 
@@ -76,13 +78,21 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 
 #### 密码登录（备用方式）
 ```bash
+# ⚠️ 仅手动使用（交互式登录，AI 执行会永久阻塞）
 ssh admin@101.133.238.249
+
+# ✅ AI/脚本使用（远程执行单条命令，30 秒超时）
+ssh -o ConnectTimeout=10 admin@101.133.238.249 "具体命令"
 ```
 
 #### 密钥登录（推荐 ✅ 已配置）
 ```powershell
+# ⚠️ 仅手动使用（交互式登录，AI 执行会永久阻塞）
 ssh -i $env:USERPROFILE\.ssh\id_ed25519 admin@101.133.238.249
 ssh changji
+
+# ✅ AI/脚本使用（远程执行命令）
+ssh -o ConnectTimeout=10 changji "具体命令"
 ```
 
 SSH Config（`C:\Users\Mayn\.ssh\config`）：
@@ -100,31 +110,42 @@ Host changji
 
 #### PostgreSQL
 ```bash
+# ⚠️ 仅手动使用（交互式 psql，AI 执行会永久阻塞）
 sudo -u postgres psql -d appdb
+
+# ✅ AI/脚本使用（非交互式 SQL，30 秒超时）
+PGOPTIONS="-c statement_timeout=30000" sudo -u postgres psql -d appdb -c "SELECT 1;"
+
+# 连接字符串（代码中使用）
 postgresql://appuser:AppUser123456@localhost:5432/appdb
 ```
 
 #### Redis
 ```bash
+# ⚠️ 仅手动使用（交互式 redis-cli，AI 执行会永久阻塞）
 redis-cli -a Redis123456
+
+# ✅ AI/脚本使用（非交互式命令）
+redis-cli -a Redis123456 --no-auth-warning PING
+redis-cli -a Redis123456 --no-auth-warning INFO
 ```
 
 #### Server Agent
 ```bash
-curl http://127.0.0.1:8848/health
-curl -H "X-Agent-Token: changji-agent-2026" http://127.0.0.1:8848/info
+curl --connect-timeout 5 --max-time 10 http://127.0.0.1:8848/health
+curl --connect-timeout 5 --max-time 10 -H "X-Agent-Token: changji-agent-2026" http://127.0.0.1:8848/info
 ```
 
 #### Nginx 反向代理
 ```bash
-curl -u admin:Agent@2026 \
+curl --connect-timeout 5 --max-time 10 -u admin:Agent@2026 \
   -H "X-Agent-Token: changji-agent-2026" \
   http://101.133.238.249/agent/info
 ```
 
 #### 畅记云 API
 ```bash
-curl http://101.133.238.249/api/v1/health
+curl --connect-timeout 5 --max-time 10 http://101.133.238.249/api/v1/health
 ```
 
 ### 2.4 连接安全规范
@@ -284,7 +305,43 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 
 ---
 
-## 四、相关文档
+## 四、部署后验证（使用 MCP 工具）
+
+### 4.1 Chrome DevTools MCP — 浏览器视觉验证
+
+部署完成后，使用 Chrome DevTools MCP 验证 admin 面板功能正常：
+
+```
+1. 打开 admin 面板
+   mcp_Chrome_DevTools_MCP_navigate_page(type="url", url="http://101.133.238.249/admin/dashboard")
+
+2. 截图保存部署后状态
+   mcp_Chrome_DevTools_MCP_take_screenshot(fullPage=true)
+
+3. 获取页面快照，验证关键元素存在
+   mcp_Chrome_DevTools_MCP_take_snapshot()
+
+4. 检查控制台错误
+   mcp_Chrome_DevTools_MCP_list_console_messages(types=["error"])
+
+5. 验证 API 请求正常
+   mcp_Chrome_DevTools_MCP_list_network_requests(resourceTypes=["xhr", "fetch"])
+```
+
+> **详细 SOP** → 详见 [PLAYWRIGHT_E2E.md](PLAYWRIGHT_E2E.md)
+
+### 4.2 GitHub MCP — 代码与发布管理
+
+| 操作 | MCP 工具 | 说明 |
+|------|---------|------|
+| 创建部署分支 | `mcp_GitHub_create_branch` | 从 main 创建 `deploy/YYYYMMDD` 分支 |
+| 提交代码变更 | `mcp_GitHub_push_files` | 批量推送部署相关文件 |
+| 创建 PR | `mcp_GitHub_create_pull_request` | 创建部署 PR 供审查 |
+| 查看部署历史 | `mcp_GitHub_list_commits` | 查看最近的部署提交 |
+
+---
+
+## 五、相关文档
 
 | 文档 | 用途 |
 |-----|------|
@@ -292,9 +349,9 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 | [SERVER_SECURITY.md](SERVER_SECURITY.md) | 网络安全、API安全、安全审计 |
 | [SERVER_OPS.md](SERVER_OPS.md) | 日常检查、日志管理、应急响应 |
 | [SERVER_API.md](SERVER_API.md) | 畅记云 API 接口说明 |
-| [SERVER_STATUS.md](SERVER_STATUS.md) | 当前服务器部署状态报告 |
+| [../docs/SERVER_STATUS.md](../docs/SERVER_STATUS.md) | 当前服务器部署状态报告 |
 | [RED_LINES.md](RED_LINES.md) | 通用安全红线 |
-| [BUILD_RED_LINES.md](BUILD_RED_LINES.md) | APK构建红线 |
+| [BUILD.md](BUILD.md) | APK构建规则 |
 | [API_DESIGN.md](API_DESIGN.md) | API设计规范 |
 
 ---
@@ -303,6 +360,7 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 
 | 日期 | 版本 | 更新内容 |
 |-----|------|---------|
+| 2026-05-25 | v1.9 | 安全修复：交互式 SSH/psql/redis-cli 加"仅手动使用"标注并提供 AI 安全替代；curl 命令加 --connect-timeout/--max-time |
 | 2026-05-21 | v1.7 | 新增 CASE-005：Admin 后台 Tailwind CSS 样式不生效；新增 CASE-006：Nginx 缓存导致旧版本页面无法更新 |
 | 2026-05-21 | v1.6 | 拆分优化：部署流程→SERVER_DEPLOY_PROCEDURE.md，安全→SERVER_SECURITY.md，运维→SERVER_OPS.md，API→SERVER_API.md |
 | 2026-05-20 | v1.5 | 新增服务器连接方式章节 |

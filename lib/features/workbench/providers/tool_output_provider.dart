@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/repositories/tool_output_repository.dart';
 import '../../../data/models/tool_output_model.dart';
 
-final toolOutputStateProvider = StateNotifierProvider<ToolOutputStateNotifier, ToolOutputState>(
-  (ref) => ToolOutputStateNotifier(ref.watch(toolOutputRepositoryProvider)),
+final toolOutputStateProvider = AsyncNotifierProvider<ToolOutputStateNotifier, ToolOutputState>(
+  () => ToolOutputStateNotifier(),
 );
 
 class ToolOutputState {
@@ -31,39 +31,39 @@ class ToolOutputState {
   }
 }
 
-class ToolOutputStateNotifier extends StateNotifier<ToolOutputState> {
-  final ToolOutputRepository _repository;
+class ToolOutputStateNotifier extends AsyncNotifier<ToolOutputState> {
+  ToolOutputRepository get _repository => ref.read(toolOutputRepositoryProvider);
 
-  ToolOutputStateNotifier(this._repository)
-      : super(const ToolOutputState(outputs: [], isLoading: true)) {
-    _loadAllOutputs();
+  @override
+  Future<ToolOutputState> build() async {
+    return _loadAllOutputs();
   }
 
-  Future<void> _loadAllOutputs() async {
-    state = state.copyWith(isLoading: true);
+  Future<ToolOutputState> _loadAllOutputs() async {
     try {
       final outputs = await _repository.getAllToolOutputs();
-      state = state.copyWith(outputs: outputs, isLoading: false);
+      return ToolOutputState(outputs: outputs, isLoading: false);
     } catch (e) {
-      state = state.copyWith(outputs: [], isLoading: false);
+      return const ToolOutputState(outputs: [], isLoading: false);
     }
   }
 
   Future<void> loadByToolId(String toolId) async {
-    state = state.copyWith(isLoading: true, selectedToolId: toolId);
+    state = const AsyncLoading();
     try {
       final outputs = await _repository.getToolOutputsByToolId(toolId);
-      state = state.copyWith(outputs: outputs, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(outputs: [], isLoading: false);
+      state = AsyncData(ToolOutputState(outputs: outputs, isLoading: false, selectedToolId: toolId));
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
     }
   }
 
   Future<void> refresh() async {
-    if (state.selectedToolId != null) {
-      await loadByToolId(state.selectedToolId!);
+    final currentState = state.valueOrNull;
+    if (currentState?.selectedToolId != null) {
+      await loadByToolId(currentState!.selectedToolId!);
     } else {
-      await _loadAllOutputs();
+      state = AsyncData(await _loadAllOutputs());
     }
   }
 

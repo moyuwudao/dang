@@ -4,20 +4,21 @@ import '../models/tool_template.dart';
 import '../tools/tool_templates.dart';
 import '../tools/tool_configs.dart';
 
-final toolTemplateProvider = StateNotifierProvider<ToolTemplateNotifier,
+final toolTemplateProvider = AsyncNotifierProvider<ToolTemplateNotifier,
     Map<String, List<ToolTemplate>>>(
-  (ref) => ToolTemplateNotifier(),
+  () => ToolTemplateNotifier(),
 );
 
 class ToolTemplateNotifier
-    extends StateNotifier<Map<String, List<ToolTemplate>>> {
-  ToolTemplateNotifier() : super({}) {
-    _loadTemplates();
-  }
-
+    extends AsyncNotifier<Map<String, List<ToolTemplate>>> {
   static const String _templatesKey = 'tool_templates';
 
-  Future<void> _loadTemplates() async {
+  @override
+  Future<Map<String, List<ToolTemplate>>> build() async {
+    return _loadTemplates();
+  }
+
+  Future<Map<String, List<ToolTemplate>>> _loadTemplates() async {
     final prefs = await SharedPreferences.getInstance();
     final templatesJson = prefs.getString(_templatesKey);
 
@@ -36,18 +37,18 @@ class ToolTemplateNotifier
           }
         });
 
-        state = _mergeTemplates(userTemplates);
+        return _mergeTemplates(userTemplates);
       } catch (e) {
-        state = _mergeTemplates({});
+        return _mergeTemplates({});
       }
     } else {
-      state = _mergeTemplates({});
+      return _mergeTemplates({});
     }
   }
 
   Future<void> _saveTemplates() async {
     final prefs = await SharedPreferences.getInstance();
-    final userTemplates = Map<String, List<ToolTemplate>>.from(state);
+    final userTemplates = Map<String, List<ToolTemplate>>.from(state.valueOrNull!);
 
     userTemplates.forEach((toolId, templates) {
       userTemplates[toolId] = templates.where((t) => !t.isBuiltIn).toList();
@@ -78,31 +79,31 @@ class ToolTemplateNotifier
   }
 
   void setDefaultTemplate(String toolId, String templateId) {
-    final templates = state[toolId];
+    final templates = state.valueOrNull![toolId];
     if (templates == null) return;
 
-    state = {
-      ...state,
+    state = AsyncData({
+      ...state.valueOrNull!,
       toolId: templates
           .map((t) => t.copyWith(isDefault: t.id == templateId))
           .toList(),
-    };
+    });
 
     _saveTemplates();
   }
 
   void addTemplate(String toolId, ToolTemplate template) {
-    final templates = state[toolId] ?? [];
+    final templates = state.valueOrNull![toolId] ?? [];
 
     final newTemplate = template.copyWith(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
       isBuiltIn: false,
     );
 
-    state = {
-      ...state,
+    state = AsyncData({
+      ...state.valueOrNull!,
       toolId: [...templates, newTemplate],
-    };
+    });
 
     if (newTemplate.isDefault) {
       setDefaultTemplate(toolId, newTemplate.id);
@@ -113,21 +114,21 @@ class ToolTemplateNotifier
 
   void editTemplate(
       String toolId, String templateId, ToolTemplate updatedTemplate) {
-    final templates = state[toolId];
+    final templates = state.valueOrNull![toolId];
     if (templates == null) return;
 
-    state = {
-      ...state,
+    state = AsyncData({
+      ...state.valueOrNull!,
       toolId: templates
           .map((t) => t.id == templateId ? updatedTemplate : t)
           .toList(),
-    };
+    });
 
     _saveTemplates();
   }
 
   void deleteTemplate(String toolId, String templateId) {
-    final templates = state[toolId];
+    final templates = state.valueOrNull![toolId];
     if (templates == null) return;
 
     final templateToDelete = templates.firstWhere((t) => t.id == templateId);
@@ -139,16 +140,16 @@ class ToolTemplateNotifier
       newTemplates[0] = newTemplates[0].copyWith(isDefault: true);
     }
 
-    state = {
-      ...state,
+    state = AsyncData({
+      ...state.valueOrNull!,
       toolId: newTemplates,
-    };
+    });
 
     _saveTemplates();
   }
 
   ToolTemplate? getDefaultTemplate(String toolId) {
-    final templates = state[toolId];
+    final templates = state.valueOrNull![toolId];
     if (templates == null || templates.isEmpty) return null;
 
     return templates.firstWhere(

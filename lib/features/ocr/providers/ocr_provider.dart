@@ -2,17 +2,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
 
-class OCRNotifier extends StateNotifier<AsyncValue<void>> {
-  final RecordRepository _repository;
+class OCRNotifier extends AsyncNotifier<void> {
+  RecordRepository get _repository => ref.read(recordRepositoryProvider);
 
-  OCRNotifier(this._repository) : super(const AsyncValue.data(null));
+  @override
+  Future<void> build() async {
+    return;
+  }
 
   Future<void> saveOCRRecord({
     required String imagePath,
     required String content,
     List<String> tags = const [],
   }) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     try {
       await _repository.createRecordFromFields(
         type: RecordType.ocr,
@@ -21,14 +24,13 @@ class OCRNotifier extends StateNotifier<AsyncValue<void>> {
         tags: tags,
         transcriptionStatus: TranscriptionStatus.none,
       );
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
     }
   }
 }
 
-final ocrNotifierProvider = StateNotifierProvider<OCRNotifier, AsyncValue<void>>((ref) {
-  final repository = ref.watch(recordRepositoryProvider);
-  return OCRNotifier(repository);
+final ocrNotifierProvider = AsyncNotifierProvider<OCRNotifier, void>(() {
+  return OCRNotifier();
 });

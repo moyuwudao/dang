@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/transcription_progress.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
+
+// l10n keys used: transcriptionProgress, chunkProgress
 
 class TranscriptionProgressWidget extends StatelessWidget {
   final TranscriptionProgress progress;
@@ -9,6 +12,7 @@ class TranscriptionProgressWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -21,7 +25,7 @@ class TranscriptionProgressWidget extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '转写进度',
+                    l10n.transcriptionProgress,
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
@@ -52,7 +56,7 @@ class TranscriptionProgressWidget extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '分片进度: ${progress.completedChunks}/${progress.totalChunks}',
+                '${l10n.chunkProgress}: ${progress.completedChunks}/${progress.totalChunks}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),

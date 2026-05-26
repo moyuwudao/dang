@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/expandable_text_field.dart';
 import '../../../core/widgets/tag_selector.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../providers/quick_note_provider.dart';
 
 class QuickNoteScreen extends ConsumerStatefulWidget {
@@ -16,6 +17,7 @@ class QuickNoteScreen extends ConsumerStatefulWidget {
 class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
   final _contentController = TextEditingController();
   final List<String> _tags = [];
+  late AppLocalizations _l10n;
 
   @override
   void dispose() {
@@ -27,7 +29,7 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
     final content = _contentController.text;
     if (content.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入内容')),
+        SnackBar(content: Text(_l10n.pleaseEnterContent)),
       );
       return;
     }
@@ -37,8 +39,8 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('速记已保存'),
+          SnackBar(
+            content: Text(_l10n.quickNoteSaved),
             backgroundColor: AppColors.success,
           ),
         );
@@ -47,7 +49,7 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
+          SnackBar(content: Text('${_l10n.saveFailed}: $e')),
         );
       }
     }
@@ -55,15 +57,28 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final quickNoteState = ref.watch(quickNoteProvider);
+    _l10n = AppLocalizations.of(context)!;
+    final quickNoteAsync = ref.watch(quickNoteProvider);
+
+    final isSaving = quickNoteAsync.when(
+      data: (state) => state.isSaving,
+      loading: () => true,
+      error: (_, __) => false,
+    );
+
+    final error = quickNoteAsync.when(
+      data: (state) => state.error,
+      loading: () => null,
+      error: (e, _) => e.toString(),
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('速记'),
+        title: Text(_l10n.quickNote),
         actions: [
           TextButton.icon(
-            onPressed: quickNoteState.isSaving ? null : _saveNote,
-            icon: quickNoteState.isSaving
+            onPressed: isSaving ? null : _saveNote,
+            icon: isSaving
                 ? const SizedBox(
                     width: 16,
                     height: 16,
@@ -74,7 +89,7 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
                   )
                 : const Icon(Icons.save, color: Colors.white),
             label: Text(
-              quickNoteState.isSaving ? '保存中...' : '保存',
+              isSaving ? _l10n.saving : _l10n.saveButton,
               style: const TextStyle(color: Colors.white),
             ),
           ),
@@ -87,7 +102,7 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
             Expanded(
               child: ExpandableTextField(
                 controller: _contentController,
-                hintText: '在这里输入你的想法...',
+                hintText: _l10n.inputYourThoughts,
                 minLines: 10,
                 maxLines: 50,
               ),
@@ -98,9 +113,9 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '标签',
-                  style: TextStyle(
+                Text(
+                  _l10n.tags,
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: AppColors.textSecondary,
@@ -118,10 +133,10 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
                 ),
               ],
             ),
-            if (quickNoteState.error != null) ...[
+            if (error != null) ...[
               const SizedBox(height: 8),
               Text(
-                quickNoteState.error!,
+                error,
                 style: const TextStyle(color: AppColors.error),
               ),
             ],

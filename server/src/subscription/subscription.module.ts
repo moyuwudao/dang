@@ -7,10 +7,12 @@ import { Subscription } from './entities/subscription.entity';
 import { Plan } from './entities/plan.entity';
 import { UserBalance } from './entities/user-balance.entity';
 import { RechargeRecord } from './entities/recharge-record.entity';
+import { PlanApiPolicy } from './entities/plan-api-policy.entity';
+import { ApiUsageLog } from './entities/api-usage-log.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Subscription, Plan, UserBalance, RechargeRecord]),
+    TypeOrmModule.forFeature([Subscription, Plan, UserBalance, RechargeRecord, PlanApiPolicy, ApiUsageLog]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'changji_jwt_secret_change_me',
       signOptions: { expiresIn: '15m' },

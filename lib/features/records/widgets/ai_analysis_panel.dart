@@ -10,6 +10,9 @@ import '../../../data/models/record_model.dart';
 import '../../records/providers/record_provider.dart';
 import '../widgets/ai_analysis_card.dart';
 import 'ai_role_picker.dart';
+import '../../../l10n/generated/app_localizations.dart';
+
+// l10n keys used: addAiAnalysis, aiAnalyzing, tapToAnalyze, analysisComplete, analysisFailed, noContentToAnalyze, reanalyze, analysisExists, cancelButton, confirmButton, deleteButton, confirmDeleteTitle, confirmDelete, originalTranscription, supplementContent, audioSupplement, imageSupplement, textSupplement, saveSuccess
 
 class AiAnalysisPanel extends ConsumerStatefulWidget {
   final RecordModel record;
@@ -46,6 +49,7 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final record = widget.record;
     // Filter out auto-analysis results, only show manual analysis results
     final analyses = record.aiAnalysisResults
@@ -59,9 +63,9 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
           children: [
             const Icon(Icons.psychology, size: 18, color: AppColors.primary),
             const SizedBox(width: 8),
-            const Text(
-              'AI分析',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              l10n.aiAnalysis,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             if (_isAnalyzing)
@@ -74,7 +78,7 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
               IconButton(
                 icon: const Icon(Icons.add_circle_outline, size: 20),
                 onPressed: () => _showRolePicker(),
-                tooltip: '添加AI分析',
+                tooltip: l10n.addAiAnalysis,
               ),
           ],
         ),
@@ -94,6 +98,7 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
   }
 
   Widget _buildEmptyState() {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -107,9 +112,9 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
           Icon(Icons.auto_awesome,
               size: 32, color: AppColors.primary.withOpacity(0.5)),
           const SizedBox(height: 8),
-          const Text(
-            '点击 + 使用AI角色分析此记录',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          Text(
+            l10n.tapToAnalyze,
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
         ],
       ),
@@ -117,6 +122,7 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
   }
 
   Widget _buildAnalyzingIndicator() {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -125,9 +131,9 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
         color: AppColors.info.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          SizedBox(
+          const SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
@@ -135,10 +141,10 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
               color: AppColors.info,
             ),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Text(
-            'AI正在分析中...',
-            style: TextStyle(color: AppColors.info, fontSize: 13),
+            l10n.aiAnalyzing,
+            style: const TextStyle(color: AppColors.info, fontSize: 13),
           ),
         ],
       ),
@@ -160,15 +166,16 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
   }
 
   void _confirmRemoveAnalysis(String roleId) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('确认删除'),
-        content: const Text('确定要删除这个分析结果吗？'),
+        title: Text(l10n.confirmDeleteTitle),
+        content: Text(l10n.confirmDelete),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
@@ -179,7 +186,7 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
               Navigator.pop(dialogContext);
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('删除'),
+            child: Text(l10n.deleteButton),
           ),
         ],
       ),
@@ -192,19 +199,20 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
     );
 
     if (hasExisting) {
+      final l10n = AppLocalizations.of(context)!;
       final confirm = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('已存在分析结果'),
-          content: Text('角色"${role.name}"已有分析结果，是否重新分析？'),
+          title: Text(l10n.analysisExists),
+          content: Text('${role.name}${l10n.analysisExistsConfirm}'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
+              child: Text(l10n.cancelButton),
             ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('重新分析'),
+              child: Text(l10n.reanalyze),
             ),
           ],
         ),
@@ -221,15 +229,16 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
     try {
       final transcriptionService = ref.read(transcriptionServiceProvider);
 
+      final l10n = AppLocalizations.of(context)!;
       final buffer = StringBuffer();
-      buffer.writeln('=== 原始转写文本 ===');
+      buffer.writeln('=== ${l10n.originalTranscription} ===');
       buffer.writeln(widget.record.content ?? '');
 
       if (widget.record.supplements.isNotEmpty) {
-        buffer.writeln('\n\n=== 补充内容 ===');
+        buffer.writeln('\n\n=== ${l10n.supplementContent} ===');
         for (final supplement in widget.record.supplements) {
           buffer.writeln(
-              '\n--- ${supplement.type == 'audio' ? '录音补充' : supplement.type == 'image' ? '图片补充' : '文本补充'} [${supplement.createdAt}] ---');
+              '\n--- ${supplement.type == 'audio' ? l10n.audioSupplement : supplement.type == 'image' ? l10n.imageSupplement : l10n.textSupplement} [${supplement.createdAt}] ---');
           if (supplement.type == 'text') {
             buffer.writeln(supplement.content);
           } else if (supplement.transcribedContent != null &&
@@ -241,12 +250,12 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
 
       final contentToAnalyze = buffer.toString().trim();
       if (contentToAnalyze.isEmpty ||
-          contentToAnalyze == '=== 原始转写文本 ===' ||
+          contentToAnalyze == '=== ${l10n.originalTranscription} ===' ||
           contentToAnalyze.replaceAll(RegExp(r'[=\s\n\-]'), '').isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('没有可分析的内容，请先添加转写文本或补充内容'),
+            SnackBar(
+              content: Text(l10n.noContentToAnalyze),
               backgroundColor: AppColors.warning,
             ),
           );
@@ -277,7 +286,7 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('${role.name} 分析完成'),
+              content: Text('${role.name} ${l10n.analysisComplete}'),
               backgroundColor: AppColors.success),
         );
         if (widget.onAnalysisComplete != null) {
@@ -286,8 +295,9 @@ class _AiAnalysisPanelState extends ConsumerState<AiAnalysisPanel> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分析失败: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text('${l10n.analysisFailed}: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {

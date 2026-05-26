@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import '../models/data_source_selection.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class CategorySelector extends StatelessWidget {
   final List<DataSourceCategory> selectedCategories;
@@ -24,14 +25,15 @@ class CategorySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Text(
-            '选择数据源类型',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            l10n.selectDataSourceType,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ),
         Padding(

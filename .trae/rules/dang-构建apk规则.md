@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: android/**, build.gradle.kts, pubspec.yaml
 description: 构建dang的APK文件时生效 - 环境配置和签名信息
 ---
 
@@ -81,7 +82,7 @@ org.gradle.daemon=false
 >
 > **构建异常和错误排查** → 详见 [BUILD_TROUBLESHOOTING.md](BUILD_TROUBLESHOOTING.md)
 >
-> **构建红线（禁止事项）** → 详见 [BUILD_RED_LINES.md](BUILD_RED_LINES.md)
+> **构建规则（强制检查清单）** → 详见 [BUILD.md](BUILD.md)
 
 ### 构建核心原则
 
@@ -111,7 +112,7 @@ adb shell pm list packages | findstr dang
 | 文档 | 用途 |
 |-----|------|
 | [BUILD.md](BUILD.md) | 构建流程规范（唯一构建流程定义） |
-| [BUILD_RED_LINES.md](BUILD_RED_LINES.md) | 构建红线（强制检查清单） |
+| [BUILD.md](BUILD.md) | 构建流程规范（唯一构建规则源） |
 | [BUILD_TROUBLESHOOTING.md](BUILD_TROUBLESHOOTING.md) | 构建异常案例集锦 |
 | [RED_LINES.md](RED_LINES.md) | 安全红线 |
 | [INTERACTION.md](INTERACTION.md) | 交互规则（构建阻断机制） |

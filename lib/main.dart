@@ -41,7 +41,7 @@ class _ChangjiAppState extends ConsumerState<ChangjiApp> {
 
   Future<void> _initializeApi() async {
     try {
-      final apiService = ref.read(apiServiceProvider);
+      final apiService = ApiService();
 
       final multiConfig = await StorageService.getMultiApiConfig();
       if (multiConfig.hasAnyConfig) {
@@ -92,8 +92,10 @@ class _ChangjiAppState extends ConsumerState<ChangjiApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
-    final themeMode = ref.watch(themeModeProvider);
-    final locale = ref.watch(localeProvider);
+    final themeModeAsync = ref.watch(themeModeProvider);
+    final themeMode = themeModeAsync.valueOrNull ?? ThemeMode.system;
+    final localeAsync = ref.watch(localeProvider);
+    final locale = localeAsync.valueOrNull ?? const Locale('zh');
 
     return MaterialApp.router(
       title: 'Changji',
@@ -102,7 +104,7 @@ class _ChangjiAppState extends ConsumerState<ChangjiApp> {
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
       routerConfig: router,
-      locale: locale,
+      locale: locale ?? const Locale('zh'),
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
@@ -110,8 +112,8 @@ class _ChangjiAppState extends ConsumerState<ChangjiApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('en'),
         Locale('zh'),
+        Locale('en'),
       ],
     );
   }

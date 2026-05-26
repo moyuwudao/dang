@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/stats_charts.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 final realTimeStatsProvider = FutureProvider<UsageStats>((ref) async {
   final repository = ref.watch(recordRepositoryProvider);
@@ -74,11 +75,12 @@ class StatisticsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final statsAsync = ref.watch(realTimeStatsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('数据统计'),
+        title: Text(l10n.dataStatistics),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -93,11 +95,11 @@ class StatisticsScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, size: 64, color: AppColors.error),
               const SizedBox(height: 16),
-              Text('加载统计失败: $error'),
+              Text('${l10n.loadFailed}: $error'),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.refresh(realTimeStatsProvider),
-                child: const Text('重试'),
+                child: Text(l10n.retry),
               ),
             ],
           ),

@@ -22,60 +22,15 @@ When implementing new functionality:
 
 ### Repository Pattern
 
-Encapsulate data access behind a consistent interface:
+Encapsulate data access behind a consistent interface.
+Abstracts data sources (remote/local) from business logic.
 
-```dart
-abstract interface class UserRepository {
-  Future<User?> getById(String id);
-  Future<List<User>> getAll();
-  Stream<List<User>> watchAll();
-  Future<void> save(User user);
-  Future<void> delete(String id);
-}
-
-class UserRepositoryImpl implements UserRepository {
-  const UserRepositoryImpl(this._remote, this._local);
-
-  final UserRemoteDataSource _remote;
-  final UserLocalDataSource _local;
-
-  @override
-  Future<User?> getById(String id) async {
-    final local = await _local.getById(id);
-    if (local != null) return local;
-    final remote = await _remote.getById(id);
-    if (remote != null) await _local.save(remote);
-    return remote;
-  }
-
-  @override
-  Future<List<User>> getAll() async {
-    final remote = await _remote.getAll();
-    for (final user in remote) {
-      await _local.save(user);
-    }
-    return remote;
-  }
-
-  @override
-  Stream<List<User>> watchAll() => _local.watchAll();
-
-  @override
-  Future<void> save(User user) => _local.save(user);
-
-  @override
-  Future<void> delete(String id) async {
-    await _remote.delete(id);
-    await _local.delete(id);
-  }
-}
-```
-
-**Benefits:**
 - Consistent interface for data access
 - Easy to swap data sources
 - Simplifies testing with mocks
 - Clear separation of concerns
+
+> **Dart/Flutter 具体实现** → 详见 [dart/patterns.md](dart/patterns.md)
 
 ### API Response Format
 

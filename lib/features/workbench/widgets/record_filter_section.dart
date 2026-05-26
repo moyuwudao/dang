@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class RecordFilterSection extends StatefulWidget {
   final DateTimeRange? dateRange;
@@ -48,14 +49,16 @@ class _RecordFilterSectionState extends State<RecordFilterSection> {
   }
 
   String _formatDateRange(DateTimeRange range) {
+    final l10n = AppLocalizations.of(context)!;
     final startStr = '${range.start.month}/${range.start.day}';
     final endStr = '${range.end.month}/${range.end.day}';
     final days = range.duration.inDays;
-    return '$startStr - $endStr（$days天）';
+    return '$startStr - $endStr ($days ${l10n.days})';
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -75,9 +78,9 @@ class _RecordFilterSectionState extends State<RecordFilterSection> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '时间范围',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          Text(
+                            l10n.dateRange,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -96,8 +99,8 @@ class _RecordFilterSectionState extends State<RecordFilterSection> {
           ),
           const SizedBox(height: 12),
           SwitchListTile(
-            title: const Text('包含AI分析结果'),
-            subtitle: const Text('将记录的AI分析内容也作为输入数据'),
+            title: Text(l10n.includeAiAnalysis),
+            subtitle: Text(l10n.includeAiAnalysisDesc),
             value: widget.includeAiAnalysis,
             onChanged: widget.onIncludeAiAnalysisChanged,
             activeColor: AppColors.primary,

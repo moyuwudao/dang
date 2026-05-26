@@ -47,7 +47,7 @@ class AISummaryService {
   AISummaryService(this.ref);
 
   Future<List<TodoItem>> generateTodoList(String content) async {
-    final apiService = ref.read(apiServiceProvider);
+    final apiService = ApiService();
     final prompt = _buildTodoPrompt(content);
 
     final response = await apiService.completeChat([
@@ -59,7 +59,7 @@ class AISummaryService {
   }
 
   Future<String> generateSummary(String content) async {
-    final apiService = ref.read(apiServiceProvider);
+    final apiService = ApiService();
 
     final response = await apiService.completeChat([
       {'role': 'system', 'content': _summarySystemPrompt},
@@ -70,7 +70,7 @@ class AISummaryService {
   }
 
   Future<String> generateKeyPoints(String content) async {
-    final apiService = ref.read(apiServiceProvider);
+    final apiService = ApiService();
 
     final response = await apiService.completeChat([
       {'role': 'system', 'content': _keyPointsSystemPrompt},
@@ -81,7 +81,7 @@ class AISummaryService {
   }
 
   Future<String> analyzeWithRole(String content, AIRole role) async {
-    final apiService = ref.read(apiServiceProvider);
+    final apiService = ApiService();
 
     final response = await apiService.completeChat([
       {'role': 'system', 'content': role.systemPrompt},

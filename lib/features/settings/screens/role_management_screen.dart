@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/models/ai_role.dart';
-import '../../../core/services/prompt_template_service.dart';
-import '../../../core/services/role_service.dart';
+import '../../../core/models/role.dart';
+import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/expandable_text_field.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class RoleManagementScreen extends ConsumerStatefulWidget {
   const RoleManagementScreen({super.key});
@@ -14,70 +13,44 @@ class RoleManagementScreen extends ConsumerStatefulWidget {
       _RoleManagementScreenState();
 }
 
-class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  List<AiRole> _builtInRoles = [];
-  List<AiRole> _customRoles = [];
-  List<PromptTemplate> _templates = [];
+class _RoleManagementScreenState
+    extends ConsumerState<RoleManagementScreen> {
+  List<Role> _roles = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _loadData();
+    _loadRoles();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-
-    final templateService = ref.read(promptTemplateServiceProvider);
-    await templateService.initialize();
-
-    final customRoles = await RoleService.getCustomRoles();
-
+  Future<void> _loadRoles() async {
+    final roles = await StorageService.getRoles();
     setState(() {
-      _builtInRoles = AiRole.builtInRoles;
-      _customRoles = customRoles;
-      _templates = templateService.getAllTemplates();
+      _roles = roles;
       _isLoading = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI分析角色'),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primary,
-          tabs: [
-            Tab(text: '系统角色 (${_builtInRoles.length})'),
-            Tab(text: '自定义 (${_customRoles.length})'),
-            Tab(text: '模板库 (${_templates.length})'),
-          ],
-        ),
+        title: Text(l10n.roleManagement),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildSystemRolesTab(),
-                _buildCustomRolesTab(),
-                _buildTemplatesTab(),
-              ],
-            ),
+          : _roles.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _roles.length,
+                  itemBuilder: (context, index) {
+                    final role = _roles[index];
+                    return _buildRoleCard(role);
+                  },
+                ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddRoleDialog(),
         child: const Icon(Icons.add),
@@ -85,511 +58,208 @@ class _RoleManagementScreenState extends ConsumerState<RoleManagementScreen>
     );
   }
 
-  Widget _buildSystemRolesTab() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _builtInRoles.length,
-      itemBuilder: (context, index) {
-        final role = _builtInRoles[index];
-        return _buildRoleCard(role, canEdit: false, canDelete: false);
-      },
-    );
-  }
-
-  Widget _buildCustomRolesTab() {
-    if (_customRoles.isEmpty) {
-      return _buildEmptyState(
-        '暂无自定义角色',
-        '点击右下角 + 创建你的专属AI角色',
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _customRoles.length,
-      itemBuilder: (context, index) {
-        final role = _customRoles[index];
-        return _buildRoleCard(role, canEdit: true, canDelete: true);
-      },
-    );
-  }
-
-  Widget _buildTemplatesTab() {
-    final templateService = ref.read(promptTemplateServiceProvider);
-    final categories = templateService.getCategories();
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        final category = categories[index];
-        final categoryTemplates =
-            _templates.where((t) => t.category == category).toList();
-
-        if (categoryTemplates.isEmpty) return const SizedBox.shrink();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (index > 0) const SizedBox(height: 16),
-            Text(
-              _getCategoryLabel(category),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...categoryTemplates
-                .map((template) => _buildTemplateCard(template)),
-          ],
-        );
-      },
-    );
-  }
-
-  String _getCategoryLabel(String category) {
-    const labels = {
-      'frequently_used': '常用',
-      'general': '通用',
-      'solopreneur': '一人公司',
-      'business': '商业',
-      'productivity': '效率',
-      'creative': '创意',
-      'learning': '学习',
-      'life': '生活',
-      'fun': '趣味',
-    };
-    return labels[category] ?? category;
-  }
-
-  Widget _buildRoleCard(AiRole role,
-      {required bool canEdit, required bool canDelete}) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: () => _showRoleDetail(role, canEdit: canEdit),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    role.isBuiltIn ? Icons.verified : Icons.person_outline,
-                    color:
-                        role.isBuiltIn ? AppColors.success : AppColors.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      role.name,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ),
-                  if (canEdit)
-                    IconButton(
-                      icon: const Icon(Icons.edit, size: 18),
-                      onPressed: () => _showEditRoleDialog(role),
-                    ),
-                  if (canDelete)
-                    IconButton(
-                      icon: const Icon(Icons.delete,
-                          size: 18, color: AppColors.error),
-                      onPressed: () => _showDeleteConfirm(role),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                role.description,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTemplateCard(PromptTemplate template) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: () => _showTemplateDetail(template),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.auto_stories,
-                      color: AppColors.info, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      template.name,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ),
-                  if (template.useCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '使用${template.useCount}次',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                template.description,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(String title, String subtitle) {
+  Widget _buildEmptyState() {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.psychology_outlined, size: 48, color: Colors.grey[400]),
-          const SizedBox(height: 12),
-          Text(title, style: TextStyle(color: Colors.grey[500])),
-          const SizedBox(height: 4),
+          Icon(Icons.person_outline, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
           Text(
-            subtitle,
-            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            l10n.noRoles,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.addRoleHint,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[400],
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showRoleDetail(AiRole role, {required bool canEdit}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        minChildSize: 0.5,
-        expand: false,
-        builder: (context, scrollController) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        role.name,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    if (canEdit)
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _showEditRoleDialog(role);
-                        },
-                        icon: const Icon(Icons.edit, size: 16),
-                        label: const Text('编辑'),
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  role.description,
-                  style: const TextStyle(color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '提示词（Prompt）',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: SingleChildScrollView(
-                      controller: scrollController,
-                      child: SelectableText(
-                        role.systemPrompt,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+  Widget _buildRoleCard(Role role) {
+    final l10n = AppLocalizations.of(context)!;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: AppColors.primary.withOpacity(0.1),
+          child: Icon(
+            Icons.person,
+            color: AppColors.primary,
+          ),
+        ),
+        title: Text(role.name),
+        subtitle: Text(
+          role.description,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: () => _showEditRoleDialog(role),
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _showTemplateDetail(PromptTemplate template) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        minChildSize: 0.5,
-        expand: false,
-        builder: (context, scrollController) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        template.name,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _convertTemplateToCustomRole(template);
-                      },
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('编辑并转为自定义'),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  template.description,
-                  style: const TextStyle(color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '模板内容',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: SingleChildScrollView(
-                      controller: scrollController,
-                      child: SelectableText(
-                        template.template,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.delete, size: 20, color: AppColors.error),
+              onPressed: () => _showDeleteConfirm(role),
             ),
-          );
-        },
+          ],
+        ),
+        onTap: () => _showEditRoleDialog(role),
       ),
-    );
-  }
-
-  void _convertTemplateToCustomRole(PromptTemplate template) {
-    _showRoleEditorDialog(
-      existingRole: null,
-      initialName: template.name,
-      initialDesc: template.description,
-      initialPrompt: template.template,
-      isFromTemplate: true,
     );
   }
 
   void _showAddRoleDialog() {
-    _showRoleEditorDialog();
+    _showRoleDialog();
   }
 
-  void _showEditRoleDialog(AiRole role) {
-    _showRoleEditorDialog(existingRole: role);
+  void _showEditRoleDialog(Role role) {
+    _showRoleDialog(role: role);
   }
 
-  void _showRoleEditorDialog({
-    AiRole? existingRole,
-    String initialName = '',
-    String initialDesc = '',
-    String initialPrompt = '',
-    bool isFromTemplate = false,
-  }) {
-    final nameController = TextEditingController(
-      text: existingRole?.name ?? initialName,
-    );
-    final descController = TextEditingController(
-      text: existingRole?.description ?? initialDesc,
-    );
-    final promptController = TextEditingController(
-      text: existingRole?.systemPrompt ?? initialPrompt,
-    );
+  void _showRoleDialog({Role? role}) {
+    final l10n = AppLocalizations.of(context)!;
+    final isEditing = role != null;
+    final nameController = TextEditingController(text: role?.name ?? '');
+    final descriptionController =
+        TextEditingController(text: role?.description ?? '');
+    final promptController = TextEditingController(text: role?.prompt ?? '');
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          existingRole != null
-              ? '编辑角色'
-              : isFromTemplate
-                  ? '基于模板创建角色'
-                  : '新建角色',
-        ),
+        title: Text(isEditing ? l10n.editRole : l10n.addRole),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: '角色名称',
-                  hintText: '例如：产品经理',
+                decoration: InputDecoration(
+                  labelText: l10n.roleName,
+                  hintText: l10n.roleNameHint,
                 ),
               ),
-              const SizedBox(height: 12),
-              ExpandableTextField(
-                controller: descController,
-                labelText: '角色描述',
-                hintText: '简要说明这个角色的用途',
-                minLines: 2,
-                maxLines: 3,
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                decoration: InputDecoration(
+                  labelText: l10n.roleDescription,
+                  hintText: l10n.roleDescriptionHint,
+                ),
+                maxLines: 2,
               ),
-              const SizedBox(height: 12),
-              ExpandableTextField(
+              const SizedBox(height: 16),
+              TextField(
                 controller: promptController,
-                labelText: '系统提示词（Prompt）',
-                hintText: '输入系统提示词，定义AI的角色和行为...',
-                minLines: 5,
-                maxLines: 8,
+                decoration: InputDecoration(
+                  labelText: l10n.rolePrompt,
+                  hintText: l10n.rolePromptHint,
+                  alignLabelWithHint: true,
+                ),
+                maxLines: 5,
               ),
             ],
           ),
         ),
         actions: [
+          if (isEditing)
+            TextButton(
+              onPressed: () async {
+                final newRoles = _roles.where((r) => r.id != role.id).toList();
+                await StorageService.saveRoles(newRoles);
+                if (mounted) {
+                  Navigator.pop(context);
+                  _loadRoles();
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: Text(l10n.deleteButton),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
-              final name = nameController.text.trim();
-              final desc = descController.text.trim();
-              final prompt = promptController.text.trim();
-
-              if (name.isEmpty || prompt.isEmpty) {
+              if (nameController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('名称和提示词不能为空')),
+                  SnackBar(content: Text(l10n.roleNameRequired)),
                 );
                 return;
               }
 
-              if (existingRole != null) {
-                await RoleService.updateCustomRole(
-                  existingRole.copyWith(
-                    name: name,
-                    description: desc,
-                    systemPrompt: prompt,
-                  ),
-                );
+              final newRole = Role(
+                id: isEditing ? role.id : DateTime.now().millisecondsSinceEpoch.toString(),
+                name: nameController.text,
+                description: descriptionController.text,
+                systemPrompt: promptController.text,
+                createdAt: isEditing ? role.createdAt : DateTime.now(),
+                updatedAt: DateTime.now(),
+              );
+
+              final newRoles = List<Role>.from(_roles);
+              if (isEditing) {
+                final index = newRoles.indexWhere((r) => r.id == role.id);
+                if (index >= 0) {
+                  newRoles[index] = newRole;
+                }
               } else {
-                await RoleService.addCustomRole(
-                  AiRole(
-                    id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
-                    name: name,
-                    description: desc,
-                    systemPrompt: prompt,
-                    isBuiltIn: false,
-                    createdAt: DateTime.now(),
-                  ),
-                );
+                newRoles.add(newRole);
               }
 
+              await StorageService.saveRoles(newRoles);
               if (mounted) {
                 Navigator.pop(context);
-                _loadData();
+                _loadRoles();
               }
             },
-            child: const Text('保存'),
+            child: Text(l10n.saveButton),
           ),
         ],
       ),
     );
   }
 
-  void _showDeleteConfirm(AiRole role) {
+  void _showDeleteConfirm(Role role) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除角色「${role.name}」吗？此操作不可恢复。'),
+        title: Text(l10n.confirmDeleteRole),
+        content: Text(l10n.confirmDeleteRoleMessage(role.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
-              await RoleService.deleteCustomRole(role.id);
+              final newRoles = _roles.where((r) => r.id != role.id).toList();
+              await StorageService.saveRoles(newRoles);
               if (mounted) {
                 Navigator.pop(context);
-                _loadData();
+                _loadRoles();
               }
             },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('删除'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: Text(l10n.deleteButton),
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../providers/subscription_provider.dart';
 import '../models/plan_model.dart';
 
@@ -17,6 +18,7 @@ class _SubscriptionStoreScreenState
     extends ConsumerState<SubscriptionStoreScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late AppLocalizations _l10n;
 
   @override
   void initState() {
@@ -32,10 +34,11 @@ class _SubscriptionStoreScreenState
 
   @override
   Widget build(BuildContext context) {
+    _l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('购买套餐'),
+        title: Text(_l10n.purchasePlan),
         backgroundColor: AppColors.background,
         elevation: 0,
         bottom: TabBar(
@@ -43,10 +46,10 @@ class _SubscriptionStoreScreenState
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textSecondary,
           indicatorColor: AppColors.primary,
-          tabs: const [
-            Tab(text: '按月订阅'),
-            Tab(text: '套餐包'),
-            Tab(text: '充值'),
+          tabs: [
+            Tab(text: _l10n.monthlySubscription),
+            Tab(text: _l10n.planPackage),
+            Tab(text: _l10n.rechargeCenter),
           ],
         ),
       ),
@@ -113,8 +116,8 @@ class _SubscriptionStoreScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '账户余额',
+                    Text(
+                      _l10n.accountBalance,
                       style: TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(height: 8),
@@ -130,8 +133,8 @@ class _SubscriptionStoreScreenState
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                '选择充值金额',
+              Text(
+                _l10n.selectRechargeAmount,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
@@ -152,8 +155,8 @@ class _SubscriptionStoreScreenState
                 }).toList(),
               ),
               const SizedBox(height: 24),
-              const Text(
-                '或输入自定义金额',
+              Text(
+                _l10n.orEnterCustomAmount,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
@@ -161,7 +164,7 @@ class _SubscriptionStoreScreenState
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   prefixText: '¥',
-                  hintText: '请输入金额',
+                  hintText: _l10n.pleaseEnterAmount,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -185,7 +188,7 @@ class _SubscriptionStoreScreenState
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text('立即充值 ¥$selectedAmount'),
+                  child: Text('${_l10n.rechargeNow} ¥$selectedAmount'),
                 ),
               ),
             ],
@@ -221,8 +224,8 @@ class _SubscriptionStoreScreenState
                   topRight: Radius.circular(14),
                 ),
               ),
-              child: const Text(
-                '推荐',
+              child: Text(
+                _l10n.recommended,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
@@ -302,8 +305,8 @@ class _SubscriptionStoreScreenState
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      '立即购买',
+                    child: Text(
+                      _l10n.buyNow,
                       style: TextStyle(fontSize: 16),
                     ),
                   ),
@@ -329,18 +332,18 @@ class _SubscriptionStoreScreenState
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认充值'),
-        content: Text('确认充值 ¥$amount?'),
+        title: Text(_l10n.confirmRecharge),
+        content: Text('${_l10n.confirmRecharge} ¥$amount?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(_l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
             },
-            child: const Text('确认'),
+            child: Text(_l10n.confirm),
           ),
         ],
       ),
@@ -351,18 +354,18 @@ class _SubscriptionStoreScreenState
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认购买'),
-        content: Text('使用余额购买 ${plan.name} 套餐?'),
+        title: Text(_l10n.confirmPurchase),
+        content: Text('${_l10n.useBalance} ${plan.name}?'),
         actions: [
           TextButton(
             onPressed: () => _showPaymentDialog(plan),
-            child: const Text('其他支付方式'),
+            child: Text(_l10n.otherPaymentMethods),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
             },
-            child: const Text('使用余额'),
+            child: Text(_l10n.useBalance),
           ),
         ],
       ),
@@ -373,18 +376,18 @@ class _SubscriptionStoreScreenState
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认购买'),
-        content: Text('确认购买 ${plan.name} 套餐?'),
+        title: Text(_l10n.confirmPurchase),
+        content: Text('${_l10n.confirmPurchase} ${plan.name}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(_l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
             },
-            child: const Text('确认'),
+            child: Text(_l10n.confirm),
           ),
         ],
       ),

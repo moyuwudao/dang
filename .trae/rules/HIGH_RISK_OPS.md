@@ -5,8 +5,8 @@ description: 高风险操作规范 - 需要特别小心和先问再做的操作
 
 # HIGH_RISK_OPS.md - 高风险操作规范
 
-> **绝对红线** → 详见 [RED_LINES.md](RED_LINES.md)
-> **构建红线** → 详见 [BUILD_RED_LINES.md](BUILD_RED_LINES.md)
+> **构建规则** → 详见 [BUILD.md](BUILD.md)
+> **操作决策色标** → 详见 [RED_LINES.md](RED_LINES.md) 中的颜色表
 
 ---
 
@@ -105,6 +105,8 @@ description: 高风险操作规范 - 需要特别小心和先问再做的操作
 ---
 
 ## 操作决策速查
+
+> **风险等级色标** → 详见 [RED_LINES.md](RED_LINES.md)
 
 | 风险等级 | 操作类型 | 行动 |
 |---------|---------|------|

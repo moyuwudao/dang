@@ -26,17 +26,20 @@ class QuickNoteState {
   }
 }
 
-class QuickNoteNotifier extends StateNotifier<QuickNoteState> {
-  final RecordRepository _repository;
+class QuickNoteNotifier extends AsyncNotifier<QuickNoteState> {
+  RecordRepository get _repository => ref.read(recordRepositoryProvider);
 
-  QuickNoteNotifier(this._repository) : super(const QuickNoteState());
+  @override
+  Future<QuickNoteState> build() async {
+    return const QuickNoteState();
+  }
 
   Future<void> saveNote(String content, List<String> tags) async {
     if (content.trim().isEmpty) {
-      state = state.copyWith(error: '内容不能为空');
+      state = AsyncData(state.valueOrNull!.copyWith(error: '内容不能为空'));
       return;
     }
-    state = state.copyWith(isSaving: true, error: null);
+    state = const AsyncLoading();
     try {
       await _repository.createRecordFromFields(
         type: RecordType.text,
@@ -44,14 +47,13 @@ class QuickNoteNotifier extends StateNotifier<QuickNoteState> {
         tags: tags,
         transcriptionStatus: TranscriptionStatus.none,
       );
-      state = state.copyWith(isSaving: false, saved: true);
-    } catch (e) {
-      state = state.copyWith(isSaving: false, error: '保存失败: $e');
+      state = const AsyncData(QuickNoteState(isSaving: false, saved: true));
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
     }
   }
 }
 
-final quickNoteProvider = StateNotifierProvider<QuickNoteNotifier, QuickNoteState>((ref) {
-  final repository = ref.watch(recordRepositoryProvider);
-  return QuickNoteNotifier(repository);
+final quickNoteProvider = AsyncNotifierProvider<QuickNoteNotifier, QuickNoteState>(() {
+  return QuickNoteNotifier();
 });

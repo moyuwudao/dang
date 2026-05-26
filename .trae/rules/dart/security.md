@@ -381,12 +381,12 @@ linter:
 ### 依赖审计
 
 ```bash
-# 检查依赖漏洞
-dart pub outdated
-flutter pub outdated
+# 检查依赖漏洞（网络操作，设 60 秒超时）
+timeout 60 dart pub outdated
+timeout 60 flutter pub outdated
 
-# 使用 dart audit
-dart pub global activate dart_audit
+# 使用 dart audit（下载 + 运行，设 120 秒超时）
+timeout 120 dart pub global activate dart_audit
 dart audit
 ```
 

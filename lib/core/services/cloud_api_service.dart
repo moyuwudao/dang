@@ -38,6 +38,8 @@ class CloudApiService {
 
       _dio!.interceptors.add(InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // 每次请求前重新加载 token，确保最新
+          await loadToken();
           if (_accessToken != null) {
             options.headers['Authorization'] = 'Bearer $_accessToken';
           }

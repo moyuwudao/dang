@@ -26,50 +26,55 @@ final usageStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return await StorageService.getUsageStats();
 });
 
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+final themeModeProvider = AsyncNotifierProvider<ThemeModeNotifier, ThemeMode>(() {
   return ThemeModeNotifier();
 });
 
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system) {
-    _loadThemeMode();
-  }
-
-  Future<void> _loadThemeMode() async {
-    final mode = await StorageService.getThemeMode();
-    state = mode;
+class ThemeModeNotifier extends AsyncNotifier<ThemeMode> {
+  @override
+  Future<ThemeMode> build() async {
+    return await StorageService.getThemeMode();
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
-    await StorageService.saveThemeMode(mode);
-    state = mode;
+    state = const AsyncLoading();
+    try {
+      await StorageService.saveThemeMode(mode);
+      state = AsyncData(mode);
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
+    }
   }
 }
 
-final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
+final localeProvider = AsyncNotifierProvider<LocaleNotifier, Locale>(() {
   return LocaleNotifier();
 });
 
-class LocaleNotifier extends StateNotifier<Locale> {
-  LocaleNotifier() : super(const Locale('en')) {
-    _loadLocale();
-  }
-
-  Future<void> _loadLocale() async {
-    final locale = await StorageService.getLocale();
-    state = locale;
+class LocaleNotifier extends AsyncNotifier<Locale> {
+  @override
+  Future<Locale> build() async {
+    return await StorageService.getLocale();
   }
 
   Future<void> setLocale(Locale locale) async {
-    await StorageService.saveLocale(locale);
-    state = locale;
+    state = const AsyncLoading();
+    try {
+      await StorageService.saveLocale(locale);
+      state = AsyncData(locale);
+    } catch (e, stack) {
+      state = AsyncError(e, stack);
+    }
   }
 }
 
-class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
-  final ApiService _apiService;
+class SettingsNotifier extends AsyncNotifier<void> {
+  ApiService get _apiService => ApiService();
 
-  SettingsNotifier(this._apiService) : super(const AsyncValue.data(null));
+  @override
+  Future<void> build() async {
+    return;
+  }
 
   Future<bool> testApiKey({
     required String apiKey,
@@ -105,7 +110,7 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
     String? appId,
     String? accessKeySecret,
   }) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     try {
       final config = ApiConfigModel(
         id: 1,
@@ -182,11 +187,11 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
         AppLogger().e('Settings', 'Failed to sync to MultiApiConfig: $e');
       }
 
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
       return true;
     } catch (e, stack) {
       AppLogger().e('Settings', 'Save API config failed: $e');
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
       return false;
     }
   }
@@ -200,7 +205,6 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
   }
 }
 
-final settingsNotifierProvider = StateNotifierProvider<SettingsNotifier, AsyncValue<void>>((ref) {
-  final apiService = ref.watch(apiServiceProvider);
-  return SettingsNotifier(apiService);
+final settingsNotifierProvider = AsyncNotifierProvider<SettingsNotifier, void>(() {
+  return SettingsNotifier();
 });

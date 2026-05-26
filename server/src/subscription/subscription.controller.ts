@@ -59,4 +59,54 @@ export class SubscriptionController {
   async getRechargeRecords(@Req() req) {
     return this.subscriptionService.getRechargeRecords(req.user.sub);
   }
+
+  // API策略管理（管理员接口）
+  @Get('plans/:id/policies')
+  @UseGuards(JwtAuthGuard)
+  async getPlanApiPolicies(@Param('id') planId: string) {
+    const policies = await this.subscriptionService.getPlanApiPolicies(planId);
+    return { code: 200, message: 'success', data: policies };
+  }
+
+  @Post('plans/:id/policies')
+  @UseGuards(JwtAuthGuard)
+  async setPlanApiPolicy(
+    @Param('id') planId: string,
+    @Body() body: { provider: string; multiplier: number; modelPattern?: string },
+  ) {
+    const policy = await this.subscriptionService.setPlanApiPolicy(
+      planId,
+      body.provider,
+      body.multiplier,
+      body.modelPattern,
+    );
+    return { code: 200, message: 'success', data: policy };
+  }
+
+  // API使用检查
+  @Post('check-api')
+  @UseGuards(JwtAuthGuard)
+  async checkApiPermission(
+    @Req() req,
+    @Body() body: { provider: string; model: string },
+  ) {
+    const result = await this.subscriptionService.canUseApi(req.user.sub, body.provider, body.model);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  // 使用配额（带API差异化）
+  @Post('quota/consume')
+  @UseGuards(JwtAuthGuard)
+  async consumeQuotaWithApi(
+    @Req() req,
+    @Body() body: { provider: string; model: string; tokens?: { prompt: number; completion: number } },
+  ) {
+    const result = await this.subscriptionService.consumeQuotaWithApi(
+      req.user.sub,
+      body.provider,
+      body.model,
+      body.tokens,
+    );
+    return { code: 200, message: 'success', data: result };
+  }
 }

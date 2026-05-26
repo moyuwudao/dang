@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: admin/**, server/**, lib/**/api/**
 description: 畅记云API接口说明 - 认证、订阅、API Key分发接口
 ---
 

@@ -6,6 +6,7 @@ import 'tag_selector.dart';
 import 'tool_output_selector.dart';
 import 'record_filter_section.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class DataSourceSelector extends StatefulWidget {
   final DataSourceSelection selection;
@@ -53,11 +54,12 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
   }
 
   Widget _buildPanelHeader(DataSourceCategory category) {
+    final l10n = AppLocalizations.of(context)!;
     final count = _getCategoryCount(category);
     return ListTile(
       leading: Icon(category.icon, color: AppColors.primary),
       title: Text(category.label),
-      subtitle: count > 0 ? Text('已选择 $count 项') : null,
+      subtitle: count > 0 ? Text(l10n.selectedItems(count)) : null,
       trailing: Icon(
         _expandedPanels[category.name] ?? false
             ? Icons.expand_less
@@ -82,6 +84,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -109,11 +112,11 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
               expansionCallback: (_, isExpanded) {},
             ),
           if (widget.selection.selectedCategories.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
+            Padding(
+              padding: const EdgeInsets.all(32),
               child: Text(
-                '请选择数据源类型',
-                style: TextStyle(color: Colors.grey),
+                l10n.selectDataSourceType,
+                style: const TextStyle(color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
             ),

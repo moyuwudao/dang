@@ -6,6 +6,7 @@ import '../../../data/models/record_model.dart';
 import '../../../data/models/tool_output_model.dart';
 import '../../../data/repositories/record_repository.dart';
 import '../../../data/repositories/tool_output_repository.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../models/data_source_selection.dart';
 import '../models/tool_data_source.dart';
 import '../models/tool_template.dart';
@@ -41,6 +42,7 @@ class _ToolDataConfirmScreenState extends ConsumerState<ToolDataConfirmScreen> {
   bool _isLoading = true;
   ToolTemplate? _selectedTemplate;
   List<ToolTemplate> _templates = [];
+  late AppLocalizations _l10n;
 
   @override
   void initState() {
@@ -135,8 +137,8 @@ class _ToolDataConfirmScreenState extends ConsumerState<ToolDataConfirmScreen> {
 
     if (!hasRecords && !hasToolOutputs) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('请至少选择一种数据源'),
+        SnackBar(
+          content: Text(_l10n.pleaseSelectAtLeastOneDataSource),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -157,9 +159,10 @@ class _ToolDataConfirmScreenState extends ConsumerState<ToolDataConfirmScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.config.title} - 数据确认'),
+        title: Text('${widget.config.title} - ${_l10n.dataConfirm}'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -184,7 +187,7 @@ class _ToolDataConfirmScreenState extends ConsumerState<ToolDataConfirmScreen> {
                     child: ElevatedButton.icon(
                       onPressed: _confirm,
                       icon: const Icon(Icons.check_circle),
-                      label: const Text('确认并执行'),
+                      label: Text(_l10n.confirmAndExecute),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -203,12 +206,12 @@ class _ToolDataConfirmScreenState extends ConsumerState<ToolDataConfirmScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
             Icon(Icons.dataset, color: AppColors.primary, size: 18),
             SizedBox(width: 8),
             Text(
-              '数据源配置',
+              _l10n.dataSourceConfig,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ],
@@ -232,13 +235,13 @@ class _ToolDataConfirmScreenState extends ConsumerState<ToolDataConfirmScreen> {
       children: [
         Row(
           children: [
-            const Icon(Icons.preview, color: AppColors.primary, size: 18),
-            const SizedBox(width: 8),
-            const Text('数据预览',
+            Icon(Icons.preview, color: AppColors.primary, size: 18),
+            SizedBox(width: 8),
+            Text(_l10n.dataPreview,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const Spacer(),
             Text(
-              '共 ${_previewRecords.length + _previewToolOutputs.length} 条',
+              '共 ${_previewRecords.length + _previewToolOutputs.length} 条记录',
               style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
           ],
@@ -252,23 +255,23 @@ class _ToolDataConfirmScreenState extends ConsumerState<ToolDataConfirmScreen> {
               color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('该条件下暂无数据',
+            child: const Text('当前条件下没有数据',
                 style: TextStyle(color: AppColors.textSecondary)),
           )
         else ...[
           if (hasToolOutputs) ...[
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 8),
-              child: Text('工具输出',
+              child: Text(_l10n.toolOutput,
                   style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
             ),
             ..._previewToolOutputs.map((o) => _buildToolOutputPreviewItem(o)),
             const SizedBox(height: 12),
           ],
           if (hasRecords) ...[
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 8),
-              child: Text('原始记录',
+              child: const Text('原始记录',
                   style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
             ),
             ..._previewRecords.map((r) => _buildRecordPreviewItem(r)),

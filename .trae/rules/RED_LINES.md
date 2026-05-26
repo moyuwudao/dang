@@ -102,7 +102,109 @@ description: 安全红线规则 - 绝对不能碰的区域和操作
 
 ---
 
-### 5. APK 构建（强制要求）
+### 5. 终端命令执行（强制上限 + 超时自动终止）
+
+#### 5.1 禁止的无限等待命令
+
+**绝对不能用的命令**：
+- ❌ `pm2 logs` **不加 `--nostream`** → 会进入流式监听，永不退出
+- ❌ `tail -f` / `tailf` → 持续监听文件变化，永不退出
+- ❌ `adb logcat` **不加 `-d`** → 持续输出日志流，永不退出
+- ❌ `flutter logs` / `flutter run` → 前台持续运行，永不退出
+- ❌ `npm run dev` / `npm start` → 开发服务器前台运行，永不退出
+- ❌ `dart run build_runner watch` → 文件监听模式，永不退出
+- ❌ 交互式 shell（`psql`、`redis-cli`、`ssh` 不加命令）→ 等待输入，永不退出
+- ❌ `journalctl` / `systemctl status` **不加分页禁用** → 可能触发 `less` 分页器
+
+**正确替代**：
+```
+❌ pm2 logs changji-api --lines 100
+✅ pm2 logs changji-api --lines 100 --nostream
+
+❌ tail -f /var/log/nginx/access.log
+✅ tail -n 100 /var/log/nginx/access.log
+
+❌ adb logcat | grep -i flutter
+✅ adb logcat -d | grep -i flutter
+
+❌ sudo -u postgres psql -d appdb
+✅ sudo -u postgres psql -d appdb -c "SELECT 1;"
+
+❌ redis-cli -a xxx
+✅ redis-cli -a xxx --no-auth-warning PING
+
+❌ ssh changji
+✅ ssh changji "具体命令"
+```
+
+#### 5.2 命令超时要求
+
+**所有终端命令必须考虑超时**：
+
+| 命令类型 | 默认超时 | 示例 |
+|---------|---------|------|
+| SSH 远程命令 | **30 秒** | `ssh -o ConnectTimeout=10 changji "cmd"` |
+| 日志查看（`pm2 logs --nostream`） | **10 秒** | 快速完成，几乎不需要超时 |
+| 数据库只读查询 | **30 秒** | `PGOPTIONS="-c statement_timeout=30000" psql -c "SELECT..."` |
+| 数据库 DDL（ALTER TABLE 等） | **60 秒** | `PGOPTIONS="-c statement_timeout=60000" psql -c "ALTER TABLE..."` |
+| API 调用（curl） | **10 秒** | `curl --connect-timeout 5 --max-time 10 http://...` |
+| 文件同步（rsync） | **60 秒** | `rsync --timeout=60 -av ...` |
+| 依赖安装（pub get/npm install） | **120 秒** | `timeout 120 flutter pub get` |
+| APK 构建 | **20 分钟** | `timeout 1200 flutter build apk --release` |
+| 测试运行 | **10 分钟** | `timeout 600 flutter test --coverage` |
+| Hook 命令 | **60 秒** | `timeout 60 dart format .` |
+
+#### 5.3 命令超时自动恢复（不需要等确认）
+
+**当命令超时或卡住时**：
+1. ✅ **自动调用 `CheckCommandStatus`** 轮询状态（最多 3 次，间隔 5 秒）
+2. ✅ **超时 60 秒后自动 `StopCommand`** → 不需要等 Walle 确认
+3. ✅ **自动重试 1 次**（修正参数后），仍失败则报告
+4. ✅ **只读操作（日志查看、状态查询、数据读取）超时后不需要确认，直接自动处理**
+
+**只读操作超时不需要确认的理由**：
+- 日志查看（`pm2 logs --nostream`、`tail`、`journalctl`）→ 纯粹的信息查询
+- 状态查询（`systemctl status`、`pm2 status`、`df -h`、`free -h`）→ 只读
+- 数据库查询（SELECT）→ 只读，有 statement_timeout 保护
+- 这些操作**不会修改任何数据**，卡住了直接终止重试即可
+
+#### 5.4 重试上限
+
+**绝对不能做**：
+- ❌ 同一个命令失败后用不同方式反复重试超过 **2 次**
+- ❌ 在命令失败后不检查原因就自动换方案重试
+- ❌ 对生产环境（服务器、数据库）执行未验证的命令
+
+**强制要求**：
+- ✅ **最多重试 2 次** - 第 1 次失败后分析原因，第 2 次仍失败则**立即停止并报告**
+- ✅ **失败后先分析** - 查看错误输出，理解失败原因，而不是盲目换方案
+- ✅ **涉及数据库/服务器的修改性命令** - 执行前必须说明要做什么，等确认
+- ✅ **只读操作失败** - 自动处理（StopCommand + 修正重试），不需要等确认
+
+**重试判断标准**：
+```
+命令执行
+  ↓
+成功？ → 完成
+  ↓ 卡住（60 秒无响应）
+自动 StopCommand → 分析原因 → 修正重试（第1次）
+  ↓ 仍卡住
+自动 StopCommand → 报告 Walle
+  ↓ 失败
+分析错误输出
+  ↓
+能确定原因？ → 修复后重试（第1次）
+  ↓ 不能确定
+立即停止，报告给 Walle
+  ↓
+第1次重试后仍失败？
+  ↓ 是
+立即停止，报告给 Walle，不再尝试
+```
+
+---
+
+### 6. APK 构建（强制要求）
 
 **绝对不能做**：
 - ❌ 未经 Walle 同意，在 Windows 本地直接构建 APK
@@ -114,13 +216,7 @@ description: 安全红线规则 - 绝对不能碰的区域和操作
 - ✅ **WSL 环境已配置完成** - 包含 Flutter SDK、Android SDK、签名密钥
 - ✅ **优先使用现有环境** - 不要重复下载或配置
 
-**⚠️ 构建时必须调用 BUILD.md 规则**
-
-BUILD.md 不是 alwaysApply 规则，构建前**必须主动读取**。
-
-> **完整构建流程** → 详见 [BUILD.md](BUILD.md)
-> **构建强制检查清单** → 详见 [BUILD_RED_LINES.md](BUILD_RED_LINES.md)
-> **签名和密钥配置** → 详见 [dang-构建apk规则.md](dang-构建apk规则.md)
+> **唯一构建规则源** → 详见 [BUILD.md](BUILD.md)
 
 **绝对红线**：任何情况下都不允许跳过 WSL 在本地构建！
 
@@ -194,5 +290,6 @@ BUILD.md 不是 alwaysApply 规则，构建前**必须主动读取**。
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-05-25 | 重大更新：第5节全面改写，新增5.1禁止无限等待命令、5.2命令超时要求、5.3超时自动恢复（免确认）、5.4重试上限 |
 | 2026-05-21 | 拆分优化：高风险/警告操作→HIGH_RISK_OPS.md |
 | 2026-05-17 | 初始版本 |

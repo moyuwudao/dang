@@ -371,5 +371,1427 @@
   "clear": "Clear",
   "@clear": {
     "description": "Clear button"
+  },
+  "frequentlyUsedTemplates": "Frequently Used",
+  "@frequentlyUsedTemplates": {
+    "description": "Frequently used templates label"
+  },
+  "noMatchingTool": "No matching tools",
+  "@noMatchingTool": {
+    "description": "No matching tools message"
+  },
+  "frequentlyUsedTools": "Frequently Used",
+  "@frequentlyUsedTools": {
+    "description": "Frequently used tools label"
+  },
+  "createRole": "Create Role",
+  "@createRole": {
+    "description": "Create role button"
+  },
+  "selectDataSourceType": "Select Data Source",
+  "@selectDataSourceType": {
+    "description": "Select data source type label"
+  },
+  "noTags": "No tags",
+  "@noTags": {
+    "description": "No tags message"
+  },
+  "noToolOutputData": "No tool output data",
+  "@noToolOutputData": {
+    "description": "No tool output data message"
+  },
+  "associatedRecords": "{count} related records",
+  "@associatedRecords": {
+    "description": "Associated records count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dateRange": "Date Range",
+  "@dateRange": {
+    "description": "Date range label"
+  },
+  "includeAiAnalysis": "Include AI Analysis",
+  "@includeAiAnalysis": {
+    "description": "Include AI analysis checkbox"
+  },
+  "includeAiAnalysisDesc": "Include AI analysis content as input data",
+  "@includeAiAnalysisDesc": {
+    "description": "Include AI analysis description"
+  },
+  "confirm": "确认",
+  "close": "关闭",
+  "copy": "复制",
+  "back": "返回",
+  "next": "下一步",
+  "previous": "上一步",
+  "done": "完成",
+  "add": "添加",
+  "hide": "隐藏",
+  "login": "登录",
+  "register": "注册",
+  "logout": "退出登录",
+  "loading": "加载中...",
+  "saveSuccess": "保存成功",
+  "saveFailed": "保存失败",
+  "loadFailed": "加载失败",
+  "deleteSuccess": "删除成功",
+  "contentUpdated": "内容已更新",
+  "copiedToClipboard": "已复制到剪贴板",
+  "noContent": "无内容",
+  "noMoreRecords": "没有更多记录了",
+  "searchFailed": "搜索失败",
+  "noSearchResults": "未找到相关记录",
+  "workbench": "工具台",
+  "addTagOptional": "添加标签（可选）",
+  "justNow": "刚刚",
+  "minutesAgo": "分钟前",
+  "hoursAgo": "小时前",
+  "daysAgo": "天前",
+  "year": "年",
+  "month": "月",
+  "day": "日",
+  "tomorrow": "明天",
+  "overdue": "已逾期",
+  "selectDate": "选择日期",
+  "statusPending": "待转写",
+  "statusProcessing": "转写中",
+  "statusCompleted": "已完成",
+  "statusFailed": "失败",
+  "statusActive": "生效中",
+  "statusExpired": "已过期",
+  "freePlan": "免费版",
+  "typeVoice": "语音",
+  "typeText": "文本",
+  "typeOcr": "OCR",
+  "recordNotFound": "记录不存在",
+  "realtimeTranscription": "实时转写",
+  "realtimeTranscribing": "实时转写中",
+  "configureRealtimeApi": "请先配置实时转写API",
+  "gotoConfigure": "未配置API，点击前往配置",
+  "tapToStopRecording": "点击停止录音",
+  "tapToStartRecording": "点击开始录音",
+  "paused": "已暂停",
+  "recording": "录音中",
+  "viewRealtimeTranscription": "查看实时转写",
+  "returnToRecording": "返回录音界面可继续控制录音",
+  "waitingForVoiceInput": "等待语音输入...",
+  "originalTranscription": "原始转写文本",
+  "supplementContent": "补充内容",
+  "supplementIdeas": "补充完善想法",
+  "transcriptionResult": "转写结果",
+  "transcriptionLog": "转写日志",
+  "aiAnalysisResult": "AI分析结果",
+  "relatedRecords": "相关记录",
+  "originalImage": "原始图片",
+  "audioSupplement": "录音补充",
+  "imageSupplement": "图片补充",
+  "textSupplement": "文本补充",
+  "noContentAvailable": "无内容",
+  "hideRecord": "隐藏记录",
+  "hideRecordConfirm": "隐藏后该记录将不再出现在相关记录列表中。",
+  "auto": "自动",
+  "retranscribe": "重新转写",
+  "retranscribeOptions": "重新转写选项",
+  "retranscribeAll": "全部转写",
+  "selectParagraphs": "选择段落",
+  "selectParagraphsToRetranscribe": "选择要重新转写的段落",
+  "selectAnalysisRole": "选择分析角色",
+  "manageRoles": "管理角色",
+  "selectShareMethod": "选择分享方式",
+  "analysisExists": "已存在分析结果",
+  "analysisExistsConfirm": "已有分析结果，是否重新分析？",
+  "reanalyze": "重新分析",
+  "analysisComplete": "分析完成",
+  "analysisFailed": "分析失败",
+  "noContentToAnalyze": "没有可分析的内容",
+  "addAiAnalysis": "添加AI分析",
+  "aiAnalyzing": "AI正在分析中...",
+  "tapToAnalyze": "点击 + 使用AI角色分析此记录",
+  "deleteRecordConfirm": "删除的记录将移至回收站，保留7天后自动清除。是否继续？",
+  "transcriptionProgress": "转写进度",
+  "chunkProgress": "分片进度",
+  "supplementAdded": "补充内容已添加",
+  "transcribingSupplement": "正在转写补充内容...",
+  "supplementTranscriptionComplete": "补充内容转写完成",
+  "selectedParagraphsSuccess": "选定段落转写成功",
+  "transcriptionSuccess": "转写成功",
+  "transcriptionSuccessNoContent": "转写完成，但未获取到文本内容",
+  "pleaseConfigureApiKey": "请先配置API Key",
+  "noRecordsInPeriod": "该时间段内没有记录",
+  "pleaseEnterContent": "请输入内容",
+  "generationFailed": "生成失败",
+  "audioNotFound": "音频文件不存在",
+  "fileNotFound": "文件不存在",
+  "audioInvalid": "音频文件无效",
+  "playerInitFailed": "播放器初始化失败",
+  "playbackFailed": "播放失败",
+  "audioPlayback": "音频播放",
+  "preparingToShare": "正在准备分享...",
+  "voiceRecord": "语音记录",
+  "ocrRecord": "OCR识别",
+  "textRecord": "文本记录",
+  "characters": "字",
+  "unfavorite": "取消收藏",
+  "favoriteRecords": "记录收藏",
+  "noFavoriteRecords": "暂无收藏记录",
+  "toolOutputFavorites": "工具输出收藏",
+  "noFavoriteToolOutputs": "暂无收藏的工具输出",
+  "ocrFailed": "文字识别失败",
+  "selectImageFailed": "选择图片失败",
+  "recordSaved": "记录已保存",
+  "photoOcr": "拍照识别",
+  "recognitionResult": "识别结果",
+  "retakePhoto": "重新拍照",
+  "saveRecord": "保存记录",
+  "recognizingText": "正在识别文字...",
+  "quickNote": "速记",
+  "enterYourThoughts": "在这里输入你的想法",
+  "quickNoteSaved": "速记已保存",
+  "smartReminders": "智能提醒",
+  "addReminder": "添加提醒",
+  "editReminder": "编辑提醒",
+  "noReminders": "暂无提醒事项",
+  "tapToAddReminder": "点击右下角按钮添加提醒",
+  "title": "标题",
+  "description": "描述",
+  "cannotOpenCalendar": "无法打开日历",
+  "smartWeeklyReport": "智能周报",
+  "generating": "生成中...",
+  "generateReport": "生成周报",
+  "timeRange": "时间范围",
+  "reportContent": "周报内容",
+  "selectTimeRangeHint": "选择时间范围，一键生成周报",
+  "aiWillSummarize": "AI将自动汇总该时间段内的所有记录",
+  "saveReport": "保存周报",
+  "weeklyReportSaved": "周报已保存",
+  "knowledgeMindMap": "知识脑图",
+  "selectTags": "选择标签",
+  "savePlan": "保存方案",
+  "planSaved": "方案已保存",
+  "archiveByTags": "按标签归档",
+  "archivedRecordsCount": "已归档 {count} 条记录",
+  "aiMindMapSuccess": "AI脑图生成成功",
+  "aiMindMapFailed": "AI脑图生成失败",
+  "unnamed": "未命名",
+  "unnamedTopic": "未命名主题",
+  "apiAnalysis": "API调用分析",
+  "totalCalls": "总调用次数",
+  "successRate": "成功率",
+  "textCalls": "文本调用",
+  "voiceCalls": "语音调用",
+  "imageCalls": "图片调用",
+  "failedCalls": "失败次数",
+  "apiCallTypeDistribution": "API调用类型分布",
+  "noToolCallData": "暂无工具调用数据",
+  "toolCallUsage": "工具调用使用量",
+  "noDailyCallData": "暂无每日调用数据",
+  "recent7DaysTrend": "近7天API调用趋势",
+  "monday": "周一",
+  "tuesday": "周二",
+  "wednesday": "周三",
+  "thursday": "周四",
+  "friday": "周五",
+  "saturday": "周六",
+  "sunday": "周日",
+  "dataStatistics": "数据统计",
+  "loadStatsFailed": "加载统计失败",
+  "accountCenter": "账户中心",
+  "systemSettings": "系统设置",
+  "runtimeLogs": "运行日志",
+  "quickConfigWizard": "快速配置向导",
+  "multiApiConfig": "多API配置管理",
+  "aiAnalysisRoles": "AI分析角色",
+  "promptTemplateManagement": "Prompt模板管理",
+  "toolConfig": "工具方案配置",
+  "autoAnalysisSettings": "自动分析设置",
+  "backupManagement": "备份管理",
+  "personalInfo": "个人信息",
+  "rechargeCenter": "充值中心",
+  "confirmLogout": "确认退出",
+  "logoutConfirmMessage": "退出后将无法使用云端AI服务",
+  "loginRegister": "登录/注册",
+  "cloudAiService": "云端AI服务",
+  "localApiConfig": "本地API配置",
+  "notLoggedIn": "未登录",
+  "user": "用户",
+  "loginRequired": "该功能需要登录后使用",
+  "goToLogin": "去登录",
+  "skipLogin": "暂不登录",
+  "currentPlan": "当前套餐",
+  "transcriptionQuota": "转写额度",
+  "quotaDetails": "额度详情",
+  "purchasePlan": "购买套餐",
+  "monthlySubscription": "按月订阅",
+  "planPackage": "套餐包",
+  "recharge": "充值",
+  "accountBalance": "账户余额",
+  "selectRechargeAmount": "选择充值金额",
+  "orEnterCustomAmount": "或输入自定义金额",
+  "pleaseEnterAmount": "请输入金额",
+  "recommended": "推荐",
+  "buyNow": "立即购买",
+  "rechargeNow": "立即充值",
+  "confirmRecharge": "确认充值",
+  "confirmPurchase": "确认购买",
+  "otherPaymentMethods": "其他支付方式",
+  "useBalance": "使用余额",
+  "transactionHistory": "交易记录",
+  "noTransactionRecords": "暂无交易记录",
+  "mySubscription": "我的订阅",
+  "welcomeBack": "欢迎回来",
+  "phoneNumber": "手机号",
+  "pleaseEnterPhone": "请输入手机号",
+  "pleaseEnterPassword": "请输入密码",
+  "forgotPassword": "忘记密码?",
+  "noAccount": "还没有账号?",
+  "hasAccount": "已有账号?",
+  "loginNow": "立即登录",
+  "registerNow": "立即注册",
+  "pleaseFillPhoneAndPassword": "请填写手机号和密码",
+  "pleaseEnterValidPhone": "请输入正确的11位手机号",
+  "loginFailed": "登录失败，请检查手机号和密码",
+  "registerAccount": "注册账号",
+  "createAccount": "创建账号",
+  "verificationCode": "验证码",
+  "captcha": "图形验证码",
+  "confirmPassword": "确认密码",
+  "getVerificationCode": "获取验证码",
+  "seconds": "秒",
+  "sendFailed": "发送失败",
+  "refreshFailed": "刷新失败",
+  "passwordTooShort": "密码长度不能少于6位",
+  "passwordsNotMatch": "两次密码不一致",
+  "registerFailed": "注册失败，请稍后重试",
+  "welcomeToChangji": "欢迎加入畅记！",
+  "newUserGift": "已赠送您新手体验包：",
+  "getStarted": "开始使用",
+  "accountInfo": "账号信息",
+  "registrationTime": "注册时间",
+  "notConfigured": "未配置",
+  "selectConfig": "选择配置",
+  "testConnection": "测试连接",
+  "testingConnection": "正在测试连接...",
+  "connectionSuccess": "连接成功",
+  "connectionFailed": "连接失败",
+  "testError": "测试出错",
+  "configName": "配置名称",
+  "custom": "自定义",
+  "customProviderName": "自定义提供商名称",
+  "modelName": "模型名称",
+  "configDeleted": "配置已删除",
+  "configSaved": "配置已保存",
+  "fillAllRequired": "请填写所有必填项",
+  "selectAtLeastOneFeature": "至少选择一个功能",
+  "featureIncompatible": "功能不兼容",
+  "apiConfigManagement": "API配置管理",
+  "featureAssignment": "功能分配",
+  "selectProvider": "选择提供商",
+  "supportedFeatures": "支持的功能",
+  "checkApiKeyBaseUrlNetwork": "请检查: 1. API Key是否正确 2. Base URL是否正确 3. 网络连接是否正常",
+  "supportsAiAnalysis": "支持AI分析、摘要、标题生成",
+  "supportsAudioToText": "支持录音转文字",
+  "supportsRealtimeTranscription": "支持实时语音转写",
+  "supportsOfflineTranscription": "支持提交音频文件进行离线转写",
+  "supportsSpeakerDiarization": "支持区分不同发言人",
+  "supportsImageRecognition": "支持图片内容识别",
+  "supportsMultiTurnDialogue": "支持多轮对话",
+  "textAnalysis": "文本分析",
+  "voiceTranscription": "语音转写",
+  "recordThenTranscribe": "录音后转文字",
+  "realtimeVoiceTranscription": "语音实时转写",
+  "realtimeTextDuringRecording": "录音时实时转文字",
+  "offlineVoiceTranscription": "离线语音转写",
+  "imageRecognition": "图像识别",
+  "speakerDiarization": "说话人分离",
+  "dialogue": "对话",
+  "offlineTranscription": "离线转写",
+  "wizardSuccess": "配置成功！畅记已准备就绪",
+  "wizardSaveFailed": "保存失败，请重试",
+  "wizardInvalidApiKey": "API Key无效，请检查后重试",
+  "wizardVerifyFailed": "验证失败",
+  "wizardConfigureLater": "稍后配置",
+  "wizardVerifyAndSave": "验证并保存",
+  "verifying": "验证中...",
+  "saving": "保存中...",
+  "roleName": "角色名称",
+  "roleDescription": "角色描述",
+  "systemPrompt": "系统提示词（Prompt）",
+  "nameAndPromptRequired": "名称和Prompt不能为空",
+  "confirmDeleteRole": "确认删除",
+  "editAndConvertToCustom": "编辑并转为自定义",
+  "enableAutoAnalysis": "启用自动分析",
+  "autoAnalysisDescription": "转写完成后自动进行AI分析",
+  "viewMoreTemplates": "查看更多模板...",
+  "selectTemplate": "选择模板方案",
+  "settingsSaved": "设置已保存",
+  "defaultTemplateUpdated": "默认模板已更新",
+  "templateDeleted": "模板已删除",
+  "templateSaved": "模板已保存",
+  "systemDefaultTemplateCannotDelete": "系统默认模板不能删除",
+  "deleteTemplate": "删除模板",
+  "confirmDeleteTemplate": "确定要删除这个模板吗？",
+  "templateName": "模板名称",
+  "shortDescription": "简短描述",
+  "category": "分类",
+  "templateContent": "模板内容",
+  "useContentPlaceholder": "使用 [content] 作为内容占位符",
+  "fillTemplateNameAndContent": "请填写模板名称和内容",
+  "confirmDeleteTemplateNamed": "确定要删除模板「{name}」吗？此操作不可撤销。",
+  "setAsDefault": "设为默认",
+  "setAsDefaultTemplate": "设为默认模板",
+  "analysisTemplateSettings": "分析模板设置",
+  "inputSystemPrompt": "输入AI分析时使用的系统提示词...",
+  "backupName": "备份名称（可选）",
+  "includeMediaFiles": "包含媒体文件",
+  "createBackup": "创建备份",
+  "importBackup": "导入备份",
+  "restoreBackup": "恢复此备份",
+  "shareBackup": "分享备份",
+  "backupFailed": "备份失败",
+  "importSuccess": "导入成功",
+  "importFailed": "导入失败",
+  "restoreSuccess": "恢复成功",
+  "restoreFailed": "恢复失败",
+  "confirmRestore": "确认恢复",
+  "backupFileNotFound": "备份文件不存在",
+  "deleteBackup": "删除备份",
+  "leaveEmptyForDefault": "留空将使用默认名称",
+  "recycleBin": "回收站",
+  "emptyRecycleBin": "清空回收站",
+  "recycleBinEmptied": "回收站已清空",
+  "confirmPermanentDelete": "确认永久删除",
+  "permanentDeleteConfirm": "此操作不可恢复，是否继续？",
+  "permanentlyDeleted": "已永久删除",
+  "copyFilteredLogs": "复制筛选后的日志",
+  "copyAllLogs": "复制全部日志",
+  "clearLogs": "清空日志",
+  "searchLogs": "搜索日志...",
+  "allTags": "全部标签",
+  "filteredLogsCopied": "筛选后的日志已复制到剪贴板",
+  "allLogsCopied": "全部日志已复制到剪贴板",
+  "singleLogCopied": "已复制单条日志",
+  "confirmClearLogs": "确认清空",
+  "clearLogsConfirm": "确定要清空所有日志吗？",
+  "enterNewTag": "输入新标签",
+  "searchTools": "搜索工具...",
+  "searchOutputContent": "搜索输出内容...",
+  "searchRolesOrTemplates": "搜索角色或模板...",
+  "toolOutputs": "工具台输出",
+  "toolOutputTitle": "工具台输出",
+  "toolOutputContent": "内容",
+  "deleteOutputConfirm": "删除后无法恢复，是否继续？",
+  "saveResult": "保存结果",
+  "inputSaveName": "输入保存名称",
+  "name": "名称",
+  "inputName": "输入保存名称",
+  "enterContent": "请输入内容",
+  "fullScreen": "全屏查看",
+  "selectAll": "全选",
+  "moreActions": "更多操作",
+  "addToCalendar": "加入日历",
+  "favorite": "收藏",
+  "layout": "布局方式",
+  "sortTools": "排序工具",
+  "showHideTools": "显示/隐藏工具",
+  "restoreDefault": "恢复默认",
+  "toolDisplaySettings": "工具展示设置",
+  "max5ToolsOnHome": "首页最多显示5个工具",
+  "homeToolsCannotHide": "展示在首页的工具不得隐藏",
+  "selectAtLeastOneDataSource": "请至少选择一种数据源",
+  "noDataSourceAvailable": "没有可用的数据源",
+  "planName": "方案名称",
+  "planContent": "方案内容",
+  "saveTemporaryPlan": "保存临时方案",
+  "inputAiPrompt": "输入AI的系统提示词",
+  "bold": "加粗",
+  "italic": "斜体",
+  "underline": "下划线",
+  "strikethrough": "删除线",
+  "largeHeading": "大标题",
+  "smallHeading": "小标题",
+  "orderedList": "有序列表",
+  "unorderedList": "无序列表",
+  "inlineCode": "行内代码",
+  "emoji": "表情符号",
+  "shareFailed": "分享失败",
+  "recordingSaved": "录音已保存",
+  "microphonePermissionRequired": "需要麦克风权限",
+  "startRecordingFailed": "开始录音失败",
+  "stopRecordingFailed": "停止录音失败",
+  "imageSelectionNotImplemented": "图片选择功能待实现",
+  "addYourThoughts": "在此补充你的想法...",
+  "inputContent": "输入内容",
+  "remainingRecords": "还有{count}条相关记录",
+  "relatedRecordCount": "{count}条",
+  "transcriptionCompleteWithResult": "转写完成！",
+  "processingAllUntranscribed": "将处理所有未正常转写的录音，是否继续？",
+  "wizardStep1Title": "3步完成AI服务配置，推荐新手使用",
+  "viewLogsDesc": "查看APP运行日志，用于排查问题",
+  "multiApiDesc": "为语音/图像/文本配置独立API，支持多平台",
+  "roleManagementDesc": "管理系统角色和自定义分析角色",
+  "templateManagementDesc": "管理内置和自定义AI分析模板",
+  "toolTemplateDesc": "管理各工具的AI模板，支持新增和删除",
+  "autoAnalysisDesc": "转写完成后自动进行AI分析",
+  "statisticsDesc": "查看记录趋势和热门标签",
+  "apiAnalysisDesc": "查看API调用统计和工具使用量",
+  "dataManagementDesc": "数据备份、导出和恢复",
+  "recycleBinDesc": "查看和管理已删除的记录",
+  "cloudAiDesc": "解锁云端AI服务，注册送100分钟",
+  "useOwnApiKey": "使用自己的API Key",
+  "aiConfig": "AI配置",
+  "debugTools": "调试工具",
+  "viewLogs": "运行日志",
+  "quickConfigWizardDesc": "3步完成AI服务配置，推荐新手使用",
+  "multiApiConfigDesc": "为语音/图像/文本配置独立API，支持多平台",
+  "aiRoleManagement": "AI角色管理",
+  "aiAnalysisRolesDesc": "管理系统角色和自定义分析角色",
+  "promptTemplateManagementDesc": "管理内置和自定义AI分析模板",
+  "toolAiConfig": "工具AI配置",
+  "toolConfigDesc": "以下是各工具的模板配置，系统默认模板不能删除，可设置默认模板",
+  "autoAnalysis": "自动分析",
+  "usageStatsDesc": "查看记录趋势和热门标签",
+  "apiCallAnalysis": "API调用分析",
+  "apiCallAnalysisDesc": "查看API调用统计和工具使用量",
+  "backupManagementDesc": "数据备份、导出和恢复",
+  "accountManagement": "账户管理",
+  "loginRegisterDesc": "解锁云端AI服务，注册送100分钟",
+  "transactionRecords": "交易记录",
+  "aiServiceConfig": "AI服务配置",
+  "cloudAiServiceLoggedIn": "使用云端分配的API Key",
+  "cloudAiServiceNotLoggedIn": "登录后开启云端AI服务",
+  "minutesUsed": "已用 {used} / {total} 分钟",
+  "save": "保存",
+  "functionAssignment": "功能分配",
+  "functionAssignmentDesc": "为不同功能选择使用的API配置，仅显示支持该功能的模型",
+  "textAnalysisDesc": "AI分析、摘要、标题生成",
+  "voiceTranscriptionDesc": "录音后转文字",
+  "realtimeVoiceTranscriptionDesc": "录音时实时转文字",
+  "offlineVoiceTranscriptionDesc": "提交音频文件进行离线转写（支持说话人分离）",
+  "imageRecognitionDesc": "图片内容识别（OCR）",
+  "incompatible": "不兼容",
+  "featureMismatch": "功能不匹配",
+  "apiConfigList": "API配置列表",
+  "noApiConfig": "暂无API配置",
+  "addApiConfigHint": "点击右下角 + 添加配置",
+  "connectionSuccessDetail": "API配置有效，可以正常使用。",
+  "connectionFailedDetail": "状态码: {code}\n请检查API Key和Base URL是否正确。",
+  "editConfig": "编辑配置",
+  "addConfig": "添加配置",
+  "configNameHint": "例如：OpenAI-文本",
+  "autoFilterIncompatible": "已自动过滤不兼容功能",
+  "noCompatibleFunctions": "暂无可用的功能支持，请选择其他提供商。",
+  "providerCapabilityDesc": "能力说明",
+  "model": "模型",
+  "apiKey": "API Key",
+  "appId": "App ID",
+  "accessKeySecret": "AccessKey Secret",
+  "baseUrl": "Base URL",
+  "modelNameHint": "例如：gpt-4o-mini",
+  "deleteConfig": "删除配置",
+  "scenarioMeeting": "会议/沟通记录",
+  "scenarioMeetingDesc": "客户沟通、团队会议、电话录音",
+  "scenarioIdea": "灵感/创意捕捉",
+  "scenarioIdeaDesc": "随时记录想法，AI帮你梳理",
+  "scenarioStudy": "学习/课堂笔记",
+  "scenarioStudyDesc": "课程录音、读书笔记、知识整理",
+  "scenarioAll": "全部场景",
+  "scenarioAllDesc": "录音转写 + AI分析，完整体验",
+  "step1Title": "第一步：你的主要场景是？",
+  "step2Title": "第二步：选择AI服务商",
+  "step3Title": "第三步：输入API Key",
+  "providerRecommendDesc": "推荐以下服务商（按性价比排序）",
+  "wizardTip": "提示：你只需要填API Key，其他参数已自动配置好",
+  "rankRecommended": "推荐",
+  "rankAlternative": "备选",
+  "transcription": "转写",
+  "aiAnalysis": "AI分析",
+  "pricing": "价格",
+  "inputApiKeyHint": "填入你的 {provider} API Key 即可完成配置",
+  "modelLabel": "模型",
+  "transcriptionModel": "转写模型",
+  "apiKeySecurity": "你的API Key仅存储在本地设备，加密保存，不会上传到任何第三方服务器。",
+  "noApiKey": "没有API Key？",
+  "getApiKeyGuide": "前往 {provider} 平台获取 API Key",
+  "getApiKeyGeneric": "前往服务商官网获取 API Key",
+  "verifyAndSave": "验证并保存",
+  "systemRoles": "系统角色",
+  "customRoles": "自定义",
+  "templateLibrary": "模板库",
+  "noCustomRoles": "暂无自定义角色",
+  "addCustomRoleHint": "点击右下角 + 创建你的专属AI角色",
+  "categoryFrequentlyUsed": "常用",
+  "categoryGeneral": "通用",
+  "categorySolopreneur": "一人公司",
+  "categoryBusiness": "商业",
+  "categoryProductivity": "效率",
+  "categoryCreative": "创意",
+  "categoryLearning": "学习",
+  "categoryLife": "生活",
+  "categoryFun": "趣味",
+  "usedCount": "使用{count}次",
+  "prompt": "提示词（Prompt）",
+  "edit": "编辑",
+  "editRole": "编辑角色",
+  "newRole": "新建角色",
+  "roleNameHint": "例如：产品经理",
+  "roleDescriptionHint": "简要说明这个角色的用途",
+  "systemPromptHint": "输入系统提示词，定义AI的角色和行为...",
+  "deleteRoleConfirm": "确定要删除角色「{name}」吗？此操作不可恢复。",
+  "selectAutoAnalysisPlan": "选择自动分析方案",
+  "selectAutoAnalysisPlanDesc": "选择转写后自动使用的分析角色或模板",
+  "enableAutoAnalysisFirst": "请先启用自动分析开关",
+  "noAvailableRoles": "暂无可用角色",
+  "addFromTemplateLibrary": "从模板库添加方案",
+  "added": "已添加",
+  "autoAnalysisInstructions": "说明",
+  "autoAnalysisInstruction1": "• 开启自动分析后，录音转写完成将自动使用所选方案进行分析",
+  "autoAnalysisInstruction2": "• 自动分析会消耗API调用次数，请确保API配置正确",
+  "autoAnalysisInstruction3": "• 可以从模板库添加方案，也可以直接使用系统或自定义角色",
+  "autoAnalysisInstruction4": "• 保存的模板方案会独立存储，即使模板库更新也不会丢失",
+  "toolConfigTitle": "工具方案配置",
+  "allCategories": "全部",
+  "productivityTools": "效率工具",
+  "analysisTools": "分析工具",
+  "managementTools": "管理工具",
+  "aiTools": "AI工具",
+  "newTemplate": "新建模板",
+  "defaultLabel": "默认",
+  "addTemplateFor": "为{tool}新增模板",
+  "templateNameHint": "输入模板名称",
+  "descriptionHint": "简要描述这个模板的用途",
+  "aiPrompt": "系统提示词",
+  "aiPromptHint": "输入AI的系统提示词",
+  "editTemplate": "编辑模板",
+  "fillNameAndPrompt": "请填写名称和提示词",
+  "localBackupManagement": "本地备份管理",
+  "creating": "创建中...",
+  "backupNow": "立即备份",
+  "restoreFromFile": "从文件恢复",
+  "restoring": "恢复中...",
+  "noBackups": "暂无备份",
+  "createFirstBackup": "点击\"立即备份\"创建您的第一个备份",
+  "recordsCount": "{count} 条记录",
+  "restoreThisBackup": "恢复此备份",
+  "backupNameHint": "留空将使用默认名称",
+  "selectBackupContent": "选择备份内容",
+  "recordsData": "记录数据",
+  "recordsDataDesc": "所有录音记录、文本、标签、周报、脑图等",
+  "aiConfigBackup": "AI 配置",
+  "aiConfigBackupDesc": "API密钥、AI角色、Prompt模板、分析模板、自动分析设置",
+  "includeMediaFilesDesc": "音频、图片等附件（会显著增加备份大小）",
+  "restoreConfirmTitle": "确认恢复",
+  "restoreConfirmMessage": "恢复备份将覆盖当前所有数据（包括记录、设置等）。\n\n此操作不可撤销，是否继续？",
+  "backupNotFound": "备份文件不存在",
+  "backupShareText": "畅记备份: {name}",
+  "deleteBackupConfirm": "确定要删除备份 \"{name}\" 吗？",
+  "empty": "清空",
+  "recycleBinEmpty": "回收站为空",
+  "recycleBinRetention": "删除的记录将在这里保留7天",
+  "remainingDays": "剩余{days}天",
+  "willBeClearedSoon": "即将清除",
+  "createdAt": "创建于 {date}",
+  "deletedAt": "删除于 {date}",
+  "permanentDelete": "永久删除",
+  "clearRecordsConfirm": "将永久删除{count}条记录，此操作不可恢复，是否继续？",
+  "logScreenTitle": "运行日志",
+  "selectTagFilter": "选择标签筛选",
+  "tagFilter": "标签: {tag}",
+  "allLevels": "全部",
+  "levelInfo": "信息",
+  "levelWarning": "警告",
+  "levelError": "错误",
+  "noLogs": "暂无日志",
+  "showingCount": "显示 {count} 条",
+  "totalCount": "总计 {count} 条",
+  "weeklyReportTemplate": "周报模板",
+  "mindMapTemplate": "脑图模板",
+  "system": "系统",
+  "templateDescription": "描述",
+  "systemPromptLabel": "System Prompt",
+  "noTemplates": "暂无模板",
+  "createNewTemplateHint": "点击右上角 + 创建新模板",
+  "builtIn": "内置",
+  "templateDetail": "模板详情",
+  "templateContentLabel": "模板内容",
+  "editTemplateTitle": "编辑模板",
+  "createTemplateTitle": "创建新模板",
+  "shortDescriptionHint": "一句话描述模板用途",
+  "contentPlaceholderHint": "提示：使用 [content] 表示用户录音/笔记内容的位置",
+  "saveChanges": "保存修改",
+  "createTemplate": "创建模板",
+  "templateUpdated": "模板已更新",
+  "templateCreated": "模板已创建",
+  "loginSubtitle": "登录后解锁云端AI服务",
+  "password": "密码",
+  "registerGift": "注册即送100分钟体验额度",
+  "newUserGiftDetail": "100分钟转写额度，有效期7天",
+  "minutes": "分钟",
+  "retryFailedTranscriptions": "重新转写",
+  "retryFailedTranscriptionsConfirm": "将处理所有未正常转写的录音，是否继续？",
+  "retranscribeSuccess": "转写成功",
+  "retranscribeError": "转写失败",
+  "generateResult": "生成结果",
+  "savedResults": "已保存的结果",
+  "savedResultCount": "{count} 份",
+  "noSavedResults": "暂无保存的结果",
+  "sendEmail": "发送邮件",
+  "sendEmailDesc": "调用系统邮件客户端",
+  "addToCalendarDesc": "创建日程提醒",
+  "copyAll": "复制全部",
+  "copyAllDesc": "复制到剪贴板",
+  "shareDesc": "分享到其他应用",
+  "template": "模板",
+  "defaultTemplate": "默认",
+  "expand": "收起",
+  "switchTemplate": "切换",
+  "aiAnalyzingData": "AI正在分析数据...",
+  "usingTemplate": "使用模板",
+  "noTools": "暂无工具",
+  "addToolsInSettings": "请在设置中添加工具",
+  "recentlyUsed": "最近使用",
+  "workbenchSettings": "工作台设置",
+  "cardLayout": "卡片式",
+  "listLayout": "列表式",
+  "reorderTools": "拖拽调整工具顺序",
+  "customizeVisibleTools": "自定义显示哪些工具",
+  "resetToInitialLayout": "重置为初始布局",
+  "settingsRestored": "已恢复默认设置",
+  "tagManagement": "标签管理",
+  "selectedTags": "已选标签",
+  "availableTags": "可选标签",
+  "noMatchingOutputs": "没有符合条件的输出",
+  "adjustSearchCriteria": "尝试调整搜索条件",
+  "toolOutputSavedHint": "使用工具后保存的内容会显示在这里",
+  "delete": "删除",
+  "addedToCalendar": "已添加到日历",
+  "days": "天",
+  "records": "记录",
+  "toolOutput": "工具输出",
+  "aiAnalysisSummary": "AI分析摘要",
+  "selectedItems": "已选 {count} 项",
+  "@selectedItems": {
+    "description": "已选项目数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selected": "已选",
+  "@selected": {
+    "description": "已选标签"
+  },
+  "selectAiRole": "选择AI角色",
+  "@selectAiRole": {
+    "description": "选择AI角色标签"
+  },
+  "searchRoleOrTemplate": "搜索角色或模板...",
+  "@searchRoleOrTemplate": {
+    "description": "搜索角色或模板提示"
+  },
+  "noMatchingSystemRole": "没有匹配的系统角色",
+  "@noMatchingSystemRole": {
+    "description": "没有匹配系统角色提示"
+  },
+  "noCustomRole": "暂无自定义角色",
+  "@noCustomRole": {
+    "description": "没有自定义角色提示"
+  },
+  "clickToCreateRole": "点击创建你的角色",
+  "@clickToCreateRole": {
+    "description": "点击创建角色提示"
+  },
+  "noTemplate": "暂无模板",
+  "@noTemplate": {
+    "description": "没有模板提示"
+  },
+  "dataPreview": "数据预览",
+  "@dataPreview": {
+    "description": "数据预览标签"
+  },
+  "dataSourceConfig": "数据源配置",
+  "@dataSourceConfig": {
+    "description": "数据源配置标签"
+  },
+  "confirmAndExecute": "确认并执行",
+  "@confirmAndExecute": {
+    "description": "确认并执行按钮"
+  },
+  "pleaseSelectAtLeastOneDataSource": "请至少选择一种数据源",
+  "@pleaseSelectAtLeastOneDataSource": {
+    "description": "请选择至少一种数据源提示"
+  },
+  "dataConfirm": "数据确认",
+  "@dataConfirm": {
+    "description": "数据确认标签"
+  },
+  "ai": "AI",
+  "@ai": {
+    "description": "AI 分类标签"
+  },
+  "efficiency": "Efficiency",
+  "@efficiency": {
+    "description": "效率分类标签"
+  },
+  "analysis": "Analysis",
+  "@analysis": {
+    "description": "分析分类标签"
+  },
+  "management": "Management",
+  "@management": {
+    "description": "管理分类标签"
+  },
+  "homeToolsCannotBeHidden": "Home tools cannot be hidden",
+  "@homeToolsCannotBeHidden": {
+    "description": "首页工具不能隐藏提示"
+  },
+  "homeMaxFiveTools": "Maximum 5 tools on home page",
+  "@homeMaxFiveTools": {
+    "description": "首页最多5个工具提示"
+  },
+  "hidden": "Hidden",
+  "@hidden": {
+    "description": "隐藏标签"
+  },
+  "searchTools": "Search tools",
+  "@searchTools": {
+    "description": "搜索工具提示"
+  },
+  "toolsSelectedForHomeDisplay": "{count} tools selected for home display",
+  "@toolsSelectedForHomeDisplay": {
+    "description": "已选择首页显示的工具数量",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "toolName": "Tool name",
+  "@toolName": {
+    "description": "工具名称标签"
+  },
+  "showOnHome": "Show on home",
+  "@showOnHome": {
+    "description": "在首页显示标签"
+  },
+  "toolDisplaySettings": "Tool display settings",
+  "@toolDisplaySettings": {
+    "description": "工具显示设置标题"
+  },
+  "apiKeyRequired": "API key is required",
+  "@apiKeyRequired": {
+    "description": "API密钥必填提示"
+  },
+  "modelNameRequired": "Model name is required",
+  "@modelNameRequired": {
+    "description": "模型名称必填提示"
+  },
+  "unknownError": "Unknown error",
+  "@unknownError": {
+    "description": "未知错误提示"
+  },
+  "baseUrlHint": "Optional: Custom API base URL",
+  "@baseUrlHint": {
+    "description": "基础URL提示"
+  },
+  "securityNotice": "Security Notice",
+  "@securityNotice": {
+    "description": "安全提示标题"
+  },
+  "securityNoticeDetail": "Your API key is stored locally and will not be uploaded to the server",
+  "@securityNoticeDetail": {
+    "description": "安全提示详情"
+  },
+  "apiKeyWizard": "API Key Wizard",
+  "@apiKeyWizard": {
+    "description": "API密钥向导标题"
+  },
+  "prevStep": "Previous",
+  "@prevStep": {
+    "description": "上一步按钮"
+  },
+  "selectProviderDesc": "Choose an AI service provider",
+  "@selectProviderDesc": {
+    "description": "选择提供商描述"
+  },
+  "customProviderDesc": "Enter custom provider details",
+  "@customProviderDesc": {
+    "description": "自定义提供商描述"
+  },
+  "selectFeatures": "Select Features",
+  "@selectFeatures": {
+    "description": "选择功能标题"
+  },
+  "selectFeaturesDesc": "Choose which features to enable",
+  "@selectFeaturesDesc": {
+    "description": "选择功能描述"
+  },
+  "enterApiKey": "Enter API Key",
+  "@enterApiKey": {
+    "description": "输入API密钥标题"
+  },
+  "enterApiKeyDesc": "Enter your API key for the selected provider",
+  "@enterApiKeyDesc": {
+    "description": "输入API密钥描述"
+  },
+  "customProviderNameHint": "Custom provider name",
+  "@customProviderNameHint": {
+    "description": "自定义提供商名称提示"
+  },
+  "confirmConfig": "Confirm Configuration",
+  "@confirmConfig": {
+    "description": "确认配置标题"
+  },
+  "confirmConfigDesc": "Please confirm your API configuration",
+  "@confirmConfigDesc": {
+    "description": "确认配置描述"
+  },
+  "provider": "Provider",
+  "@provider": {
+    "description": "提供商标签"
+  },
+  "selectedFeatures": "Selected Features",
+  "@selectedFeatures": {
+    "description": "已选功能标签"
+  },
+  "finish": "Finish",
+  "@finish": {
+    "description": "完成按钮"
+  },
+  "nextStep": "Next",
+  "@nextStep": {
+    "description": "下一步按钮"
+  },
+  "enterCustomProviderName": "Please enter custom provider name",
+  "@enterCustomProviderName": {
+    "description": "输入自定义提供商名称提示"
+  },
+  "appIdRequired": "App ID is required",
+  "@appIdRequired": {
+    "description": "App ID必填提示"
+  },
+  "noPromptTemplates": "No prompt templates",
+  "@noPromptTemplates": {
+    "description": "无提示模板提示"
+  },
+  "addPromptTemplateHint": "Add a new prompt template",
+  "@addPromptTemplateHint": {
+    "description": "添加提示模板提示"
+  },
+  "analysisModel": "Analysis Model",
+  "@analysisModel": {
+    "description": "分析模型标签"
+  },
+  "summaryModel": "Summary Model",
+  "@summaryModel": {
+    "description": "摘要模型标签"
+  },
+  "qwenRealtime": "Qwen Realtime",
+  "@qwenRealtime": {
+    "description": "通义千问实时模型"
+  },
+  "qwenAudio": "Qwen Audio",
+  "@qwenAudio": {
+    "description": "通义千问音频模型"
+  },
+  "paraformerRealtime": "Paraformer Realtime",
+  "@paraformerRealtime": {
+    "description": "Paraformer实时模型"
+  },
+  "paraformer": "Paraformer",
+  "@paraformer": {
+    "description": "Paraformer模型"
+  },
+  "qwenMax": "Qwen Max",
+  "@qwenMax": {
+    "description": "通义千问Max模型"
+  },
+  "qwenPlus": "Qwen Plus",
+  "@qwenPlus": {
+    "description": "通义千问Plus模型"
+  },
+  "qwenTurbo": "Qwen Turbo",
+  "@qwenTurbo": {
+    "description": "通义千问Turbo模型"
+  },
+  "deepseekChat": "DeepSeek Chat",
+  "@deepseekChat": {
+    "description": "DeepSeek聊天模型"
+  },
+  "deepseekReasoner": "DeepSeek Reasoner",
+  "@deepseekReasoner": {
+    "description": "DeepSeek推理模型"
+  },
+  "text": "Text",
+  "@text": {
+    "description": "文本类型"
+  },
+  "voice": "Voice",
+  "@voice": {
+    "description": "语音类型"
+  },
+  "image": "Image",
+  "@image": {
+    "description": "图片类型"
+  },
+  "moreTools": "+{count} more",
+  "@moreTools": {
+    "description": "更多工具",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recent7DaysApiTrend": "Recent 7 Days API Trend",
+  "@recent7DaysApiTrend": {
+    "description": "近7天API调用趋势"
+  },
+  "permanentDeleteMessage": "This action is irreversible. Are you sure you want to permanently delete this record?",
+  "@permanentDeleteMessage": {
+    "description": "永久删除确认消息"
+  },
+  "emptyRecycleBinMessage": "All records in the recycle bin will be permanently deleted. This action cannot be undone.",
+  "@emptyRecycleBinMessage": {
+    "description": "清空回收站确认消息"
+  },
+  "emptyRecycleBinSuccess": "Recycle bin emptied successfully",
+  "@emptyRecycleBinSuccess": {
+    "description": "清空回收站成功"
+  },
+  "noDeletedNotes": "No deleted notes",
+  "@noDeletedNotes": {
+    "description": "没有已删除的笔记"
+  },
+  "deletedNotesHint": "Deleted notes will be kept here for 7 days",
+  "@deletedNotesHint": {
+    "description": "已删除笔记提示"
+  },
+  "restore": "Restore",
+  "@restore": {
+    "description": "恢复按钮"
+  },
+  "restoreSuccess": "Restored successfully",
+  "@restoreSuccess": {
+    "description": "恢复成功"
+  },
+  "untitledNote": "Untitled Note",
+  "@untitledNote": {
+    "description": "未命名笔记"
+  },
+  "clearLogsSuccess": "Logs cleared successfully",
+  "@clearLogsSuccess": {
+    "description": "清空日志成功"
+  },
+  "clearLogsFailed": "Failed to clear logs",
+  "@clearLogsFailed": {
+    "description": "清空日志失败"
+  },
+  "copySuccess": "Copied successfully",
+  "@copySuccess": {
+    "description": "复制成功"
+  },
+  "logViewer": "Log Viewer",
+  "@logViewer": {
+    "description": "日志查看器"
+  },
+  "copyLogs": "Copy Logs",
+  "@copyLogs": {
+    "description": "复制日志"
+  },
+  "shareLogs": "Share Logs",
+  "@shareLogs": {
+    "description": "分享日志"
+  },
+  "loadLogsFailed": "Failed to load logs",
+  "@loadLogsFailed": {
+    "description": "加载日志失败"
+  },
+  "noLogsHint": "No logs available",
+  "@noLogsHint": {
+    "description": "没有日志提示"
+  },
+  "autoAnalysisSwitch": "Auto Analysis",
+  "@autoAnalysisSwitch": {
+    "description": "自动分析开关"
+  },
+  "autoAnalysisEnabled": "Enable Auto Analysis",
+  "@autoAnalysisEnabled": {
+    "description": "启用自动分析"
+  },
+  "autoAnalysisEnabledDesc": "Automatically analyze after transcription",
+  "@autoAnalysisEnabledDesc": {
+    "description": "启用自动分析描述"
+  },
+  "analysisMode": "Analysis Mode",
+  "@analysisMode": {
+    "description": "分析模式"
+  },
+  "quickAnalysis": "Quick Analysis",
+  "@quickAnalysis": {
+    "description": "快速分析"
+  },
+  "quickAnalysisDesc": "Fast analysis with basic summary",
+  "@quickAnalysisDesc": {
+    "description": "快速分析描述"
+  },
+  "standardAnalysis": "Standard Analysis",
+  "@standardAnalysis": {
+    "description": "标准分析"
+  },
+  "standardAnalysisDesc": "Balanced analysis with moderate detail",
+  "@standardAnalysisDesc": {
+    "description": "标准分析描述"
+  },
+  "deepAnalysis": "Deep Analysis",
+  "@deepAnalysis": {
+    "description": "深度分析"
+  },
+  "deepAnalysisDesc": "Detailed analysis with comprehensive insights",
+  "@deepAnalysisDesc": {
+    "description": "深度分析描述"
+  },
+  "analysisDelay": "Analysis Delay",
+  "@analysisDelay": {
+    "description": "分析延迟"
+  },
+  "delaySeconds": "Delay Seconds",
+  "@delaySeconds": {
+    "description": "延迟秒数"
+  },
+  "delaySecondsDesc": "Delay before starting analysis after transcription",
+  "@delaySecondsDesc": {
+    "description": "延迟秒数描述"
+  },
+  "autoAnalysisItems": "Auto Analysis Items",
+  "@autoAnalysisItems": {
+    "description": "自动分析项目"
+  },
+  "autoSummarize": "Auto Summarize",
+  "@autoSummarize": {
+    "description": "自动摘要"
+  },
+  "autoSummarizeDesc": "Automatically generate summary",
+  "@autoSummarizeDesc": {
+    "description": "自动摘要描述"
+  },
+  "autoExtractTasks": "Auto Extract Tasks",
+  "@autoExtractTasks": {
+    "description": "自动提取任务"
+  },
+  "autoExtractTasksDesc": "Automatically extract tasks from content",
+  "@autoExtractTasksDesc": {
+    "description": "自动提取任务描述"
+  },
+  "autoSuggestTags": "Auto Suggest Tags",
+  "@autoSuggestTags": {
+    "description": "自动建议标签"
+  },
+  "autoSuggestTagsDesc": "Automatically suggest tags for content",
+  "@autoSuggestTagsDesc": {
+    "description": "自动建议标签描述"
+  },
+  "analysisTemplate": "Analysis Template",
+  "@analysisTemplate": {
+    "description": "分析模板"
+  },
+  "noAnalysisTemplates": "No analysis templates",
+  "@noAnalysisTemplates": {
+    "description": "没有分析模板"
+  },
+  "addAnalysisTemplateHint": "Tap + to add a new analysis template",
+  "@addAnalysisTemplateHint": {
+    "description": "添加分析模板提示"
+  },
+  "templateDescription": "Template Description",
+  "@templateDescription": {
+    "description": "模板描述"
+  },
+  "templateDescriptionHint": "Enter template description",
+  "@templateDescriptionHint": {
+    "description": "模板描述提示"
+  },
+  "templatePrompt": "Template Prompt",
+  "@templatePrompt": {
+    "description": "模板提示词"
+  },
+  "templatePromptHint": "Enter the AI prompt for this template",
+  "@templatePromptHint": {
+    "description": "模板提示词提示"
+  },
+  "setAsDefaultDesc": "Set as default template for analysis",
+  "@setAsDefaultDesc": {
+    "description": "设为默认描述"
+  },
+  "addTemplate": "Add Template",
+  "@addTemplate": {
+    "description": "添加模板"
+  },
+  "templateNameRequired": "Template name is required",
+  "@templateNameRequired": {
+    "description": "模板名称必填"
+  },
+  "confirmDeleteTemplateMessage": "Are you sure you want to delete template \"{name}\"?",
+  "@confirmDeleteTemplateMessage": {
+    "description": "删除模板确认消息",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "backupSuccess": "Backup created successfully",
+  "@backupSuccess": {
+    "description": "备份成功"
+  },
+  "confirmRestoreMessage": "Restoring will overwrite current data. Continue?",
+  "@confirmRestoreMessage": {
+    "description": "恢复确认消息"
+  },
+  "confirmDeleteBackup": "Delete Backup",
+  "@confirmDeleteBackup": {
+    "description": "删除备份"
+  },
+  "confirmDeleteBackupMessage": "Are you sure you want to delete this backup?",
+  "@confirmDeleteBackupMessage": {
+    "description": "删除备份确认消息"
+  },
+  "createBackupHint": "Tap \"Create Backup\" to create your first backup",
+  "@createBackupHint": {
+    "description": "创建备份提示"
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "重试按钮"
+  },
+  "today": "Today",
+  "@today": {
+    "description": "今天"
+  },
+  "tomorrow": "Tomorrow",
+  "@tomorrow": {
+    "description": "明天"
+  },
+  "month": "/",
+  "@month": {
+    "description": "月份分隔符"
+  },
+  "day": "",
+  "@day": {
+    "description": "日"
+  },
+  "overdue": "Overdue",
+  "@overdue": {
+    "description": "已逾期"
+  },
+  "addToCalendar": "Add to Calendar",
+  "@addToCalendar": {
+    "description": "添加到日历"
+  },
+  "cannotOpenCalendar": "Cannot open calendar: {error}",
+  "@cannotOpenCalendar": {
+    "description": "无法打开日历",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "smartReminders": "Smart Reminders",
+  "@smartReminders": {
+    "description": "智能提醒"
+  },
+  "noReminders": "No Reminders",
+  "@noReminders": {
+    "description": "没有提醒"
+  },
+  "tapToAddReminder": "Tap + to add a reminder",
+  "@tapToAddReminder": {
+    "description": "点击添加提醒"
+  },
+  "statusPending": "Pending",
+  "@statusPending": {
+    "description": "待处理"
+  },
+  "statusCompleted": "Completed",
+  "@statusCompleted": {
+    "description": "已完成"
+  },
+  "addReminder": "Add Reminder",
+  "@addReminder": {
+    "description": "添加提醒"
+  },
+  "editReminder": "Edit Reminder",
+  "@editReminder": {
+    "description": "编辑提醒"
+  },
+  "selectDate": "Select Date",
+  "@selectDate": {
+    "description": "选择日期"
+  },
+  "title": "Title",
+  "@title": {
+    "description": "标题"
+  },
+  "description": "Description",
+  "@description": {
+    "description": "描述"
+  },
+  "add": "Add",
+  "@add": {
+    "description": "添加"
+  },
+  "cancelButton": "Cancel",
+  "@cancelButton": {
+    "description": "取消按钮"
+  },
+  "confirmDeleteTitle": "Confirm Delete",
+  "@confirmDeleteTitle": {
+    "description": "确认删除标题"
+  },
+  "confirmDelete": "Are you sure you want to delete?",
+  "@confirmDelete": {
+    "description": "确认删除"
+  },
+  "analysis": "Analysis",
+  "@analysis": {
+    "description": "分析"
+  },
+  "summary": "Summary",
+  "@summary": {
+    "description": "摘要"
+  },
+  "chat": "Chat",
+  "@chat": {
+    "description": "聊天"
+  },
+  "custom": "Custom",
+  "@custom": {
+    "description": "自定义"
+  },
+  "category": "Category",
+  "@category": {
+    "description": "分类"
+  },
+  "promptContent": "Prompt Content",
+  "@promptContent": {
+    "description": "提示词内容"
+  },
+  "promptContentHint": "Enter the prompt content",
+  "@promptContentHint": {
+    "description": "提示词内容提示"
+  },
+  "editPromptTemplate": "Edit Prompt Template",
+  "@editPromptTemplate": {
+    "description": "编辑提示模板"
+  },
+  "addPromptTemplate": "Add Prompt Template",
+  "@addPromptTemplate": {
+    "description": "添加提示模板"
+  },
+  "templateName": "Template Name",
+  "@templateName": {
+    "description": "模板名称"
+  },
+  "templateNameHint": "Enter template name",
+  "@templateNameHint": {
+    "description": "模板名称提示"
+  },
+  "noPromptTemplates": "No prompt templates",
+  "@noPromptTemplates": {
+    "description": "没有提示模板"
+  },
+  "pleaseEnterContent": "Please enter content",
+  "@pleaseEnterContent": {
+    "description": "请输入内容"
+  },
+  "quickNoteSaved": "Quick note saved",
+  "@quickNoteSaved": {
+    "description": "速记已保存"
+  },
+  "inputYourThoughts": "Input your thoughts...",
+  "@inputYourThoughts": {
+    "description": "输入你的想法"
+  },
+  "saving": "Saving...",
+  "@saving": {
+    "description": "保存中"
+  },
+  "seconds": "s",
+  "@seconds": {
+    "description": "秒"
+  },
+  "remainingDays": "{count} days remaining",
+  "@remainingDays": {
+    "description": "剩余天数",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "roleManagement": "Role Management",
+  "@roleManagement": {
+    "description": "角色管理"
+  },
+  "noRoles": "No roles",
+  "@noRoles": {
+    "description": "没有角色"
+  },
+  "addRoleHint": "Tap + to add a role",
+  "@addRoleHint": {
+    "description": "添加角色提示"
+  },
+  "editRole": "Edit Role",
+  "@editRole": {
+    "description": "编辑角色"
+  },
+  "addRole": "Add Role",
+  "@addRole": {
+    "description": "添加角色"
+  },
+  "roleName": "Role Name",
+  "@roleName": {
+    "description": "角色名称"
+  },
+  "roleNameHint": "Enter role name",
+  "@roleNameHint": {
+    "description": "角色名称提示"
+  },
+  "roleDescription": "Role Description",
+  "@roleDescription": {
+    "description": "角色描述"
+  },
+  "roleDescriptionHint": "Enter role description",
+  "@roleDescriptionHint": {
+    "description": "角色描述提示"
+  },
+  "rolePrompt": "Role Prompt",
+  "@rolePrompt": {
+    "description": "角色提示词"
+  },
+  "rolePromptHint": "Enter the system prompt for this role",
+  "@rolePromptHint": {
+    "description": "角色提示词提示"
+  },
+  "roleNameRequired": "Role name is required",
+  "@roleNameRequired": {
+    "description": "角色名称必填"
+  },
+  "confirmDeleteRole": "Confirm Delete Role",
+  "@confirmDeleteRole": {
+    "description": "确认删除角色"
+  },
+  "confirmDeleteRoleMessage": "Are you sure you want to delete role \"{name}\"?",
+  "@confirmDeleteRoleMessage": {
+    "description": "删除角色确认消息",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/workbench_tool.dart';
 import '../providers/workbench_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class ToolDisplaySettingsScreen extends ConsumerStatefulWidget {
   const ToolDisplaySettingsScreen({super.key});
@@ -16,119 +17,133 @@ class _ToolDisplaySettingsScreenState
     extends ConsumerState<ToolDisplaySettingsScreen> {
   String? _searchQuery;
   ToolCategory? _selectedCategory;
+  late AppLocalizations _l10n;
 
   @override
   Widget build(BuildContext context) {
-    final workbenchState = ref.watch(workbenchProvider);
-    final allTools = workbenchState.tools;
+    _l10n = AppLocalizations.of(context)!;
+    final workbenchAsync = ref.watch(workbenchProvider);
 
-    final homeToolCount =
-        workbenchState.layoutConfig.showInHome.values.where((v) => v).length;
+    return workbenchAsync.when(
+      data: (workbenchState) {
+        final allTools = workbenchState.tools;
 
-    var filteredTools = allTools;
+        final homeToolCount =
+            workbenchState.layoutConfig.showInHome.values.where((v) => v).length;
 
-    if (_selectedCategory != null) {
-      filteredTools =
-          filteredTools.where((t) => t.category == _selectedCategory).toList();
-    }
+        var filteredTools = allTools;
 
-    if (_searchQuery != null && _searchQuery!.isNotEmpty) {
-      filteredTools = filteredTools
-          .where(
-              (t) => t.name.toLowerCase().contains(_searchQuery!.toLowerCase()))
-          .toList();
-    }
+        if (_selectedCategory != null) {
+          filteredTools =
+              filteredTools.where((t) => t.category == _selectedCategory).toList();
+        }
 
-    final categories = [
-      (null, '全部'),
-      (ToolCategory.productivity, '效率'),
-      (ToolCategory.analysis, '分析'),
-      (ToolCategory.management, '管理'),
-      (ToolCategory.ai, 'AI'),
-    ];
+        if (_searchQuery != null && _searchQuery!.isNotEmpty) {
+          filteredTools = filteredTools
+              .where(
+                  (t) => t.name.toLowerCase().contains(_searchQuery!.toLowerCase()))
+              .toList();
+        }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('工具展示设置'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: const InputDecoration(
-                hintText: '搜索工具...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-            ),
+        final categories = [
+          (null, _l10n.allCategories),
+          (ToolCategory.productivity, _l10n.efficiency),
+          (ToolCategory.analysis, _l10n.analysis),
+          (ToolCategory.management, _l10n.management),
+          (ToolCategory.ai, _l10n.ai),
+        ];
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(_l10n.toolDisplaySettings),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: categories.map((item) {
-                final category = item.$1;
-                final label = item.$2;
-                final isSelected = _selectedCategory == category;
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(label),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      setState(() =>
-                          _selectedCategory = isSelected ? null : category);
-                    },
-                    backgroundColor: AppColors.surface,
-                    selectedColor: AppColors.primary.withValues(alpha: 0.1),
-                    checkmarkColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      color: isSelected
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                    ),
+          body: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                  decoration: InputDecoration(
+                    hintText: _l10n.searchTools,
+                    prefixIcon: const Icon(Icons.search),
+                    border: const OutlineInputBorder(),
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              '已选择 $homeToolCount/5 个工具显示在首页',
-              style: TextStyle(
-                fontSize: 13,
-                color: homeToolCount >= 5
-                    ? AppColors.warning
-                    : AppColors.textSecondary,
+                ),
               ),
-            ),
-          ),
-          _buildTableHeader(),
-          Expanded(
-            child: ListView.builder(
-              itemCount: filteredTools.length,
-              itemBuilder: (context, index) {
-                final tool = filteredTools[index];
-                final isVisible =
-                    workbenchState.layoutConfig.toolVisibility[tool.id] ?? true;
-                final showInHome =
-                    workbenchState.layoutConfig.showInHome[tool.id] ?? false;
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: categories.map((item) {
+                    final category = item.$1;
+                    final label = item.$2;
+                    final isSelected = _selectedCategory == category;
 
-                return _ToolDisplayRow(
-                  tool: tool,
-                  isVisible: isVisible,
-                  showInHome: showInHome,
-                  canAddToHome: homeToolCount < 5 || showInHome,
-                );
-              },
-            ),
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(label),
+                        selected: isSelected,
+                        onSelected: (_) {
+                          setState(() =>
+                              _selectedCategory = isSelected ? null : category);
+                        },
+                        backgroundColor: AppColors.surface,
+                        selectedColor: AppColors.primary.withValues(alpha: 0.1),
+                        checkmarkColor: AppColors.primary,
+                        labelStyle: TextStyle(
+                          fontSize: 12,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  _l10n.toolsSelectedForHomeDisplay(homeToolCount),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: homeToolCount >= 5
+                        ? AppColors.warning
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              _buildTableHeader(),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: filteredTools.length,
+                  itemBuilder: (context, index) {
+                    final tool = filteredTools[index];
+                    final isVisible =
+                        workbenchState.layoutConfig.toolVisibility[tool.id] ?? true;
+                    final showInHome =
+                        workbenchState.layoutConfig.showInHome[tool.id] ?? false;
+
+                    return _ToolDisplayRow(
+                      tool: tool,
+                      isVisible: isVisible,
+                      showInHome: showInHome,
+                      canAddToHome: homeToolCount < 5 || showInHome,
+                      l10n: _l10n,
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        );
+      },
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, _) => Scaffold(
+        body: Center(child: Text('Error: $error')),
       ),
     );
   }
@@ -137,21 +152,21 @@ class _ToolDisplaySettingsScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: AppColors.surfaceVariant,
-      child: const Row(
+      child: Row(
         children: [
           Expanded(
             flex: 2,
             child: Text(
-              '工具名称',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              _l10n.toolName,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
           ),
           Expanded(
             flex: 1,
             child: Center(
               child: Text(
-                '展示在首页',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                _l10n.showOnHome,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               ),
             ),
           ),
@@ -159,8 +174,8 @@ class _ToolDisplaySettingsScreenState
             flex: 1,
             child: Center(
               child: Text(
-                '是否隐藏',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                _l10n.hidden,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               ),
             ),
           ),
@@ -175,12 +190,14 @@ class _ToolDisplayRow extends ConsumerWidget {
   final bool isVisible;
   final bool showInHome;
   final bool canAddToHome;
+  final AppLocalizations l10n;
 
   const _ToolDisplayRow({
     required this.tool,
     required this.isVisible,
     required this.showInHome,
     required this.canAddToHome,
+    required this.l10n,
   });
 
   @override
@@ -217,8 +234,8 @@ class _ToolDisplayRow extends ConsumerWidget {
                 onChanged: (value) {
                   if (value && !canAddToHome) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('首页最多显示5个工具'),
+                      SnackBar(
+                        content: Text(l10n.homeMaxFiveTools),
                         backgroundColor: AppColors.warning,
                       ),
                     );
@@ -241,8 +258,8 @@ class _ToolDisplayRow extends ConsumerWidget {
                 onChanged: (value) {
                   if (value == false && showInHome) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('展示在首页的工具不得隐藏'),
+                      SnackBar(
+                        content: Text(l10n.homeToolsCannotBeHidden),
                         backgroundColor: AppColors.warning,
                       ),
                     );
@@ -271,10 +288,10 @@ class _ToolDisplayRow extends ConsumerWidget {
     };
 
     final names = {
-      ToolCategory.productivity: '效率',
-      ToolCategory.analysis: '分析',
-      ToolCategory.management: '管理',
-      ToolCategory.ai: 'AI',
+      ToolCategory.productivity: l10n.efficiency,
+      ToolCategory.analysis: l10n.analysis,
+      ToolCategory.management: l10n.management,
+      ToolCategory.ai: l10n.ai,
     };
 
     return Container(

@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/app_logger.dart';
 import '../../../core/widgets/tag_selector.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import '../providers/recording_provider.dart';
 
 class RecordingScreen extends ConsumerStatefulWidget {
@@ -38,12 +39,17 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final recordingState = ref.watch(recordingStateProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final recordingAsync = ref.watch(recordingStateProvider);
+    final recordingState = recordingAsync.valueOrNull ?? const RecordingState();
     final recordingNotifier = ref.read(recordingStateProvider.notifier);
 
     // 使用 ref.listen 监听录音状态变化，替代 build 中的 addPostFrameCallback
-    ref.listen<RecordingState>(recordingStateProvider, (prev, next) {
-      _handleRecordingNotification(next);
+    ref.listen<AsyncValue<RecordingState>>(recordingStateProvider, (prev, next) {
+      final state = next.valueOrNull;
+      if (state != null) {
+        _handleRecordingNotification(state);
+      }
     });
 
     return Scaffold(
@@ -107,7 +113,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      recordingState.transcriptionProgress ?? '正在处理...',
+                      recordingState.transcriptionProgress ?? l10n.loading,
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -217,7 +223,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              '实时转写',
+                              l10n.realtimeTranscription,
                               style: TextStyle(
                                 color: recordingState.isRealtimeAvailable
                                     ? Colors.white70
@@ -242,9 +248,9 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                                     }
                                   : (value) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('请先配置实时转写API'),
-                                          duration: Duration(seconds: 2),
+                                        SnackBar(
+                                          content: Text(l10n.configureRealtimeApi),
+                                          duration: const Duration(seconds: 2),
                                         ),
                                       );
                                     },
@@ -258,7 +264,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                           GestureDetector(
                             onTap: () => context.push('/settings/multi-api-config'),
                             child: Text(
-                              '未配置API，点击前往配置',
+                              l10n.gotoConfigure,
                               style: TextStyle(
                                 color: AppColors.primary.withOpacity(0.7),
                                 fontSize: 11,
@@ -295,7 +301,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '实时转写中',
+                                l10n.realtimeTranscribing,
                                 style: TextStyle(
                                   color: AppColors.primary,
                                   fontSize: 12,
@@ -359,7 +365,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              '查看实时转写',
+                              l10n.viewRealtimeTranscription,
                               style: TextStyle(
                                 color: AppColors.primary,
                                 fontSize: 13,
@@ -376,8 +382,8 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                   if (!recordingState.isTranscribing)
                     Text(
                       recordingState.isRecording
-                          ? (recordingState.isPaused ? '已暂停' : '点击停止录音')
-                          : '点击开始录音',
+                          ? (recordingState.isPaused ? l10n.paused : l10n.tapToStopRecording)
+                          : l10n.tapToStartRecording,
                       style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 16,
@@ -420,8 +426,8 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '标签',
+                    Text(
+                      l10n.tags,
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -472,6 +478,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
   }
 
   void _showRealtimeTranscriptionSheet(BuildContext context, RecordingState state) {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -479,7 +486,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
       builder: (context) {
         return Consumer(
           builder: (context, ref, child) {
-            final realtimeText = ref.watch(recordingStateProvider).realtimeText;
+            final realtimeText = ref.watch(recordingStateProvider).valueOrNull?.realtimeText;
             return Container(
               height: MediaQuery.of(context).size.height * 0.6,
               decoration: BoxDecoration(
@@ -518,7 +525,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '实时转写',
+                          l10n.realtimeTranscription,
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -539,7 +546,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              '录音中',
+                              l10n.recording,
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 13,
@@ -582,7 +589,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    '等待语音输入...',
+                                    l10n.waitingForVoiceInput,
                                     style: TextStyle(
                                       color: Colors.white54,
                                       fontSize: 14,
@@ -614,7 +621,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '返回录音界面可继续控制录音',
+                          l10n.returnToRecording,
                           style: TextStyle(
                             color: Colors.white54,
                             fontSize: 12,

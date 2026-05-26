@@ -21,8 +21,8 @@ import '../widgets/chunk_selection_dialog.dart';
 import '../widgets/supplement_input_dialog.dart';
 import '../widgets/ai_analysis_card.dart';
 import '../widgets/ai_analysis_panel.dart';
-
 import '../../../core/widgets/tag_selector.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 final shareServiceProvider = Provider((ref) => ShareService());
 
@@ -34,12 +34,13 @@ class RecordDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recordAsync = ref.watch(recordDetailProvider(recordId));
+    final l10n = AppLocalizations.of(context)!;
 
     return recordAsync.when(
       data: (record) {
         if (record == null) {
-          return const Scaffold(
-            body: Center(child: Text('记录不存在')),
+          return Scaffold(
+            body: Center(child: Text(l10n.recordNotFound)),
           );
         }
         return _RecordDetailView(record: record);
@@ -48,7 +49,7 @@ class RecordDetailScreen extends ConsumerWidget {
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (error, stack) => Scaffold(
-        body: Center(child: Text('加载失败: $error')),
+        body: Center(child: Text('${l10n.loadFailed}: $error')),
       ),
     );
   }
@@ -114,20 +115,21 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Future<void> _deleteRecord() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: const Text('删除的记录将移至回收站，保留7天后自动清除。是否继续？'),
+        title: Text(l10n.confirmDeleteTitle),
+        content: Text(l10n.deleteRecordConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('删除'),
+            child: Text(l10n.deleteButton),
           ),
         ],
       ),
@@ -149,7 +151,8 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   @override
   Widget build(BuildContext context) {
     final record = widget.record;
-    final progress = ref.watch(transcriptionProgressProvider)[record.id];
+    final progress = ref.watch(transcriptionProgressProvider).valueOrNull?[record.id];
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
@@ -173,7 +176,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
             IconButton(
               icon: const Icon(Icons.refresh, color: AppColors.primary),
               onPressed: _showRetryOptions,
-              tooltip: '重新转写',
+              tooltip: l10n.retranscribe,
             ),
           IconButton(
             icon: const Icon(Icons.share_outlined),
@@ -220,7 +223,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
 
             // Original transcription text (expandable, default 3 lines)
             ExpandableTextSection(
-              title: '原始转写文本',
+              title: l10n.originalTranscription,
               content: record.content,
               icon: Icons.description_outlined,
               iconColor: AppColors.primary,
@@ -236,8 +239,8 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                       newContent,
                     );
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('内容已更新'),
+                  SnackBar(
+                    content: Text(l10n.contentUpdated),
                     backgroundColor: AppColors.success,
                   ),
                 );
@@ -262,7 +265,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '转写日志',
+                          l10n.transcriptionLog,
                           style: TextStyle(
                             color: Colors.grey.shade400,
                             fontSize: 12,
@@ -294,7 +297,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                               child: Text(
-                                '清空',
+                                l10n.clear,
                                 style: TextStyle(
                                   color: Colors.grey.shade500,
                                   fontSize: 11,
@@ -344,7 +347,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
               child: OutlinedButton.icon(
                 onPressed: _showSupplementInputDialog,
                 icon: const Icon(Icons.add_comment),
-                label: const Text('补充完善想法'),
+                label: Text(l10n.supplementIdeas),
               ),
             ),
 
@@ -378,6 +381,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Widget _buildSupplementsSection(RecordModel record) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -390,7 +394,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                 Icon(Icons.add_comment, size: 20, color: AppColors.info),
                 const SizedBox(width: 8),
                 Text(
-                  '补充内容',
+                  l10n.supplementContent,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -413,7 +417,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                   title: Text(
                     supplement.type == 'text'
                         ? supplement.content
-                        : '${supplement.type == 'audio' ? '录音' : '图片'}补充',
+                        : '${supplement.type == 'audio' ? l10n.audioSupplement : l10n.imageSupplement}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -431,7 +435,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                           icon: const Icon(Icons.transcribe,
                               color: AppColors.info),
                           onPressed: () => _transcribeSupplement(supplement),
-                          tooltip: '转写',
+                          tooltip: l10n.transcribing,
                         ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline,
@@ -465,7 +469,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                                   size: 14, color: AppColors.success),
                               const SizedBox(width: 4),
                               Text(
-                                '转写结果',
+                                l10n.transcriptionResult,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -502,11 +506,12 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Future<void> _transcribeSupplement(SupplementItem supplement) async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('正在转写补充内容...'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text(l10n.transcribingSupplement),
+          duration: const Duration(seconds: 1),
         ),
       );
 
@@ -530,8 +535,8 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('补充内容转写完成'),
+          SnackBar(
+            content: Text(l10n.supplementTranscriptionComplete),
             backgroundColor: AppColors.success,
           ),
         );
@@ -540,7 +545,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('转写失败: $e'),
+            content: Text('${l10n.transcribeError}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -549,23 +554,24 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Future<void> _showRetryOptions() async {
+    final l10n = AppLocalizations.of(context)!;
     final action = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('重新转写选项'),
-        content: const Text('请选择重新转写的方式：'),
+        title: Text(l10n.retranscribeOptions),
+        content: Text(l10n.selectParagraphsToRetranscribe),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'cancel'),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, 'all'),
-            child: const Text('全部转写'),
+            child: Text(l10n.retranscribeAll),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, 'select'),
-            child: const Text('选择段落'),
+            child: Text(l10n.selectParagraphs),
           ),
         ],
       ),
@@ -581,6 +587,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Future<void> _retrySelectedChunks() async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       final chunks = await ref
           .read(transcriptionServiceProvider)
@@ -592,7 +599,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
         context: context,
         builder: (context) => ChunkSelectionDialog(
           chunks: chunks,
-          title: '选择要重新转写的段落',
+          title: l10n.selectParagraphsToRetranscribe,
         ),
       );
 
@@ -631,13 +638,13 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
 
       progressNotifier.updateStep(
           widget.record.id, 'save', TranscriptionStepStatus.success);
-      progressNotifier.setCurrentAction(widget.record.id, '转写完成！');
+      progressNotifier.setCurrentAction(widget.record.id, l10n.transcriptionCompleteWithResult);
       ref.invalidate(recordDetailProvider(widget.record.id));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('选定段落转写成功'),
+          SnackBar(
+            content: Text(l10n.selectedParagraphsSuccess),
             backgroundColor: AppColors.success,
           ),
         );
@@ -646,7 +653,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('转写失败: $e'),
+            content: Text('${l10n.transcribeError}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -701,9 +708,10 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
           );
 
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       progressNotifier.updateStep(
           widget.record.id, 'save', TranscriptionStepStatus.success);
-      progressNotifier.setCurrentAction(widget.record.id, '转写完成！');
+      progressNotifier.setCurrentAction(widget.record.id, l10n.transcriptionCompleteWithResult);
 
       await ref.read(recordRepositoryProvider).updateRecordContent(
             widget.record.id,
@@ -718,10 +726,11 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
       ref.invalidate(recordDetailProvider(widget.record.id));
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                result.isNotEmpty ? '转写成功' : '转写完成，但未获取到文本内容'),
+                result.isNotEmpty ? l10n.transcriptionSuccess : l10n.transcriptionSuccessNoContent),
             backgroundColor: result.isNotEmpty
                 ? AppColors.success
                 : AppColors.warning,
@@ -730,6 +739,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
       }
     } catch (e) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       progressNotifier.setError(widget.record.id, e.toString());
       progressNotifier.updateStep(
           widget.record.id, 'upload', TranscriptionStepStatus.failed);
@@ -752,7 +762,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('转写失败: $e'),
+            content: Text('${l10n.transcribeError}: $e'),
             backgroundColor: AppColors.error,
             duration: const Duration(seconds: 5),
           ),
@@ -772,10 +782,11 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
 
     if (!mounted) return null;
 
+    final l10n = AppLocalizations.of(context)!;
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('选择分析角色'),
+        title: Text(l10n.selectAnalysisRole),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
@@ -802,14 +813,14 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               context.push('/settings/roles');
             },
-            child: const Text('管理角色'),
+            child: Text(l10n.manageRoles),
           ),
         ],
       ),
@@ -832,9 +843,10 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
     ref.invalidate(recordDetailProvider(widget.record.id));
 
     if (mounted) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('补充内容已添加'),
+        SnackBar(
+          content: Text(l10n.supplementAdded),
           backgroundColor: AppColors.success,
         ),
       );
@@ -847,10 +859,11 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
 
     if (!mounted) return;
 
+    final l10n = AppLocalizations.of(context)!;
     final selectedTarget = await showDialog<ShareTarget>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('选择分享方式'),
+        title: Text(l10n.selectShareMethod),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
@@ -869,7 +882,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
         ],
       ),
@@ -898,6 +911,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Widget _buildTypeChip() {
+    final l10n = AppLocalizations.of(context)!;
     IconData icon;
     String label;
     Color color;
@@ -905,17 +919,17 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
     switch (widget.record.type) {
       case RecordType.audio:
         icon = Icons.mic;
-        label = '语音';
+        label = l10n.typeVoice;
         color = AppColors.primary;
         break;
       case RecordType.ocr:
         icon = Icons.camera_alt;
-        label = 'OCR';
+        label = l10n.typeOcr;
         color = AppColors.secondary;
         break;
       case RecordType.text:
         icon = Icons.text_fields;
-        label = '文本';
+        label = l10n.typeText;
         color = AppColors.info;
         break;
     }
@@ -930,25 +944,26 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Widget _buildStatusChip() {
+    final l10n = AppLocalizations.of(context)!;
     Color color;
     String text;
 
     switch (widget.record.transcriptionStatus) {
       case TranscriptionStatus.pending:
         color = AppColors.warning;
-        text = '待转写';
+        text = l10n.statusPending;
         break;
       case TranscriptionStatus.processing:
         color = AppColors.info;
-        text = '转写中';
+        text = l10n.statusProcessing;
         break;
       case TranscriptionStatus.success:
         color = AppColors.success;
-        text = '已完成';
+        text = l10n.statusCompleted;
         break;
       case TranscriptionStatus.failed:
         color = AppColors.error;
-        text = '失败';
+        text = l10n.statusFailed;
         break;
       case TranscriptionStatus.none:
         return const SizedBox.shrink();
@@ -972,6 +987,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Widget _buildRetryButton() {
+    final l10n = AppLocalizations.of(context)!;
     return IconButton(
       icon: Icon(
         Icons.refresh,
@@ -979,20 +995,21 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
         color: AppColors.info,
       ),
       onPressed: _retryTranscription,
-      tooltip: '重新转写',
+      tooltip: l10n.retranscribe,
       padding: const EdgeInsets.all(4),
       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
     );
   }
 
   Widget _buildImagePreview() {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('原始图片', style: Theme.of(context).textTheme.titleMedium),
+            child: Text(l10n.originalImage, style: Theme.of(context).textTheme.titleMedium),
           ),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -1014,13 +1031,14 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   Widget _buildTagsSection(RecordModel record) {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 标签行：标签标题 + 标签详情 + 添加标签
         Row(
           children: [
-            Text('标签', style: Theme.of(context).textTheme.titleMedium),
+            Text(l10n.tags, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(width: 8),
             if (record.tags.isNotEmpty)
               Container(
@@ -1076,7 +1094,8 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.year}年${date.month}月${date.day}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final l10n = AppLocalizations.of(context)!;
+    return '${date.year}${l10n.year}${date.month}${l10n.month}${date.day}${l10n.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   Widget _buildAutoAnalysisResultsSection(RecordModel record) {
@@ -1097,6 +1116,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
 
         if (autoResults.isEmpty) return const SizedBox.shrink();
 
+        final l10n = AppLocalizations.of(context)!;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1106,7 +1126,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                 Icon(Icons.auto_awesome, size: 18, color: AppColors.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'AI分析结果',
+                  l10n.aiAnalysisResult,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(width: 8),
@@ -1118,7 +1138,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '自动',
+                    l10n.auto,
                     style: TextStyle(
                       fontSize: 11,
                       color: AppColors.primary,
@@ -1145,15 +1165,16 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   }
 
   void _confirmRemoveAnalysis(String roleId) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('确认删除'),
-        content: const Text('确定要删除这个分析结果吗？'),
+        title: Text(l10n.confirmDeleteTitle),
+        content: Text(l10n.confirmDelete),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () {
@@ -1164,7 +1185,7 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
               Navigator.pop(dialogContext);
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('删除'),
+            child: Text(l10n.deleteButton),
           ),
         ],
       ),
@@ -1179,19 +1200,20 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
 
     // 如果已有分析结果，询问是否替换
     if (hasExisting) {
+      final l10n = AppLocalizations.of(context)!;
       final confirm = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('已存在分析结果'),
-          content: Text('角色"${role.name}"已有分析结果，是否重新分析？'),
+          title: Text(l10n.analysisExists),
+          content: Text('${l10n.analysisExistsConfirm.replaceFirst('?', '')} (${role.name})?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
+              child: Text(l10n.cancelButton),
             ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('重新分析'),
+              child: Text(l10n.reanalyze),
             ),
           ],
         ),
@@ -1214,16 +1236,17 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
   void _executeAiAnalysis(AiRole role) async {
     try {
       final transcriptionService = ref.read(transcriptionServiceProvider);
+      final l10n = AppLocalizations.of(context)!;
 
       final buffer = StringBuffer();
       buffer.writeln('=== 原始转写文本 ===');
       buffer.writeln(widget.record.content ?? '');
 
       if (widget.record.supplements.isNotEmpty) {
-        buffer.writeln('\n\n=== 补充内容 ===');
+        buffer.writeln('\n\n=== ${l10n.supplementContent} ===');
         for (final supplement in widget.record.supplements) {
           buffer.writeln(
-              '\n--- ${supplement.type == 'audio' ? '录音补充' : supplement.type == 'image' ? '图片补充' : '文本补充'} [${supplement.createdAt}] ---');
+              '\n--- ${supplement.type == 'audio' ? l10n.audioSupplement : supplement.type == 'image' ? l10n.imageSupplement : l10n.textSupplement} [${supplement.createdAt}] ---');
 
           if (supplement.type == 'text') {
             buffer.writeln(supplement.content);
@@ -1255,18 +1278,20 @@ class _RecordDetailViewState extends ConsumerState<_RecordDetailView> {
       ref.invalidate(recordDetailProvider(widget.record.id));
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${role.name} 分析完成'),
+            content: Text('${role.name} ${l10n.analysisComplete}'),
             backgroundColor: AppColors.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('分析失败: $e'),
+            content: Text('${l10n.analysisFailed}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -1318,6 +1343,7 @@ class _RelatedRecordsSectionState
         final remainingRecords =
             related.length > 1 ? related.sublist(1) : <RecordModel>[];
 
+        final l10n = AppLocalizations.of(context)!;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1326,7 +1352,7 @@ class _RelatedRecordsSectionState
               children: [
                 const Icon(Icons.link, size: 16, color: AppColors.info),
                 const SizedBox(width: 6),
-                Text('相关记录', style: Theme.of(context).textTheme.titleSmall),
+                Text(l10n.relatedRecords, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(width: 4),
                 Container(
                   padding:
@@ -1336,7 +1362,7 @@ class _RelatedRecordsSectionState
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    '${related.length}条',
+                    l10n.relatedRecordCount(related.length),
                     style: TextStyle(
                       fontSize: 10,
                       color: AppColors.info,
@@ -1354,7 +1380,7 @@ class _RelatedRecordsSectionState
                 firstChild: TextButton.icon(
                   onPressed: () => setState(() => _isExpanded = true),
                   icon: const Icon(Icons.expand_more, size: 16),
-                  label: Text('还有${remainingRecords.length}条相关记录'),
+                  label: Text(l10n.remainingRecords(remainingRecords.length)),
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
@@ -1378,6 +1404,7 @@ class _RelatedRecordsSectionState
   }
 
   Widget _buildRelatedRecordCard(RecordModel r, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1407,7 +1434,7 @@ class _RelatedRecordsSectionState
                           ? (r.content!.length > 60
                               ? '${r.content!.substring(0, 60)}...'
                               : r.content!)
-                          : '无内容',
+                          : l10n.noContentAvailable,
                       style: const TextStyle(fontSize: 13),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1424,7 +1451,7 @@ class _RelatedRecordsSectionState
               IconButton(
                 icon: const Icon(Icons.close, size: 16, color: AppColors.error),
                 onPressed: () => _hideRelatedRecord(context, ref, r),
-                tooltip: '隐藏此记录',
+                tooltip: l10n.hideRecord,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
@@ -1437,15 +1464,16 @@ class _RelatedRecordsSectionState
 
   void _hideRelatedRecord(
       BuildContext context, WidgetRef ref, RecordModel relatedRecord) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('隐藏记录'),
-        content: const Text('隐藏后该记录将不再出现在相关记录列表中。'),
+        title: Text(l10n.hideRecord),
+        content: Text(l10n.hideRecordConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () async {
@@ -1456,7 +1484,7 @@ class _RelatedRecordsSectionState
                 ref.invalidate(recordDetailProvider(widget.record.id));
               }
             },
-            child: const Text('隐藏', style: TextStyle(color: AppColors.error)),
+            child: Text(l10n.hide, style: const TextStyle(color: AppColors.error)),
           ),
         ],
       ),

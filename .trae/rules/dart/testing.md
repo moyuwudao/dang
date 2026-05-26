@@ -325,8 +325,8 @@ void main() {
 ### 运行覆盖率
 
 ```bash
-# 运行测试并生成覆盖率
-flutter test --coverage
+# 运行测试并生成覆盖率（设 10 分钟超时）
+timeout 600 flutter test --coverage
 
 # 查看覆盖率报告
 genhtml coverage/lcov.info -o coverage/html
@@ -340,8 +340,8 @@ open coverage/html/index.html
 ```bash
 #!/bin/bash
 # scripts/check_coverage.sh
-
-flutter test --coverage
+set -e
+timeout 600 flutter test --coverage
 lcov --list coverage/lcov.info | grep -E "^\|.*\|.*100\.0%.*\|$"
 ```
 

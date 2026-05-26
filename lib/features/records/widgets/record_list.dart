@@ -6,6 +6,9 @@ import '../../../core/widgets/empty_state_widget.dart';
 import '../../../data/models/record_model.dart';
 import '../providers/record_provider.dart';
 import '../../../routes/app_router.dart';
+import '../../../l10n/generated/app_localizations.dart';
+
+// l10n keys used: noMoreRecords, loadFailed, retryButton, cancelButton, deleteButton, confirmDeleteTitle, confirmDelete, year, month, day, voiceRecord, ocrRecord, textRecord, characters, statusPending, statusProcessing, statusCompleted, statusFailed, preparingToShare
 
 class RecordList extends ConsumerStatefulWidget {
   const RecordList({super.key});
@@ -69,10 +72,11 @@ class _RecordListState extends ConsumerState<RecordList> {
                 if (hasMore) {
                   return const SizedBox.shrink();
                 }
-                return const Padding(
-                  padding: EdgeInsets.all(16),
+                final l10n = AppLocalizations.of(context)!;
+                return Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Center(
-                    child: Text('没有更多记录了', style: TextStyle(color: Colors.grey)),
+                    child: Text(l10n.noMoreRecords, style: const TextStyle(color: Colors.grey)),
                   ),
                 );
               }
@@ -83,19 +87,22 @@ class _RecordListState extends ConsumerState<RecordList> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('加载失败: $error'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => ref.read(paginatedRecordsProvider.notifier).reset(),
-              child: const Text('重试'),
-            ),
-          ],
-        ),
-      ),
+      error: (error, stack) {
+        final l10n = AppLocalizations.of(context)!;
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('${l10n.loadFailed}: $error'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.read(paginatedRecordsProvider.notifier).reset(),
+                child: Text(l10n.retryButton),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -107,6 +114,8 @@ class _RecordCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Dismissible(
       key: Key('record_${record.id}'),
       direction: DismissDirection.horizontal,
@@ -143,19 +152,20 @@ class _RecordCard extends ConsumerWidget {
       },
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.endToStart) {
+          final l10n = AppLocalizations.of(context)!;
           return await showDialog<bool>(
             context: context,
             builder: (dialogContext) => AlertDialog(
-              title: const Text('确认删除'),
-              content: const Text('确定要删除这条记录吗？'),
+              title: Text(l10n.confirmDeleteTitle),
+              content: Text(l10n.confirmDelete),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('取消'),
+                  child: Text(l10n.cancelButton),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('删除'),
+                  child: Text(l10n.deleteButton),
                 ),
               ],
             ),
@@ -182,14 +192,14 @@ class _RecordCard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _formatDate(record.createdAt),
+                            _formatDate(context, record.createdAt),
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: AppColors.textTertiary,
                                 ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            _buildInfoText(record),
+                            _buildInfoText(context, record),
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: AppColors.textTertiary,
                                 ),
@@ -197,12 +207,12 @@ class _RecordCard extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    _buildStatusBadge(),
+                    _buildStatusBadge(context),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  record.content ?? '暂无内容',
+                  record.content ?? l10n.noContent,
                   style: Theme.of(context).textTheme.bodyLarge,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -284,7 +294,7 @@ class _RecordCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatusBadge() {
+  Widget _buildStatusBadge(BuildContext context) {
     if (record.transcriptionStatus == TranscriptionStatus.none) {
       return const SizedBox.shrink();
     }
@@ -292,22 +302,23 @@ class _RecordCard extends ConsumerWidget {
     Color color;
     String text;
 
+    final l10n = AppLocalizations.of(context)!;
     switch (record.transcriptionStatus) {
       case TranscriptionStatus.pending:
         color = AppColors.warning;
-        text = '待转写';
+        text = l10n.statusPending;
         break;
       case TranscriptionStatus.processing:
         color = AppColors.info;
-        text = '转写中';
+        text = l10n.statusProcessing;
         break;
       case TranscriptionStatus.success:
         color = AppColors.success;
-        text = '已完成';
+        text = l10n.statusCompleted;
         break;
       case TranscriptionStatus.failed:
         color = AppColors.error;
-        text = '失败';
+        text = l10n.statusFailed;
         break;
       case TranscriptionStatus.none:
         return const SizedBox.shrink();
@@ -330,37 +341,40 @@ class _RecordCard extends ConsumerWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}年${date.month}月${date.day}日 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  String _formatDate(BuildContext context, DateTime date) {
+    final l10n = AppLocalizations.of(context)!;
+    return '${date.year}${l10n.year}${date.month}${l10n.month}${date.day}${l10n.day} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  String _buildInfoText(RecordModel record) {
+  String _buildInfoText(BuildContext context, RecordModel record) {
+    final l10n = AppLocalizations.of(context)!;
     final parts = <String>[];
     
     switch (record.type) {
       case RecordType.audio:
-        parts.add('语音记录');
+        parts.add(l10n.voiceRecord);
         break;
       case RecordType.ocr:
-        parts.add('OCR识别');
+        parts.add(l10n.ocrRecord);
         break;
       case RecordType.text:
-        parts.add('文本记录');
+        parts.add(l10n.textRecord);
         break;
     }
     
     if (record.content != null && record.content!.isNotEmpty) {
-      parts.add('${record.content!.length}字');
+      parts.add('${record.content!.length}${l10n.characters}');
     }
     
     return parts.join(' · ');
   }
 
   void _handleShare(BuildContext context, RecordModel record) {
+    final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('正在准备分享...'),
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Text(l10n.preparingToShare),
+        duration: const Duration(seconds: 1),
       ),
     );
   }

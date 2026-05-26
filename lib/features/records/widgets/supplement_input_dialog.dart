@@ -4,6 +4,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/expandable_text_field.dart';
 import '../../../data/models/record_model.dart';
 import '../../recording/providers/recording_provider.dart';
+import '../../../l10n/generated/app_localizations.dart';
+
+// l10n keys used: supplementIdeas, cancelButton, saveButton, textInputHint, recordingSaved, startRecordingFailed, stopRecordingFailed, imageSelectionNotImplemented, addYourThoughts
 
 enum SupplementType { text, audio, image }
 
@@ -21,6 +24,8 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
   String? _imagePath;
   bool _isRecording = false;
 
+  AppLocalizations get _l10n => AppLocalizations.of(context)!;
+
   Future<void> _startRecording() async {
     try {
       final recordingService = ref.read(recordingServiceProvider);
@@ -31,7 +36,7 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('开始录音失败: $e')),
+          SnackBar(content: Text('${_l10n.startRecordingFailed}: $e')),
         );
       }
     }
@@ -48,16 +53,15 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('停止录音失败: $e')),
+          SnackBar(content: Text('${_l10n.stopRecordingFailed}: $e')),
         );
       }
     }
   }
 
   Future<void> _pickImage() async {
-    // TODO: 实现图片选择
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('图片选择功能待实现')),
+      SnackBar(content: Text(_l10n.imageSelectionNotImplemented)),
     );
   }
 
@@ -103,7 +107,7 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('补充完善想法'),
+      title: Text(_l10n.supplementIdeas),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -111,21 +115,21 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
           children: [
             // 输入类型选择
             SegmentedButton<SupplementType>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: SupplementType.text,
-                  label: Text('文本'),
-                  icon: Icon(Icons.text_fields),
+                  label: Text(_l10n.typeText),
+                  icon: const Icon(Icons.text_fields),
                 ),
                 ButtonSegment(
                   value: SupplementType.audio,
-                  label: Text('录音'),
-                  icon: Icon(Icons.mic),
+                  label: Text(_l10n.typeVoice),
+                  icon: const Icon(Icons.mic),
                 ),
                 ButtonSegment(
                   value: SupplementType.image,
-                  label: Text('图片'),
-                  icon: Icon(Icons.image),
+                  label: Text(_l10n.imageRecognition),
+                  icon: const Icon(Icons.image),
                 ),
               ],
               selected: {_selectedType},
@@ -144,7 +148,7 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(_l10n.cancelButton),
         ),
         ElevatedButton(
           onPressed: () {
@@ -153,7 +157,7 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
               Navigator.pop(context, result);
             }
           },
-          child: const Text('保存'),
+          child: Text(_l10n.saveButton),
         ),
       ],
     );
@@ -164,7 +168,7 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
       case SupplementType.text:
         return ExpandableTextField(
           controller: _textController,
-          hintText: '在此补充你的想法...',
+          hintText: _l10n.addYourThoughts,
           minLines: 4,
           maxLines: 6,
         );
@@ -184,7 +188,7 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '录音已保存',
+                        _l10n.recordingSaved,
                         style: TextStyle(color: AppColors.success),
                       ),
                     ),
@@ -203,7 +207,7 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
               ElevatedButton.icon(
                 onPressed: _isRecording ? _stopRecording : _startRecording,
                 icon: Icon(_isRecording ? Icons.stop : Icons.mic),
-                label: Text(_isRecording ? '停止录音' : '开始录音'),
+                label: Text(_isRecording ? _l10n.stopButton : _l10n.recordButton),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _isRecording ? AppColors.error : AppColors.primary,
                 ),
@@ -226,7 +230,7 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '图片已选择',
+                        _l10n.selectImage,
                         style: TextStyle(color: AppColors.success),
                       ),
                     ),
@@ -245,7 +249,7 @@ class _SupplementInputDialogState extends ConsumerState<SupplementInputDialog> {
               ElevatedButton.icon(
                 onPressed: _pickImage,
                 icon: const Icon(Icons.image),
-                label: const Text('选择图片'),
+                label: Text(_l10n.selectImage),
               ),
           ],
         );

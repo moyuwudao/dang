@@ -10,13 +10,15 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/aliyun_signer.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class MultiApiConfigScreen extends ConsumerStatefulWidget {
   const MultiApiConfigScreen({super.key});
 
   @override
-  ConsumerState<MultiApiConfigScreen> createState() =>
-      _MultiApiConfigScreenState();
+  ConsumerState<MultiApiConfigScreen> createState() {
+    return _MultiApiConfigScreenState();
+  }
 }
 
 class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
@@ -44,7 +46,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
           : _config.activeConfigs.firstOrNull;
 
       if (defaultEntry != null) {
-        final apiService = ref.read(apiServiceProvider);
+        final apiService = ApiService();
         final providerConfig = AiModelConfig.getConfig(defaultEntry.provider);
         apiService.configure(
           apiKey: defaultEntry.apiKey,
@@ -61,26 +63,28 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
     await StorageService.saveMultiApiConfig(_config);
     await _syncRuntimeConfig();
     if (mounted) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('配置已保存'), backgroundColor: AppColors.success),
+        SnackBar(
+            content: Text(l10n.saveSuccess), backgroundColor: AppColors.success),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('API配置管理'),
+        title: Text(l10n.apiConfigManagement),
         actions: [
           TextButton(
             onPressed: _saveConfig,
-            child: const Text('保存', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.save, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -103,6 +107,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   }
 
   Widget _buildFunctionAssignmentSection() {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -113,50 +118,50 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
               children: [
                 const Icon(Icons.assignment, color: AppColors.primary),
                 const SizedBox(width: 8),
-                const Text(
-                  '功能分配',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Text(
+                  l10n.functionAssignment,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            const Text(
-              '为不同功能选择使用的API配置，仅显示支持该功能的模型',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            Text(
+              l10n.functionAssignmentDesc,
+              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
             _buildFunctionAssignmentTile(
               icon: Icons.chat_bubble_outline,
-              title: '文本分析',
-              subtitle: 'AI分析、摘要、标题生成',
+              title: l10n.textAnalysis,
+              subtitle: l10n.textAnalysisDesc,
               functionType: ApiFunctionType.text,
             ),
             const Divider(),
             _buildFunctionAssignmentTile(
               icon: Icons.mic,
-              title: '语音转写',
-              subtitle: '录音后转文字',
+              title: l10n.voiceTranscription,
+              subtitle: l10n.voiceTranscriptionDesc,
               functionType: ApiFunctionType.voice,
             ),
             const Divider(),
             _buildFunctionAssignmentTile(
               icon: Icons.record_voice_over,
-              title: '语音实时转写',
-              subtitle: '录音时实时转文字',
+              title: l10n.realtimeVoiceTranscription,
+              subtitle: l10n.realtimeVoiceTranscriptionDesc,
               functionType: ApiFunctionType.voiceRealtime,
             ),
             const Divider(),
             _buildFunctionAssignmentTile(
               icon: Icons.offline_bolt,
-              title: '离线语音转写',
-              subtitle: '提交音频文件进行离线转写（支持说话人分离）',
+              title: l10n.offlineVoiceTranscription,
+              subtitle: l10n.offlineVoiceTranscriptionDesc,
               functionType: ApiFunctionType.offlineVoice,
             ),
             const Divider(),
             _buildFunctionAssignmentTile(
               icon: Icons.image,
-              title: '图像识别',
-              subtitle: '图片内容识别（OCR）',
+              title: l10n.imageRecognition,
+              subtitle: l10n.imageRecognitionDesc,
               functionType: ApiFunctionType.image,
             ),
           ],
@@ -171,6 +176,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
     required String subtitle,
     required ApiFunctionType functionType,
   }) {
+    final l10n = AppLocalizations.of(context)!;
     final assignment = _config.functionAssignments.firstWhere(
       (a) => a.functionType == functionType,
       orElse: () => ApiFunctionAssignment(
@@ -193,9 +199,9 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
         !currentConfig.isFunctionCompatible(functionType);
 
     final dropdownItems = <DropdownMenuItem<String?>>[
-      const DropdownMenuItem<String?>(
+      DropdownMenuItem<String?>(
         value: null,
-        child: Text('未配置'),
+        child: Text(l10n.notConfigured),
       ),
     ];
 
@@ -221,9 +227,9 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                 color: AppColors.error.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
-                '不兼容',
-                style: TextStyle(
+              child: Text(
+                l10n.incompatible,
+                style: const TextStyle(
                   fontSize: 10,
                   color: AppColors.error,
                   fontWeight: FontWeight.bold,
@@ -252,7 +258,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
         constraints: const BoxConstraints(maxWidth: 160),
         child: DropdownButton<String?>(
           value: isCurrentIncompatible ? null : assignment.configId,
-          hint: const Text('选择配置'),
+          hint: Text(l10n.selectConfig),
           underline: const SizedBox.shrink(),
           isDense: true,
           items: dropdownItems,
@@ -288,12 +294,13 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   }
 
   Widget _buildConfigListSection() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'API配置列表',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Text(
+          l10n.apiConfigList,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         if (_config.configs.isEmpty)
@@ -305,6 +312,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   }
 
   Widget _buildConfigCard(ApiConfigEntry config) {
+    final l10n = AppLocalizations.of(context)!;
     final providerConfig = AiModelConfig.getConfig(config.provider);
     final isActive = config.isActive;
     final hasIncompatible = config.hasIncompatibleFunctions;
@@ -350,9 +358,9 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                                   color: AppColors.error.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Text(
-                                  '功能不匹配',
-                                  style: TextStyle(
+                                child: Text(
+                                  l10n.featureMismatch,
+                                  style: const TextStyle(
                                     fontSize: 10,
                                     color: AppColors.error,
                                     fontWeight: FontWeight.bold,
@@ -364,7 +372,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                         ),
                         Text(
                           config.isCustomProvider
-                              ? config.customProviderName ?? '自定义'
+                              ? config.customProviderName ?? l10n.custom
                               : providerConfig.displayName,
                           style: const TextStyle(
                             fontSize: 13,
@@ -447,7 +455,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '${providerConfig.displayName} 不支持以下功能:',
+                            '${providerConfig.displayName} ${l10n.providerCapabilityDesc}:',
                             style: const TextStyle(
                               fontSize: 11,
                               color: AppColors.error,
@@ -473,7 +481,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
               ],
               const SizedBox(height: 8),
               Text(
-                '模型: ${config.model}',
+                '${l10n.model}: ${config.model}',
                 style: const TextStyle(
                     fontSize: 12, color: AppColors.textSecondary),
               ),
@@ -488,7 +496,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                   TextButton.icon(
                     onPressed: () => _testConfig(config),
                     icon: const Icon(Icons.check_circle_outline, size: 16),
-                    label: const Text('测试连接'),
+                    label: Text(l10n.testConnection),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       minimumSize: Size.zero,
@@ -505,28 +513,29 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   }
 
   Widget _buildCapabilityChips(AiModelConfig config) {
+    final l10n = AppLocalizations.of(context)!;
     final capabilities = <Widget>[];
 
     if (config.supportsTextAnalysis) {
-      capabilities.add(_buildCapabilityChip(Icons.text_fields, '文本分析', AppColors.success));
+      capabilities.add(_buildCapabilityChip(Icons.text_fields, l10n.textAnalysis, AppColors.success));
     }
     if (config.supportsTranscription || config.supportsOfflineTranscription) {
-      capabilities.add(_buildCapabilityChip(Icons.mic, '语音转写', AppColors.success));
+      capabilities.add(_buildCapabilityChip(Icons.mic, l10n.voiceTranscription, AppColors.success));
     }
     if (config.supportsRealtimeTranscription) {
-      capabilities.add(_buildCapabilityChip(Icons.record_voice_over, '实时转写', AppColors.success));
+      capabilities.add(_buildCapabilityChip(Icons.record_voice_over, l10n.realtimeVoiceTranscription, AppColors.success));
     }
     if (config.supportsOfflineTranscription) {
-      capabilities.add(_buildCapabilityChip(Icons.offline_bolt, '离线转写', AppColors.primary));
+      capabilities.add(_buildCapabilityChip(Icons.offline_bolt, l10n.offlineVoiceTranscription, AppColors.primary));
     }
     if (config.supportsSpeakerDiarization) {
-      capabilities.add(_buildCapabilityChip(Icons.people_outline, '说话人分离', AppColors.primary));
+      capabilities.add(_buildCapabilityChip(Icons.people_outline, l10n.textAnalysis, AppColors.primary));
     }
     if (config.supportsOCR) {
-      capabilities.add(_buildCapabilityChip(Icons.image_search, '图像识别', AppColors.success));
+      capabilities.add(_buildCapabilityChip(Icons.image_search, l10n.imageRecognition, AppColors.success));
     }
     if (config.supportsChat) {
-      capabilities.add(_buildCapabilityChip(Icons.chat_bubble_outline, '对话', AppColors.success));
+      capabilities.add(_buildCapabilityChip(Icons.chat_bubble_outline, l10n.textAnalysis, AppColors.success));
     }
 
     return Wrap(
@@ -563,15 +572,16 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   }
 
   Future<void> _testConfig(ApiConfigEntry config) async {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
+      builder: (context) => AlertDialog(
         content: Row(
           children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Text('正在测试连接...'),
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Text(l10n.testingConnection),
           ],
         ),
       ),
@@ -656,18 +666,18 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                   color: isSuccess ? AppColors.success : AppColors.error,
                 ),
                 const SizedBox(width: 8),
-                Text(isSuccess ? '连接成功' : '连接失败'),
+                Text(isSuccess ? l10n.connectionSuccess : l10n.connectionFailed),
               ],
             ),
             content: Text(
               isSuccess
-                  ? 'API配置有效，可以正常使用。'
-                  : '状态码: ${response.statusCode}\n请检查API Key和Base URL是否正确。',
+                  ? l10n.connectionSuccessDetail
+                  : l10n.connectionFailedDetail(response.statusCode.toString()),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('确定'),
+                child: Text(l10n.confirm),
               ),
             ],
           ),
@@ -679,20 +689,20 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.error, color: AppColors.error),
-                SizedBox(width: 8),
-                Text('连接失败'),
+                const Icon(Icons.error, color: AppColors.error),
+                const SizedBox(width: 8),
+                Text(l10n.connectionFailed),
               ],
             ),
             content: Text(
-              '错误信息: ${e.message ?? e.error?.toString() ?? "未知错误"}\n\n请检查:\n1. API Key是否正确\n2. Base URL是否正确\n3. 网络连接是否正常',
+              '${l10n.errorGeneric}: ${e.message ?? e.error?.toString() ?? l10n.errorGeneric}\n\n${l10n.checkApiKeyBaseUrlNetwork}',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('确定'),
+                child: Text(l10n.confirm),
               ),
             ],
           ),
@@ -704,12 +714,12 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('测试出错'),
-            content: Text('错误: $e'),
+            title: Text(l10n.testError),
+            content: Text('${l10n.errorGeneric}: $e'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('确定'),
+                child: Text(l10n.confirm),
               ),
             ],
           ),
@@ -719,6 +729,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   }
 
   Widget _buildEmptyState() {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
@@ -730,12 +741,12 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
           Icon(Icons.api_outlined, size: 48, color: Colors.grey[400]),
           const SizedBox(height: 12),
           Text(
-            '暂无API配置',
+            l10n.noApiConfig,
             style: TextStyle(color: Colors.grey[500]),
           ),
           const SizedBox(height: 4),
           Text(
-            '点击右下角 + 添加配置',
+            l10n.addApiConfigHint,
             style: TextStyle(color: Colors.grey[400], fontSize: 12),
           ),
         ],
@@ -752,6 +763,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   }
 
   void _showConfigEditorDialog({ApiConfigEntry? existingConfig}) {
+    final l10n = AppLocalizations.of(context)!;
     final isEditing = existingConfig != null;
     final nameController =
         TextEditingController(text: existingConfig?.name ?? '');
@@ -822,7 +834,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
           }
 
           return AlertDialog(
-            title: Text(isEditing ? '编辑配置' : '添加配置'),
+            title: Text(isEditing ? l10n.editConfig : l10n.addConfig),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -830,16 +842,16 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                 children: [
                   TextField(
                     controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: '配置名称',
-                      hintText: '例如：OpenAI-文本',
+                    decoration: InputDecoration(
+                      labelText: l10n.configName,
+                      hintText: l10n.configNameHint,
                     ),
                   ),
                   const SizedBox(height: 16),
 
                   // Provider selection
-                  const Text('选择提供商',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text(l10n.selectProvider,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -867,7 +879,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                             },
                           )),
                       ChoiceChip(
-                        label: const Text('自定义'),
+                        label: Text(l10n.custom),
                         selected: isCustomProvider,
                         onSelected: (selected) {
                           if (selected) {
@@ -885,9 +897,9 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: customProviderNameController,
-                      decoration: const InputDecoration(
-                        labelText: '自定义提供商名称',
-                        hintText: '例如：SiliconFlow',
+                      decoration: InputDecoration(
+                        labelText: l10n.configName,
+                        hintText: l10n.configNameHint,
                       ),
                     ),
                   ],
@@ -897,8 +909,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                   // Functions - 只显示模型支持的功能
                   Row(
                     children: [
-                      const Text('支持的功能',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text(l10n.supportedFeatures,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -908,7 +920,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          '已自动过滤不兼容功能',
+                          l10n.autoFilterIncompatible,
                           style: TextStyle(
                             fontSize: 10,
                             color: AppColors.primary,
@@ -932,7 +944,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '${providerConfig.displayName} 暂无可用的功能支持，请选择其他提供商。',
+                              l10n.noCompatibleFunctions,
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.orange,
@@ -977,7 +989,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${providerConfig.displayName} 能力说明',
+                          '${providerConfig.displayName} ${l10n.providerCapabilityDesc}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -999,7 +1011,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                       labelText: 'API Key',
                       hintText: providerConfig.apiKeyPrefix != null
                           ? '${providerConfig.apiKeyPrefix}...'
-                          : '输入API Key',
+                          : l10n.apiKeyHint,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1008,8 +1020,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                     TextField(
                       controller: appIdController,
                       decoration: InputDecoration(
-                        labelText: 'App ID',
-                        hintText: providerConfig.appIdDescription ?? '输入App ID',
+                        labelText: l10n.appId,
+                        hintText: providerConfig.appIdDescription ?? l10n.appId,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1020,9 +1032,9 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                       controller: accessKeySecretController,
                       obscureText: true,
                       decoration: InputDecoration(
-                        labelText: 'AccessKey Secret',
+                        labelText: l10n.accessKeySecret,
                         hintText: providerConfig.accessKeySecretDescription ??
-                            '输入AccessKey Secret',
+                            l10n.accessKeySecret,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1032,8 +1044,8 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                       selectedProvider == AiProvider.custom) ...[
                     TextField(
                       controller: baseUrlController,
-                      decoration: const InputDecoration(
-                        labelText: 'Base URL',
+                      decoration: InputDecoration(
+                        labelText: l10n.baseUrl,
                         hintText: 'https://api.example.com/v1',
                       ),
                     ),
@@ -1042,9 +1054,9 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
                   TextField(
                     controller: customModelController,
-                    decoration: const InputDecoration(
-                      labelText: '模型名称',
-                      hintText: '例如：gpt-4o-mini',
+                    decoration: InputDecoration(
+                      labelText: l10n.modelName,
+                      hintText: l10n.modelNameHint,
                     ),
                   ),
                 ],
@@ -1069,19 +1081,19 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                     if (mounted) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('配置已删除'),
+                        SnackBar(
+                          content: Text(l10n.deleteButton),
                           backgroundColor: AppColors.success,
                         ),
                       );
                     }
                   },
                   style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                  child: const Text('删除'),
+                  child: Text(l10n.deleteButton),
                 ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
+                child: Text(l10n.cancel),
               ),
               TextButton(
                 onPressed: compatibleFunctions.isEmpty
@@ -1093,14 +1105,14 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
                         if (name.isEmpty || apiKey.isEmpty || model.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('请填写所有必填项')),
+                            SnackBar(content: Text(l10n.fillAllRequired)),
                           );
                           return;
                         }
 
                         if (selectedFunctions.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('至少选择一个功能')),
+                            SnackBar(content: Text(l10n.selectAtLeastOneFeature)),
                           );
                           return;
                         }
@@ -1118,7 +1130,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                               .join('\n');
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('功能不兼容:\n$reason'),
+                              content: Text('${l10n.featureIncompatible}:\n$reason'),
                               backgroundColor: AppColors.error,
                               duration: const Duration(seconds: 5),
                             ),
@@ -1177,14 +1189,14 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                         if (mounted) {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('配置已保存'),
+                            SnackBar(
+                              content: Text(l10n.saveSuccess),
                               backgroundColor: AppColors.success,
                             ),
                           );
                         }
                       },
-                child: const Text('保存'),
+                child: Text(l10n.saveButton),
               ),
             ],
           );
@@ -1194,32 +1206,33 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   }
 
   Widget _buildModelCapabilityInfo(AiModelConfig config) {
+    final l10n = AppLocalizations.of(context)!;
     final items = <Widget>[];
 
     if (config.supportsTextAnalysis) {
-      items.add(_buildInfoRow(Icons.check_circle, '文本分析', '支持AI分析、摘要、标题生成'));
+      items.add(_buildInfoRow(Icons.check_circle, l10n.textAnalysis, l10n.textAnalysisDesc));
     }
     if (config.supportsTranscription || config.supportsOfflineTranscription) {
-      items.add(_buildInfoRow(Icons.check_circle, '语音转写', config.asrDescription.isNotEmpty
+      items.add(_buildInfoRow(Icons.check_circle, l10n.voiceTranscription, config.asrDescription.isNotEmpty
           ? config.asrDescription.split('\n').first
-          : '支持录音转文字'));
+          : l10n.voiceTranscriptionDesc));
     }
     if (config.supportsRealtimeTranscription) {
-      items.add(_buildInfoRow(Icons.check_circle, '实时转写', config.realtimeAsrDescription.isNotEmpty
+      items.add(_buildInfoRow(Icons.check_circle, l10n.realtimeVoiceTranscription, config.realtimeAsrDescription.isNotEmpty
           ? config.realtimeAsrDescription.split('\n').first
-          : '支持实时语音转写'));
+          : l10n.realtimeVoiceTranscriptionDesc));
     }
     if (config.supportsOfflineTranscription) {
-      items.add(_buildInfoRow(Icons.check_circle, '离线转写', '支持提交音频文件进行离线转写'));
+      items.add(_buildInfoRow(Icons.check_circle, l10n.offlineVoiceTranscription, l10n.offlineVoiceTranscriptionDesc));
     }
     if (config.supportsSpeakerDiarization) {
-      items.add(_buildInfoRow(Icons.check_circle, '说话人分离', '支持区分不同发言人'));
+      items.add(_buildInfoRow(Icons.check_circle, l10n.textAnalysis, l10n.textAnalysisDesc));
     }
     if (config.supportsOCR) {
-      items.add(_buildInfoRow(Icons.check_circle, '图像识别', '支持图片内容识别'));
+      items.add(_buildInfoRow(Icons.check_circle, l10n.imageRecognition, l10n.imageRecognitionDesc));
     }
     if (config.supportsChat) {
-      items.add(_buildInfoRow(Icons.check_circle, '对话', '支持多轮对话'));
+      items.add(_buildInfoRow(Icons.check_circle, l10n.textAnalysis, l10n.textAnalysisDesc));
     }
 
     if (config.limitationNote.isNotEmpty) {

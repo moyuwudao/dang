@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/record_repository.dart';
 import '../../../data/repositories/tool_output_repository.dart';
 import '../../../data/models/tool_output_model.dart';
+import '../../../l10n/generated/app_localizations.dart';
 import 'tool_configs.dart';
 
 class AiToolScreen extends ConsumerStatefulWidget {
@@ -58,6 +59,7 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
   }
 
   Future<void> _saveResult(String content) async {
+    final l10n = AppLocalizations.of(context)!;
     final nameController = TextEditingController(
       text:
           '${widget.config.title} - ${DateTime.now().month}/${DateTime.now().day}',
@@ -66,22 +68,22 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('保存${widget.config.title}结果'),
+        title: Text('${l10n.saveResult} ${widget.config.title}'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(
-            labelText: '名称',
-            hintText: '输入保存名称',
+          decoration: InputDecoration(
+            labelText: l10n.name,
+            hintText: l10n.inputName,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancelButton),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('保存'),
+            child: Text(l10n.saveButton),
           ),
         ],
       ),
@@ -97,26 +99,28 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
       await _loadSavedResults();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('已保存'), backgroundColor: AppColors.success),
+          SnackBar(
+              content: Text(l10n.saveSuccess), backgroundColor: AppColors.success),
         );
       }
     }
   }
 
   Future<void> _deleteSavedResult(String id) async {
+    final l10n = AppLocalizations.of(context)!;
     final repository = ref.read(toolOutputRepositoryProvider);
     await repository.deleteToolOutput(id);
     await _loadSavedResults();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('已删除'), backgroundColor: AppColors.success),
+        SnackBar(
+            content: Text(l10n.deleteSuccess), backgroundColor: AppColors.success),
       );
     }
   }
 
   Future<void> _generate() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _isGenerating = true);
 
     try {
@@ -124,8 +128,8 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
       if (apiConfig == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('请先配置API Key'), backgroundColor: AppColors.error),
+            SnackBar(
+                content: Text(l10n.pleaseConfigureApiKey), backgroundColor: AppColors.error),
           );
         }
         return;
@@ -146,8 +150,8 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
         if (filteredRecords.isEmpty) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('该时间段内没有记录'),
+              SnackBar(
+                  content: Text(l10n.noRecordsInPeriod),
                   backgroundColor: AppColors.warning),
             );
           }
@@ -156,12 +160,12 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
 
         final buffer = StringBuffer();
         buffer.writeln(
-            '以下是 ${_dateRange.start.month}月${_dateRange.start.day}日 到 ${_dateRange.end.month}月${_dateRange.end.day}日 的记录：');
+            '${l10n.records} ${_dateRange.start.month}${l10n.month}${_dateRange.start.day}${l10n.day} - ${_dateRange.end.month}${l10n.month}${_dateRange.end.day}${l10n.day}:');
         buffer.writeln();
 
         for (int i = 0; i < filteredRecords.length; i++) {
           final r = filteredRecords[i];
-          buffer.writeln('--- 记录 ${i + 1} (${_formatDate(r.createdAt)}) ---');
+          buffer.writeln('--- ${l10n.records} ${i + 1} (${_formatDate(r.createdAt)}) ---');
           if (r.content != null && r.content!.isNotEmpty) {
             final content = r.content!.length > 500
                 ? '${r.content!.substring(0, 500)}...'
@@ -169,7 +173,7 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
             buffer.writeln(content);
           }
           if (r.aiAnalysisResults.isNotEmpty) {
-            buffer.writeln('[AI分析摘要]');
+            buffer.writeln('[${l10n.aiAnalysisSummary}]');
             for (final analysis in r.aiAnalysisResults) {
               final summary = analysis.content.length > 200
                   ? '${analysis.content.substring(0, 200)}...'
@@ -186,15 +190,15 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
         if (input.isEmpty) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('请输入内容'), backgroundColor: AppColors.warning),
+              SnackBar(
+                  content: Text(l10n.pleaseEnterContent), backgroundColor: AppColors.warning),
             );
           }
           return;
         }
       }
 
-      final apiService = ref.read(apiServiceProvider);
+      final apiService = ApiService();
       final result = await apiService.chatCompletionWithSystem(
         input,
         systemPrompt: widget.config.systemPrompt,
@@ -207,7 +211,7 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('生成失败: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text('${l10n.generationFailed}: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -218,18 +222,19 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
   }
 
   void _copyResult() {
+    final l10n = AppLocalizations.of(context)!;
     if (_resultContent.isEmpty) return;
     Clipboard.setData(ClipboardData(text: _resultContent));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('已复制到剪贴板'), backgroundColor: AppColors.success),
+      SnackBar(
+          content: Text(l10n.copiedToClipboard), backgroundColor: AppColors.success),
     );
   }
 
   void _shareResult() {
     if (_resultContent.isEmpty) return;
     Share.share(
-      '${widget.config.title}\n\n$_resultContent\n\n来自畅记 App',
+      '${widget.config.title}\n\n$_resultContent\n\n${AppLocalizations.of(context)!.appName}',
       subject: widget.config.title,
     );
   }
@@ -252,6 +257,7 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.config.title),
@@ -276,7 +282,7 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
                       )
                     : const Icon(Icons.auto_awesome),
                 label: Text(_isGenerating
-                    ? '生成中...'
+                    ? l10n.generating
                     : widget.config.generateButtonText),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -297,6 +303,7 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
   }
 
   Widget _buildInputSection() {
+    final l10n = AppLocalizations.of(context)!;
     final children = <Widget>[];
 
     if (widget.config.showDateRange) {
@@ -319,12 +326,12 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('时间范围',
-                            style: TextStyle(
+                        Text(l10n.timeRange,
+                            style: const TextStyle(
                                 fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 4),
                         Text(
-                            '$startStr - $endStr（${_dateRange.duration.inDays}天）',
+                            '$startStr - $endStr（${_dateRange.duration.inDays}${l10n.days}）',
                             style: TextStyle(
                                 color: AppColors.textSecondary, fontSize: 13)),
                       ],
@@ -344,6 +351,7 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
   }
 
   Widget _buildResultSection() {
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -351,23 +359,23 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
           children: [
             const Icon(Icons.description, color: AppColors.primary, size: 18),
             const SizedBox(width: 8),
-            const Text('生成结果',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(l10n.generateResult,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const Spacer(),
             IconButton(
               icon: const Icon(Icons.save_outlined, size: 20),
               onPressed: () => _saveResult(_resultContent),
-              tooltip: '保存',
+              tooltip: l10n.saveButton,
             ),
             IconButton(
               icon: const Icon(Icons.share_outlined, size: 20),
               onPressed: _shareResult,
-              tooltip: '分享',
+              tooltip: l10n.shareButton,
             ),
             IconButton(
               icon: const Icon(Icons.copy, size: 20),
               onPressed: _copyResult,
-              tooltip: '复制',
+              tooltip: l10n.copy,
             ),
           ],
         ),
@@ -409,6 +417,7 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
   }
 
   Widget _buildSavedResultsSection() {
+    final l10n = AppLocalizations.of(context)!;
     if (_isLoadingSaved) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -420,10 +429,10 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
           children: [
             const Icon(Icons.folder_open, color: AppColors.primary, size: 18),
             const SizedBox(width: 8),
-            const Text('已保存的结果',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(l10n.savedResults,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             const Spacer(),
-            Text('${_savedResults.length} 份',
+            Text(l10n.savedResultCount(_savedResults.length),
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
           ],
         ),
@@ -436,8 +445,8 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
               color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('暂无保存的结果',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(l10n.noSavedResults,
+                style: const TextStyle(color: AppColors.textSecondary)),
           )
         else
           ..._savedResults.map((result) => _buildSavedResultCard(result)),
@@ -489,6 +498,7 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
   }
 
   void _showSavedResultDetail(ToolOutputModel result) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -505,29 +515,29 @@ class _AiToolScreenState extends ConsumerState<AiToolScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+            child: Text(l10n.close),
           ),
           TextButton(
             onPressed: () {
               Share.share(
-                '${result.title}\n\n${result.content}\n\n来自畅记 App',
+                '${result.title}\n\n${result.content}\n\n${l10n.appName}',
                 subject: result.title,
               );
             },
-            child: const Text('分享'),
+            child: Text(l10n.shareButton),
           ),
           TextButton(
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: result.content));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('已复制到剪贴板'),
+                  SnackBar(
+                      content: Text(l10n.copiedToClipboard),
                       backgroundColor: AppColors.success),
                 );
               }
             },
-            child: const Text('复制'),
+            child: Text(l10n.copy),
           ),
         ],
       ),

@@ -38,10 +38,10 @@ Execute **after** a tool runs:
 PostToolUse:
   - name: dart-format
     on: [Write, Edit]
-    run: dart format
+    run: timeout 60 dart format
   - name: flutter-analyze
     on: [Write, Edit]
-    run: flutter analyze
+    run: timeout 120 flutter analyze
 ```
 
 ### Stop Hooks
@@ -56,7 +56,7 @@ Execute when session **ends**:
 ```yaml
 Stop:
   - name: final-check
-    run: [flutter test, flutter analyze]
+    run: [timeout 600 flutter test, timeout 120 flutter analyze]
   - name: session-log
     save: session-summary.md
 ```

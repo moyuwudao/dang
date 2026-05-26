@@ -342,7 +342,8 @@ testWebSocket()
 
 ```bash
 # 1. 运行测试脚本
-node test_websocket.js
+# 设 30 秒超时保护
+timeout 30 node test_websocket.js
 
 # 2. 检查输出
 # 应该看到：
@@ -380,6 +381,7 @@ node test_websocket.js
 | 日期 | 更新内容 | 更新人 |
 |-----|---------|-------|
 | 2026-05-18 | 初始版本，基于 Qwen 实时转写测试经验 | AI |
+| 2026-05-25 | 安全修复：node test_websocket.js 加 timeout 30 命令层保护 | AI |
 
 ---
 

@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: admin/**, server/**
 description: 服务器部署流程 - 标准部署步骤、权限管理、版本控制、回滚机制
 ---
 
@@ -213,8 +214,8 @@ sudo mkdir -p /backup/scripts /backup/data
 #!/bin/bash
 BACKUP_DIR="/backup/data"
 DATE=$(date +%Y%m%d_%H%M%S)
-sudo -u postgres pg_dump appdb > "$BACKUP_DIR/appdb_$DATE.sql"
-redis-cli -a Redis123456 BGSAVE
+PGOPTIONS="-c statement_timeout=600000" sudo -u postgres pg_dump appdb > "$BACKUP_DIR/appdb_$DATE.sql"
+redis-cli -a Redis123456 --no-auth-warning BGSAVE
 sleep 2
 cp /var/lib/redis/dump.rdb "$BACKUP_DIR/redis_$DATE.rdb"
 find $BACKUP_DIR -mtime +7 -delete
@@ -228,16 +229,16 @@ crontab -e
 ### 部署后验证
 
 ```bash
-sudo systemctl status ssh nginx docker postgresql redis-server fail2ban unattended-upgrades chrony
+sudo systemctl --no-pager status ssh nginx docker postgresql redis-server fail2ban unattended-upgrades chrony
 sudo ufw status verbose
 sudo docker --version && sudo docker run hello-world
-curl -I http://localhost
+curl --connect-timeout 5 --max-time 10 -I http://localhost
 node --version && npm --version
 pm2 status
-psql --version && sudo -u postgres psql -c "\l"
-redis-cli -a Redis123456 ping
-curl http://127.0.0.1:8848/health
-curl http://127.0.0.1:3000/api/v1/health
+psql --version && PGOPTIONS="-c statement_timeout=10000" sudo -u postgres psql -c "\l"
+redis-cli -a Redis123456 --no-auth-warning PING
+curl --connect-timeout 5 --max-time 10 http://127.0.0.1:8848/health
+curl --connect-timeout 5 --max-time 10 http://127.0.0.1:3000/api/v1/health
 sudo ss -tlnp
 ```
 
@@ -324,4 +325,5 @@ sudo systemctl start redis-server
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-05-25 | 安全修复：systemctl 加 --no-pager；psql/pg_dump 加 statement_timeout；redis-cli 加 --no-auth-warning；curl 加超时 |
 | 2026-05-21 | 从 SERVER_DEPLOY.md 拆分，独立为 SERVER_DEPLOY_PROCEDURE.md |

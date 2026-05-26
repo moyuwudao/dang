@@ -1,5 +1,6 @@
 ---
 alwaysApply: false
+globs: admin/**, server/**
 description: 服务器安全防护 - 网络安全、API安全、安全审计清单
 ---
 

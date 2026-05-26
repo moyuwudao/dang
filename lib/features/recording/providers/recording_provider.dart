@@ -23,15 +23,8 @@ final recordingRealtimeServiceProvider = Provider<RealtimeTranscriptionService>(
   return RealtimeTranscriptionService(httpClient: sharedClient);
 });
 
-final recordingStateProvider = StateNotifierProvider<RecordingStateNotifier, RecordingState>((ref) {
-  return RecordingStateNotifier(
-    ref.watch(recordingServiceProvider),
-    ref.watch(recordRepositoryProvider),
-    ref.watch(transcriptionServiceProvider),
-    ref.watch(transcriptionQueueProvider),
-    ref.watch(sharedHttpClientProvider),
-    ref.watch(recordingRealtimeServiceProvider),
-  );
+final recordingStateProvider = AsyncNotifierProvider<RecordingStateNotifier, RecordingState>(() {
+  return RecordingStateNotifier();
 });
 
 class RecordingState {
@@ -98,26 +91,22 @@ class RecordingState {
   }
 }
 
-class RecordingStateNotifier extends StateNotifier<RecordingState> {
-  final RecordingService _recordingService;
-  final RecordRepository _recordRepository;
-  final TranscriptionService _transcriptionService;
-  final TranscriptionQueueService _transcriptionQueue;
-  final HttpClient _httpClient;
-  final RealtimeTranscriptionService _realtimeService;
+class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
+  RecordingService get _recordingService => ref.read(recordingServiceProvider);
+  RecordRepository get _recordRepository => ref.read(recordRepositoryProvider);
+  TranscriptionService get _transcriptionService => ref.read(transcriptionServiceProvider);
+  TranscriptionQueueService get _transcriptionQueue => ref.read(transcriptionQueueProvider);
+  HttpClient get _httpClient => ref.read(sharedHttpClientProvider);
+  RealtimeTranscriptionService get _realtimeService => ref.read(recordingRealtimeServiceProvider);
 
   StreamSubscription? _amplitudeSubscription;
   StreamSubscription? _durationSubscription;
   StreamSubscription? _realtimeSubscription;
 
-  RecordingStateNotifier(
-    this._recordingService,
-    this._recordRepository,
-    this._transcriptionService,
-    this._transcriptionQueue,
-    this._httpClient,
-    this._realtimeService,
-  ) : super(const RecordingState());
+  @override
+  Future<RecordingState> build() async {
+    return const RecordingState();
+  }
 
   /// 检查是否有可用的实时转写配置
   Future<bool> checkRealtimeAvailability() async {
@@ -149,7 +138,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
             accessKeySecret: realtimeConfig.accessKeySecret,
           );
           AppLogger().i('Realtime', 'HttpClient configured for realtime from multi config');
-          state = state.copyWith(isRealtimeAvailable: true, clearError: true);
+          state = AsyncData(state.valueOrNull!.copyWith(isRealtimeAvailable: true, clearError: true));
           AppLogger().i('Realtime', 'isRealtimeAvailable set to TRUE');
           return true;
         }
@@ -183,7 +172,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
               accessKeySecret: singleConfig.accessKeySecret,
             );
             AppLogger().i('Realtime', 'HttpClient configured for realtime from single config');
-            state = state.copyWith(isRealtimeAvailable: true, clearError: true);
+            state = AsyncData(state.valueOrNull!.copyWith(isRealtimeAvailable: true, clearError: true));
             AppLogger().i('Realtime', 'isRealtimeAvailable set to TRUE');
             return true;
           }
@@ -193,28 +182,29 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
       }
       
       AppLogger().w('Realtime', 'NO CONFIG FOUND! Setting isRealtimeAvailable to FALSE');
-      state = state.copyWith(isRealtimeAvailable: false);
+      state = AsyncData(state.valueOrNull!.copyWith(isRealtimeAvailable: false));
       return false;
     } catch (e) {
       AppLogger().e('Realtime', 'Error checking availability: $e');
-      state = state.copyWith(isRealtimeAvailable: false);
+      state = AsyncData(state.valueOrNull!.copyWith(isRealtimeAvailable: false));
       return false;
     }
   }
 
   /// 切换实时转写开关
   void toggleRealtime(bool enabled) {
-    if (enabled && !state.isRealtimeAvailable) {
-      state = state.copyWith(
+    final currentState = state.valueOrNull ?? const RecordingState();
+    if (enabled && !currentState.isRealtimeAvailable) {
+      state = AsyncData(currentState.copyWith(
         error: '未配置实时转写API，请先前往设置配置',
         isRealtimeEnabled: false,
-      );
+      ));
       return;
     }
-    state = state.copyWith(
+    state = AsyncData(currentState.copyWith(
       isRealtimeEnabled: enabled,
       clearError: enabled,
-    );
+    ));
   }
 
   Future<void> startRecording() async {
@@ -223,7 +213,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
 
       final hasPermission = await _recordingService.hasPermission();
       if (!hasPermission) {
-        state = state.copyWith(error: '需要麦克风权限');
+        state = AsyncData(state.valueOrNull!.copyWith(error: '需要麦克风权限'));
         return;
       }
 
@@ -231,11 +221,11 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
       AppLogger().i('Realtime', '正在检查实时转写配置...');
       final realtimeAvailable = await checkRealtimeAvailability();
       AppLogger().i('Realtime', 'checkRealtimeAvailability 结果: $realtimeAvailable');
-      AppLogger().i('Realtime', '当前状态: isRealtimeAvailable=${state.isRealtimeAvailable}, isRealtimeEnabled=${state.isRealtimeEnabled}');
+      AppLogger().i('Realtime', '当前状态: isRealtimeAvailable=${state.valueOrNull!.isRealtimeAvailable}, isRealtimeEnabled=${state.valueOrNull!.isRealtimeEnabled}');
 
       final path = await _recordingService.startRecording();
 
-      state = state.copyWith(
+      state = AsyncData(state.valueOrNull!.copyWith(
         isRecording: true,
         isPaused: false,
         duration: Duration.zero,
@@ -246,22 +236,22 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
         clearTranscriptionProgress: true,
         clearRealtimeText: true,
         realtimeSentences: const [],
-      );
+      ));
 
       // 监听振幅（先取消旧订阅，防止快速连续调用导致泄漏）
       _amplitudeSubscription?.cancel();
       _amplitudeSubscription = _recordingService.amplitudeStream.listen((amplitudes) {
-        state = state.copyWith(amplitudes: amplitudes);
+        state = AsyncData(state.valueOrNull!.copyWith(amplitudes: amplitudes));
       });
 
       // 监听时长
       _durationSubscription?.cancel();
       _durationSubscription = _recordingService.durationStream.listen((duration) {
-        state = state.copyWith(duration: duration);
+        state = AsyncData(state.valueOrNull!.copyWith(duration: duration));
       });
 
       // 如果用户已开启实时转写，则启动
-      if (state.isRealtimeEnabled) {
+      if (state.valueOrNull!.isRealtimeEnabled) {
         AppLogger().i('Realtime', '用户已开启实时转写，启动...');
         _startRealtimeTranscription();
       } else {
@@ -269,7 +259,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
       }
     } catch (e) {
       AppLogger().e('Realtime', '录音开始失败: $e');
-      state = state.copyWith(error: '开始录音失败: $e');
+      state = AsyncData(state.valueOrNull!.copyWith(error: '开始录音失败: $e'));
     }
   }
 
@@ -289,7 +279,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
         onStatusChange: (status, detail) {
           AppLogger().i('Realtime', 'Status: $status - $detail');
           if (status == 'error') {
-            state = state.copyWith(error: '实时转写不可用，录音完成后将自动转写');
+            state = AsyncData(state.valueOrNull!.copyWith(error: '实时转写不可用，录音完成后将自动转写'));
           }
         },
       );
@@ -300,33 +290,33 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
           
           if (result.isFinal) {
             // 如果是最终结果，添加到句子列表
-            final newSentences = [...state.realtimeSentences, result.text];
-            state = state.copyWith(
+            final newSentences = [...state.valueOrNull!.realtimeSentences, result.text];
+            state = AsyncData(state.valueOrNull!.copyWith(
               realtimeSentences: newSentences,
               realtimeText: newSentences.join('\n'),
-            );
+            ));
           } else {
             // 如果是中间结果，显示当前正在识别的文本
-            final currentText = state.realtimeSentences.isNotEmpty
-                ? '${state.realtimeSentences.join('\n')}\n${result.text}'
+            final currentText = state.valueOrNull!.realtimeSentences.isNotEmpty
+                ? '${state.valueOrNull!.realtimeSentences.join('\n')}\n${result.text}'
                 : result.text;
-            state = state.copyWith(realtimeText: currentText);
+            state = AsyncData(state.valueOrNull!.copyWith(realtimeText: currentText));
           }
         },
         onError: (e) {
           AppLogger().e('Realtime', 'Realtime transcription error: $e');
-          state = state.copyWith(
+          state = AsyncData(state.valueOrNull!.copyWith(
             isRealtimeEnabled: false,
             error: '实时转写不可用，录音完成后将自动转写',
-          );
+          ));
         },
       );
     } catch (e) {
       AppLogger().e('Realtime', 'Failed to start realtime transcription: $e');
-      state = state.copyWith(
+      state = AsyncData(state.valueOrNull!.copyWith(
         isRealtimeEnabled: false,
         error: '实时转写不可用，录音完成后将自动转写',
-      );
+      ));
     }
   }
 
@@ -339,27 +329,27 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
       final path = await _recordingService.stopRecording();
       
       if (path != null) {
-        state = state.copyWith(
+        state = AsyncData(state.valueOrNull!.copyWith(
           isRecording: false,
           isPaused: false,
           clearCurrentRecordingPath: true,
           isTranscribing: false,
           transcriptionProgress: '录音已保存',
-        );
+        ));
 
         // 保存记录到数据库（状态为pending，等待后台转写）
         final recordId = await _recordRepository.createRecordFromFields(
           type: RecordType.audio,
           audioPath: path,
           tags: tags,
-          isRealtime: state.isRealtimeEnabled,
+          isRealtime: state.valueOrNull!.isRealtimeEnabled,
         );
 
         AppLogger().i('Recording', 'Record saved with ID: $recordId, added to transcription queue');
 
         // 如果开启了实时转写，保存实时转写结果到记录
-        if (state.isRealtimeEnabled && state.realtimeText != null && state.realtimeText!.isNotEmpty) {
-          await _recordRepository.updateRecordContent(recordId, state.realtimeText!);
+        if (state.valueOrNull!.isRealtimeEnabled && state.valueOrNull!.realtimeText != null && state.valueOrNull!.realtimeText!.isNotEmpty) {
+          await _recordRepository.updateRecordContent(recordId, state.valueOrNull!.realtimeText!);
           await _recordRepository.updateTranscriptionStatus(recordId, TranscriptionStatus.success, null);
         } else {
           // 添加到后台转写队列
@@ -367,38 +357,38 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
         }
         
         // 状态更新为等待转写
-        state = state.copyWith(
+        state = AsyncData(state.valueOrNull!.copyWith(
           isTranscribing: false,
           transcriptionProgress: '等待转写中...',
           isRealtimeEnabled: false,
           clearRealtimeText: true,
           realtimeSentences: const [],
-        );
+        ));
       }
     } catch (e) {
-      state = state.copyWith(
+      state = AsyncData(state.valueOrNull!.copyWith(
         isRecording: false,
         isTranscribing: false,
         error: '停止录音失败: $e',
-      );
+      ));
     }
   }
 
   Future<void> pauseRecording() async {
     try {
       await _recordingService.pauseRecording();
-      state = state.copyWith(isPaused: true);
+      state = AsyncData(state.valueOrNull!.copyWith(isPaused: true));
     } catch (e) {
-      state = state.copyWith(error: '暂停录音失败: $e');
+      state = AsyncData(state.valueOrNull!.copyWith(error: '暂停录音失败: $e'));
     }
   }
 
   Future<void> resumeRecording() async {
     try {
       await _recordingService.resumeRecording();
-      state = state.copyWith(isPaused: false);
+      state = AsyncData(state.valueOrNull!.copyWith(isPaused: false));
     } catch (e) {
-      state = state.copyWith(error: '恢复录音失败: $e');
+      state = AsyncData(state.valueOrNull!.copyWith(error: '恢复录音失败: $e'));
     }
   }
 
@@ -408,7 +398,7 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
       _durationSubscription?.cancel();
       _realtimeSubscription?.cancel();
 
-      final path = state.currentRecordingPath;
+      final path = state.valueOrNull!.currentRecordingPath;
       await _recordingService.cancelRecording();
       
       // 删除录音文件
@@ -416,18 +406,17 @@ class RecordingStateNotifier extends StateNotifier<RecordingState> {
         await _recordingService.deleteRecording(path);
       }
 
-      state = const RecordingState();
+      state = const AsyncData(RecordingState());
     } catch (e) {
-      state = state.copyWith(error: '取消录音失败: $e');
+      state = AsyncData(state.valueOrNull!.copyWith(error: '取消录音失败: $e'));
     }
   }
 
   @override
-  void dispose() {
+  Future<void> dispose() async {
     _amplitudeSubscription?.cancel();
     _durationSubscription?.cancel();
     _realtimeSubscription?.cancel();
     _recordingService.dispose();
-    super.dispose();
   }
 }

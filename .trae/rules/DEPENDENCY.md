@@ -54,11 +54,11 @@ dev_dependencies:
 # 1. 先问（按 INTERACTION.md）
 # 我会说：想加 xxx 依赖，因为 xxx
 
-# 2. 得到确认后，执行
-flutter pub add package_name
+# 2. 得到确认后，执行（pub.dev 操作设 120 秒超时）
+timeout 120 flutter pub add package_name
 
 # 或者手动添加到 pubspec.yaml，然后
-flutter pub get
+timeout 120 flutter pub get
 ```
 
 ### 依赖来源
@@ -86,19 +86,19 @@ flutter pub get
 ### 更新单个依赖
 
 ```bash
-flutter pub upgrade package_name
+timeout 120 flutter pub upgrade package_name
 ```
 
 ### 更新所有依赖
 
 ```bash
-flutter pub upgrade
+timeout 120 flutter pub upgrade
 ```
 
 ### 查看可更新版本
 
 ```bash
-flutter pub outdated
+timeout 60 flutter pub outdated
 ```
 
 ---
@@ -106,7 +106,7 @@ flutter pub outdated
 ## 删除依赖
 
 ```bash
-flutter pub remove package_name
+timeout 120 flutter pub remove package_name
 ```
 
 或者手动从 pubspec.yaml 删除，然后 `flutter pub get`。
@@ -189,11 +189,11 @@ flutter pub upgrade package_a
 ### 2. 缓存问题
 
 ```bash
-# 清理缓存
+# 清理缓存（pub get 设 120 秒超时）
 flutter pub cache clean
 
 # 重新获取
-flutter pub get
+timeout 120 flutter pub get
 ```
 
 ### 3. pub get 失败
@@ -202,7 +202,7 @@ flutter pub get
 # 删除 pubspec.lock 和 .dart_tool，重新获取
 rm pubspec.lock
 rm -rf .dart_tool/
-flutter pub get
+timeout 120 flutter pub get
 ```
 
 ---
@@ -214,11 +214,12 @@ flutter pub get
 如果加了需要 build_runner 的包：
 
 ```bash
-# 运行代码生成
-dart run build_runner build
+# 运行代码生成（设 10 分钟超时）
+timeout 600 dart run build_runner build
 
-# 如果是 watch 模式
-dart run build_runner watch
+# ⚠️ 仅手动使用！build_runner watch 会持续监听文件变化，永不退出
+# 自动化/AI 场景禁止使用。如需持续构建，每次修改后运行 build_runner build
+# dart run build_runner watch
 ```
 
 ### Android 特定依赖
@@ -232,7 +233,7 @@ dart run build_runner watch
 ### 查看依赖大小
 
 ```bash
-flutter build apk --analyze-size
+timeout 1200 flutter build apk --analyze-size
 ```
 
 ### 大依赖警告
@@ -272,3 +273,11 @@ flutter build apk --analyze-size
 ---
 
 *加依赖前先问：真的需要吗？有更简单的方案吗？*
+
+---
+
+## 更新记录
+
+| 日期 | 更新内容 |
+|-----|---------|
+| 2026-05-25 | 安全修复：所有 pub 命令加 timeout；build_runner watch 标注仅手动使用并注释掉；build_runner build 加 timeout 600 |

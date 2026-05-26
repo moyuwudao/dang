@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/repositories/tool_output_repository.dart';
 import '../../../data/models/tool_output_model.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 class ToolOutputSelector extends ConsumerStatefulWidget {
   final String? selectedToolId;
@@ -57,6 +58,7 @@ class _ToolOutputSelectorState extends ConsumerState<ToolOutputSelector> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -69,9 +71,9 @@ class _ToolOutputSelectorState extends ConsumerState<ToolOutputSelector> {
           color: Colors.grey[100],
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Text(
-          '暂无工具输出数据',
-          style: TextStyle(color: Colors.grey),
+        child: Text(
+          l10n.noToolOutputData,
+          style: const TextStyle(color: Colors.grey),
           textAlign: TextAlign.center,
         ),
       );
@@ -113,7 +115,7 @@ class _ToolOutputSelectorState extends ConsumerState<ToolOutputSelector> {
                         ),
                         if (output.sourceRecordIds.isNotEmpty)
                           Text(
-                            '关联 ${output.sourceRecordIds.length} 条记录',
+                            l10n.associatedRecords(output.sourceRecordIds.length),
                             style: const TextStyle(
                                 color: Colors.grey, fontSize: 11),
                           ),
