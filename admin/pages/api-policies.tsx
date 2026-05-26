@@ -32,7 +32,7 @@ interface ApiPolicy {
   isAllowed: boolean;
 }
 
-interface Plan {
+interface PlanItem {
   id: string;
   name: string;
   type: string;
@@ -49,7 +49,7 @@ const PROVIDER_OPTIONS = [
 ];
 
 export default function ApiPoliciesPage() {
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plans, setPlans] = useState<PlanItem[]>([]);
   const [selectedPlan, setSelectedPlan] = useState('');
   const [policies, setPolicies] = useState<ApiPolicy[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,7 +120,7 @@ export default function ApiPoliciesPage() {
   };
 
   return (
-    <Layout>
+    <Layout currentPage="api-policies">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
