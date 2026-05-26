@@ -69,6 +69,8 @@ export interface ApiKey {
   provider: ApiKeyProvider;
   name: string;
   description?: string;
+  apiKey?: string;
+  apiSecret?: string;
   model: string;
   baseUrl?: string;
   status: ApiKeyStatus;
