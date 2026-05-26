@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardBody, Button, Input, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Pagination, Spinner, Select, SelectItem } from '@nextui-org/react';
-import { Search, Edit, Trash2, Eye, UserPlus, Users, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Edit, Trash2, Eye, UserPlus, Users, AlertCircle, RefreshCw, Gift } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { adminAPI } from '@/services/api';
 import type { User } from '@/types';
@@ -17,6 +17,7 @@ export default function UsersPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ status: '', role: '' });
   const [createForm, setCreateForm] = useState({
@@ -26,6 +27,9 @@ export default function UsersPage() {
     role: 'user',
     status: 'active',
   });
+  const [plans, setPlans] = useState<any[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -97,6 +101,37 @@ export default function UsersPage() {
   const openDelete = (id: string) => {
     setUserToDelete(id);
     setShowDeleteModal(true);
+  };
+
+  const openAssign = async (user: User) => {
+    setSelectedUser(user);
+    setSelectedPlanId('');
+    setShowAssignModal(true);
+    try {
+      const data = await adminAPI.getPlans();
+      setPlans(data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || '获取套餐列表失败');
+    }
+  };
+
+  const handleAssignPlan = async () => {
+    if (!selectedUser || !selectedPlanId) {
+      setError('请选择套餐');
+      return;
+    }
+    setAssignLoading(true);
+    try {
+      await adminAPI.assignPlanToUser(selectedUser.id, selectedPlanId);
+      setShowAssignModal(false);
+      setSelectedPlanId('');
+      setError(null);
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.response?.data?.message || '分配套餐失败');
+    } finally {
+      setAssignLoading(false);
+    }
   };
 
   const handleCreateUser = async () => {
@@ -297,6 +332,17 @@ export default function UsersPage() {
                                 aria-label="编辑用户"
                               >
                                 <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="light"
+                                color="secondary"
+                                onClick={() => openAssign(user)}
+                                className="hover:bg-purple-50"
+                                isIconOnly
+                                aria-label="分配套餐"
+                              >
+                                <Gift className="w-4 h-4" />
                               </Button>
                               <Button
                                 size="sm"
@@ -536,6 +582,66 @@ export default function UsersPage() {
               isLoading={createLoading}
             >
               创建
+            </Button>
+          </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Assign Plan Modal */}
+        <Modal isOpen={showAssignModal} onClose={() => { setShowAssignModal(false); setSelectedPlanId(''); }} classNames={{
+          base: 'rounded-xl',
+          header: 'border-b border-gray-100',
+          footer: 'border-t border-gray-100',
+        }}>
+          <ModalContent>
+          <ModalHeader className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+              <Gift className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-gray-800">分配套餐</p>
+              <p className="text-sm text-gray-500">为用户 {selectedUser?.phone} 分配订阅套餐</p>
+            </div>
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-4">
+              <Select
+                label="选择套餐"
+                placeholder="请选择要分配的套餐"
+                selectedKeys={selectedPlanId ? [selectedPlanId] : []}
+                onChange={(e) => setSelectedPlanId(e.target.value)}
+                classNames={{ trigger: 'rounded-xl' }}
+              >
+                {plans.map((plan) => (
+                  <SelectItem key={plan.id} value={plan.id}>
+                    {plan.name} - ¥{(plan.priceCents / 100).toFixed(2)} / {plan.durationDays}天
+                  </SelectItem>
+                ))}
+              </Select>
+              {selectedPlanId && (
+                <div className="p-3 bg-gray-50 rounded-xl">
+                  {(() => {
+                    const plan = plans.find(p => p.id === selectedPlanId);
+                    return plan ? (
+                      <div className="space-y-2 text-sm">
+                        <p><span className="text-gray-500">套餐名称：</span>{plan.name}</p>
+                        <p><span className="text-gray-500">价格：</span>¥{(plan.priceCents / 100).toFixed(2)}</p>
+                        <p><span className="text-gray-500">时长：</span>{plan.durationDays} 天</p>
+                        <p><span className="text-gray-500">配额：</span>{plan.quotaValue || '无限制'}</p>
+                        <p><span className="text-gray-500">描述：</span>{plan.description || '-'}</p>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onClick={() => { setShowAssignModal(false); setSelectedPlanId(''); }} className="hover:bg-gray-100">
+              取消
+            </Button>
+            <Button color="secondary" className="bg-purple-600 hover:bg-purple-700" onClick={handleAssignPlan} isLoading={assignLoading} isDisabled={!selectedPlanId}>
+              确认分配
             </Button>
           </ModalFooter>
           </ModalContent>

@@ -242,6 +242,11 @@ export const adminAPI = {
   deleteUser: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/admin/users/${id}`);
   },
+
+  assignPlanToUser: async (userId: string, planId: string): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/subscribe`, { planId });
+    return response.data.data;
+  },
   
   getPlans: async (): Promise<Plan[]> => {
     const response = await axiosInstance.get<ApiResponse<Plan[]>>('/admin/plans');

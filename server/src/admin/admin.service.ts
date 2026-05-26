@@ -283,6 +283,55 @@ export class AdminService {
     return data;
   }
 
+  // 管理员为用户分配套餐
+  async assignPlanToUser(userId: string, planId: string) {
+    const plan = await this.planRepo.findOne({ where: { id: planId } });
+    if (!plan) {
+      throw new BadRequestException('套餐不存在');
+    }
+
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('用户不存在');
+    }
+
+    // 将用户当前活跃订阅设为过期
+    await this.subscriptionRepo.update(
+      { userId, status: 'active' },
+      { status: 'expired' },
+    );
+
+    // 创建新订阅
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+
+    const subscription = this.subscriptionRepo.create({
+      userId,
+      planId,
+      status: 'active',
+      startedAt: now,
+      expiresAt,
+      totalQuota: plan.quotaValue || 0,
+      usedQuota: 0,
+    });
+
+    await this.subscriptionRepo.save(subscription);
+
+    return {
+      id: subscription.id,
+      userId,
+      userPhone: user.phone,
+      userNickname: user.nickname,
+      planId,
+      planName: plan.name,
+      status: 'active',
+      startedAt: now,
+      expiresAt,
+      totalQuota: plan.quotaValue || 0,
+      usedQuota: 0,
+    };
+  }
+
   // 图表数据 - 收入趋势
   async getRevenueTrend(days = 7) {
     const endDate = new Date();

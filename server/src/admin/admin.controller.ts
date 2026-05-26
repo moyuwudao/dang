@@ -90,6 +90,12 @@ export class AdminController {
     return { code: 200, message: 'success', data: result };
   }
 
+  @Post('users/:id/subscribe')
+  async assignPlanToUser(@Param('id') userId: string, @Body() data: { planId: string }) {
+    const result = await this.adminService.assignPlanToUser(userId, data.planId);
+    return { code: 200, message: 'success', data: result };
+  }
+
   @Get('recharge-records')
   async getRechargeRecords(
     @Query('page') page?: string,
