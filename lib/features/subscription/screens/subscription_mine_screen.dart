@@ -4,11 +4,32 @@ import '../../../core/theme/app_colors.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../providers/subscription_provider.dart';
 
-class SubscriptionMineScreen extends ConsumerWidget {
+class SubscriptionMineScreen extends ConsumerStatefulWidget {
   const SubscriptionMineScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubscriptionMineScreen> createState() => _SubscriptionMineScreenState();
+}
+
+class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 页面初始化时自动刷新订阅信息
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshData();
+    });
+  }
+
+  Future<void> _refreshData() async {
+    await ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
+    ref.invalidate(subscriptionPlansProvider);
+    ref.invalidate(packagePlansProvider);
+    ref.invalidate(userBalanceProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
     final subscriptionState = subscriptionAsync.valueOrNull ?? const SubscriptionState();
@@ -22,24 +43,12 @@ class SubscriptionMineScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              await ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
-              // 同时刷新套餐列表
-              ref.invalidate(subscriptionPlansProvider);
-              ref.invalidate(packagePlansProvider);
-              ref.invalidate(userBalanceProvider);
-            },
+            onPressed: _refreshData,
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async {
-          await ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
-          // 同时刷新套餐列表和余额
-          ref.invalidate(subscriptionPlansProvider);
-          ref.invalidate(packagePlansProvider);
-          ref.invalidate(userBalanceProvider);
-        },
+        onRefresh: _refreshData,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -47,7 +56,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             Text(
               l10n.quotaDetails,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -55,7 +64,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _buildQuotaCard(context, subscriptionState, l10n),
             const SizedBox(height: 24),
-            Text(
+            const Text(
               'API 配置',
               style: TextStyle(
                 fontSize: 18,
@@ -64,7 +73,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             _buildApiPoliciesCard(context, subscriptionState, l10n),
-            const SizedBox(height: 100), // 为下拉刷新提供空间
+            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -88,7 +97,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
             children: [
               Text(
                 l10n.currentPlan,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
                 ),
@@ -155,7 +164,7 @@ class SubscriptionMineScreen extends ConsumerWidget {
             children: [
               Text(
                 l10n.transcriptionQuota,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -298,3 +307,4 @@ class SubscriptionMineScreen extends ConsumerWidget {
       );
     }
   }
+}
