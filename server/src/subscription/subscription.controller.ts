@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards, Req, Body, Query, Param } from '@nestjs/common';
+import { Controller, Get, Post, Delete, UseGuards, Req, Body, Query, Param } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateSubscriptionDto, CreatePlanDto, RechargeDto, RefundDto } from './dto';

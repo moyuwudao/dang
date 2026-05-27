@@ -10,6 +10,7 @@ import { ApiKey } from '../api-key/entities/api-key.entity';
 import { UserBalance } from '../subscription/entities/user-balance.entity';
 import { RechargeRecord } from '../subscription/entities/recharge-record.entity';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
+import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
@@ -29,6 +30,8 @@ export class AdminService {
     private rechargeRepo: Repository<RechargeRecord>,
     @InjectRepository(ApiUsageLog)
     private apiUsageLogRepo: Repository<ApiUsageLog>,
+    @InjectRepository(PlanApiPolicy)
+    private planApiPolicyRepo: Repository<PlanApiPolicy>,
     private subscriptionService: SubscriptionService,
   ) {}
 
