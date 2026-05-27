@@ -22,6 +22,7 @@ export interface Plan {
   type?: string;
   features?: string[];
   isRecommended?: boolean;
+  allowedModels?: string[];
 }
 
 export interface Subscription {

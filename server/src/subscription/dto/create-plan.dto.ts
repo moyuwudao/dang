@@ -45,4 +45,9 @@ export class CreatePlanDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  allowedModels?: string[];
 }

@@ -178,6 +178,7 @@ export class SubscriptionService {
       quotaType: dto.quotaType,
       quotaValue: dto.quotaValue,
       isActive: dto.isActive ?? true,
+      allowedModels: dto.allowedModels || [],
     });
 
     await this.planRepository.save(plan);

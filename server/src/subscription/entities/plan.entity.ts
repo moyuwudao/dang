@@ -37,4 +37,7 @@ export class Plan {
 
   @Column({ name: 'isActive', default: true })
   isActive: boolean;
+
+  @Column('simple-array', { name: 'allowed_models', nullable: true })
+  allowedModels: string[];
 }

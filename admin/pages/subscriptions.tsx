@@ -24,7 +24,18 @@ const emptyPlan: Omit<Plan, 'id'> = {
   quotaValue: 100,
   isActive: true,
   type: 'subscription',
+  allowedModels: [],
 };
+
+// 可用模型列表
+const AVAILABLE_MODELS = [
+  { provider: 'qwen', label: '通义千问', models: ['qwen-turbo', 'qwen-plus', 'qwen-max'] },
+  { provider: 'deepseek', label: 'DeepSeek', models: ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'] },
+  { provider: 'openai', label: 'OpenAI', models: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4o', 'gpt-4o-mini'] },
+  { provider: 'anthropic', label: 'Anthropic', models: ['claude-3-haiku', 'claude-3-sonnet', 'claude-3-opus'] },
+  { provider: 'gemini', label: 'Gemini', models: ['gemini-pro', 'gemini-ultra'] },
+  { provider: 'grok', label: 'Grok', models: ['grok-1', 'grok-2'] },
+];
 
 export default function SubscriptionsPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -154,6 +165,7 @@ export default function SubscriptionsPage() {
       quotaValue: plan.quotaValue || 0,
       isActive: plan.isActive,
       type: plan.type,
+      allowedModels: plan.allowedModels || [],
     });
     setShowPlanModal(true);
   };
@@ -261,6 +273,18 @@ export default function SubscriptionsPage() {
                                 {plan.quotaType === 'unlimited' ? '无限配额' : `${plan.quotaValue}分钟`}
                               </span>
                             </div>
+                            {plan.allowedModels && plan.allowedModels.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {plan.allowedModels.slice(0, 5).map((model) => (
+                                  <span key={model} className="px-1.5 py-0.5 text-xs bg-blue-50 text-blue-600 rounded border border-blue-100">
+                                    {model}
+                                  </span>
+                                ))}
+                                {plan.allowedModels.length > 5 && (
+                                  <span className="px-1.5 py-0.5 text-xs text-gray-500">+{plan.allowedModels.length - 5}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -494,6 +518,45 @@ export default function SubscriptionsPage() {
                 <SelectItem key="true" value="true">启用</SelectItem>
                 <SelectItem key="false" value="false">禁用</SelectItem>
               </Select>
+
+              {/* 模型选择 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">可用模型</label>
+                <div className="space-y-3 max-h-60 overflow-y-auto border border-gray-200 rounded-xl p-3">
+                  {AVAILABLE_MODELS.map((group) => (
+                    <div key={group.provider}>
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1.5">{group.label}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {group.models.map((model) => (
+                          <button
+                            key={model}
+                            type="button"
+                            onClick={() => {
+                              const current = planForm.allowedModels || [];
+                              const updated = current.includes(model)
+                                ? current.filter((m) => m !== model)
+                                : [...current, model];
+                              setPlanForm({ ...planForm, allowedModels: updated });
+                            }}
+                            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                              (planForm.allowedModels || []).includes(model)
+                                ? 'bg-blue-50 border-blue-300 text-blue-700'
+                                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            {model}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {(planForm.allowedModels || []).length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    已选择 {(planForm.allowedModels || []).length} 个模型
+                  </p>
+                )}
+              </div>
             </div>
           </ModalBody>
           <ModalFooter>
