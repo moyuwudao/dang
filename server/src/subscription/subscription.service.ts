@@ -439,19 +439,20 @@ export class SubscriptionService {
 
   // 创建或更新套餐API策略
   async setPlanApiPolicy(planId: string, provider: string, multiplier: number, modelPattern?: string) {
+    // 使用 planId + provider + modelPattern 作为唯一键，支持同一provider多个模型
+    const searchPattern = modelPattern || '*';
     let policy = await this.planApiPolicyRepository.findOne({
-      where: { planId, provider },
+      where: { planId, provider, modelPattern: searchPattern },
     });
 
     if (policy) {
       policy.multiplier = multiplier;
-      if (modelPattern) policy.modelPattern = modelPattern;
     } else {
       policy = this.planApiPolicyRepository.create({
         planId,
         provider,
         multiplier,
-        modelPattern,
+        modelPattern: searchPattern,
         isAllowed: true,
       });
     }

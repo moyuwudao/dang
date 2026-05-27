@@ -264,24 +264,40 @@ export default function SubscriptionsPage() {
                           <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
                             <Icon className="w-6 h-6 text-blue-600" />
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-800">{plan.name}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-gray-800">{plan.name}</p>
+                              {plan.isRecommended && (
+                                <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">推荐</span>
+                              )}
+                            </div>
                             <p className="text-sm text-gray-500">{plan.description || '-'}</p>
-                            <div className="flex items-center gap-3 mt-1">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
                               <span className="text-sm font-medium text-blue-600">¥{(plan.priceCents / 100).toFixed(0)}/{plan.durationDays}天</span>
                               <span className="text-xs text-gray-400">
                                 {plan.quotaType === 'unlimited' ? '无限配额' : `${plan.quotaValue}分钟`}
                               </span>
+                              <span className="text-xs text-gray-400">ID: {plan.id.slice(0, 8)}</span>
                             </div>
+                            {plan.features && plan.features.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {plan.features.map((feature, idx) => (
+                                  <span key={idx} className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+                                    {feature}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             {plan.allowedModels && plan.allowedModels.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {plan.allowedModels.slice(0, 5).map((model) => (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                <span className="text-xs text-gray-400 mr-1">可用模型:</span>
+                                {plan.allowedModels.slice(0, 8).map((model) => (
                                   <span key={model} className="px-1.5 py-0.5 text-xs bg-blue-50 text-blue-600 rounded border border-blue-100">
                                     {model}
                                   </span>
                                 ))}
-                                {plan.allowedModels.length > 5 && (
-                                  <span className="px-1.5 py-0.5 text-xs text-gray-500">+{plan.allowedModels.length - 5}</span>
+                                {plan.allowedModels.length > 8 && (
+                                  <span className="px-1.5 py-0.5 text-xs text-gray-500">+{plan.allowedModels.length - 8}</span>
                                 )}
                               </div>
                             )}
