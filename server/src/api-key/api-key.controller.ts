@@ -41,6 +41,13 @@ export class ApiKeyController {
     return this.apiKeyService.getApiKeyById(id);
   }
 
+  // 获取已测试通过的健康 API Key 模型列表
+  @Get('admin/healthy-models')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getHealthyModels() {
+    return this.apiKeyService.getHealthyModels();
+  }
+
   @Post('admin/create')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async createApiKey(@Body() dto: CreateApiKeyDto) {
@@ -82,12 +89,5 @@ export class ApiKeyController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async testApiKey(@Param('id') id: string) {
     return this.apiKeyService.testApiKey(id);
-  }
-
-  // 获取已测试通过的健康 API Key 模型列表
-  @Get('admin/healthy-models')
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  async getHealthyModels() {
-    return this.apiKeyService.getHealthyModels();
   }
 }
