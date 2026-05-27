@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import os
+
+code = r'''import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -306,3 +308,11 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
     );
   }
 }
+'''
+
+filepath = r'D:\trae_projects\dang\lib\features\subscription\screens\subscription_mine_screen.dart'
+with open(filepath, 'w', encoding='utf-8') as f:
+    f.write(code)
+
+print(f'File written: {filepath}')
+print(f'Size: {os.path.getsize(filepath)} bytes')
