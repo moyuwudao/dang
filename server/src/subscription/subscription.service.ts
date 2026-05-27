@@ -460,6 +460,10 @@ export class SubscriptionService {
     return this.planApiPolicyRepository.save(policy);
   }
 
+  async deletePlanApiPolicy(policyId: string) {
+    await this.planApiPolicyRepository.delete(policyId);
+  }
+
   // 计算API调用应消耗的配额
   async calculateQuotaConsumption(userId: string, provider: string, model: string): Promise<number> {
     const subscription = await this.subscriptionRepository.findOne({

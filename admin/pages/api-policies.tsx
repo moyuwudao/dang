@@ -233,6 +233,15 @@ export default function ApiPoliciesPage() {
                         color="danger"
                         isIconOnly
                         aria-label="删除"
+                        onClick={async () => {
+                          if (!confirm('确定要删除该策略吗？')) return;
+                          try {
+                            await subscriptionAPI.deletePlanApiPolicy(selectedPlan, policy.id);
+                            fetchPolicies(selectedPlan);
+                          } catch (err: any) {
+                            setError(err.response?.data?.message || '删除失败');
+                          }
+                        }}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

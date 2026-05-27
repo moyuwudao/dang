@@ -158,7 +158,23 @@ export class AdminService {
 
   // 套餐列表
   async getPlans() {
-    return this.planRepo.find({ order: { priceCents: 'ASC' } });
+    const plans = await this.planRepo.find({ order: { priceCents: 'ASC' } });
+    // 为每个套餐获取API策略中的模型列表
+    const plansWithModels = await Promise.all(
+      plans.map(async (plan) => {
+        const policies = await this.planApiPolicyRepo.find({
+          where: { planId: plan.id },
+        });
+        const allowedModels = policies
+          .filter(p => p.modelPattern && p.modelPattern !== '*')
+          .map(p => p.modelPattern);
+        return {
+          ...plan,
+          allowedModels: Array.from(new Set(allowedModels)),
+        };
+      }),
+    );
+    return plansWithModels;
   }
 
   // 创建套餐

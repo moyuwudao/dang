@@ -42,6 +42,16 @@ export class SubscriptionController {
     return { code: 200, message: 'success', data: policy };
   }
 
+  @Delete('plans/:planId/policies/:policyId')
+  @UseGuards(JwtAuthGuard)
+  async deletePlanApiPolicy(
+    @Param('planId') planId: string,
+    @Param('policyId') policyId: string,
+  ) {
+    await this.subscriptionService.deletePlanApiPolicy(policyId);
+    return { code: 200, message: 'success' };
+  }
+
   @Get('plans')
   async getPlans(@Query('type') type?: string) {
     return this.subscriptionService.getPlans(type);

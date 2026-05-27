@@ -208,6 +208,10 @@ export const subscriptionAPI = {
     const response = await axiosInstance.post<ApiResponse<any>>(`/subscription/plans/${planId}/policies`, data);
     return response.data.data;
   },
+
+  deletePlanApiPolicy: async (planId: string, policyId: string): Promise<void> => {
+    await axiosInstance.delete(`/subscription/plans/${planId}/policies/${policyId}`);
+  },
 };
 
 export const apiKeyAPI = {
