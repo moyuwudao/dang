@@ -3,6 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
+import { createReadStream, unlink } from 'fs';
 import { ApiKeyService } from '../api-key/api-key.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { RedisService } from '../redis/redis.service';
@@ -108,16 +109,128 @@ export class AiService {
   }
 
   async transcribe(userId: string, params: {
-    audioUrl: string;
+    audioPath: string;
     provider?: string;
     language?: string;
   }) {
-    // 语音转写逻辑（类似 chat）
-    // 这里简化处理，实际需要根据具体 API 实现
-    return this.chat(userId, {
-      messages: [{ role: 'user', content: `转写音频: ${params.audioUrl}` }],
-      provider: params.provider,
-    });
+    const subscription = await this.subscriptionService.getSubscription(userId);
+    if (!subscription.data || subscription.data.status !== 'active') {
+      throw new HttpException('订阅已过期，请充值', 402);
+    }
+
+    const apiKeyResult = await this.apiKeyService.getApiKey(userId);
+    if (!apiKeyResult.data?.apiKey) {
+      throw new HttpException('未分配 API Key', 500);
+    }
+
+    const apiKey = apiKeyResult.data;
+    const balance = subscription.data.remainingQuota || 0;
+    const estimatedQuota = 1;
+
+    if (balance < estimatedQuota) {
+      throw new HttpException('配额不足，请充值', 402);
+    }
+
+    try {
+      const response = await this.callTranscriptionApi(apiKey, params);
+
+      const quotaConsumed = await this.calculateQuotaConsumed(
+        userId,
+        apiKey.provider,
+        'transcription',
+        1,
+      );
+
+      await this.subscriptionService.updateQuotaUsage(userId, quotaConsumed);
+
+      await this.logApiUsage({
+        userId,
+        subscriptionId: subscription.data.planId,
+        apiKeyId: apiKey.provider,
+        provider: apiKey.provider,
+        model: 'transcription',
+        promptTokens: 0,
+        completionTokens: response.duration || 0,
+        quotaConsumed,
+      });
+
+      unlink(params.audioPath, () => {});
+
+      return {
+        code: 200,
+        message: 'success',
+        data: {
+          text: response.text || '',
+          duration: response.duration || 0,
+          provider: apiKey.provider,
+        },
+        usage: {
+          quotaConsumed,
+          remainingQuota: balance - quotaConsumed,
+        },
+      };
+    } catch (error) {
+      unlink(params.audioPath, () => {});
+      throw new HttpException(
+        `转写服务调用失败: ${error.message}`,
+        error.status || 500,
+      );
+    }
+  }
+
+  private async callTranscriptionApi(apiKey: any, params: {
+    audioPath: string;
+    language?: string;
+  }) {
+    const url = apiKey.baseUrl || this.getDefaultBaseUrl(apiKey.provider);
+    
+    const formData = new (await import('form-data')).default();
+    formData.append('file', createReadStream(params.audioPath));
+    if (params.language) {
+      formData.append('language', params.language);
+    }
+
+    let response;
+    switch (apiKey.provider) {
+      case 'qwen':
+        response = await firstValueFrom(
+          this.httpService.post(
+            `${url}/asr/v1/recognize`,
+            formData,
+            {
+              headers: {
+                'Authorization': `Bearer ${apiKey.apiKey}`,
+                ...formData.getHeaders(),
+              },
+              timeout: 120000,
+            },
+          ),
+        );
+        return {
+          text: response.data.result?.sentence || response.data.data?.text || '',
+          duration: response.data.duration || 0,
+        };
+      case 'openai':
+        response = await firstValueFrom(
+          this.httpService.post(
+            `${url}/v1/audio/transcriptions`,
+            formData,
+            {
+              headers: {
+                'Authorization': `Bearer ${apiKey.apiKey}`,
+                ...formData.getHeaders(),
+              },
+              timeout: 120000,
+            },
+          ),
+        );
+        return {
+          text: response.data.text || '',
+          duration: response.data.duration || 0,
+        };
+      default:
+        throw new HttpException(`不支持的转写提供商: ${apiKey.provider}`, 400);
+    }
   }
 
   async getUsage(userId: string, startDate?: string, endDate?: string) {
