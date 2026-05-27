@@ -244,6 +244,11 @@ export const apiKeyAPI = {
     const response = await axiosInstance.post<ApiResponse<any[]>>(`/api-key/admin/batch`, keys);
     return response.data.data;
   },
+
+  getHealthyModels: async (): Promise<any[]> => {
+    const response = await axiosInstance.get<ApiResponse<any[]>>(`/api-key/admin/healthy-models`);
+    return response.data.data;
+  },
 };
 
 export const monitorAPI = {

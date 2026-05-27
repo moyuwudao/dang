@@ -519,43 +519,12 @@ export default function SubscriptionsPage() {
                 <SelectItem key="false" value="false">禁用</SelectItem>
               </Select>
 
-              {/* 模型选择 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">可用模型</label>
-                <div className="space-y-3 max-h-60 overflow-y-auto border border-gray-200 rounded-xl p-3">
-                  {AVAILABLE_MODELS.map((group) => (
-                    <div key={group.provider}>
-                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1.5">{group.label}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {group.models.map((model) => (
-                          <button
-                            key={model}
-                            type="button"
-                            onClick={() => {
-                              const current = planForm.allowedModels || [];
-                              const updated = current.includes(model)
-                                ? current.filter((m) => m !== model)
-                                : [...current, model];
-                              setPlanForm({ ...planForm, allowedModels: updated });
-                            }}
-                            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                              (planForm.allowedModels || []).includes(model)
-                                ? 'bg-blue-50 border-blue-300 text-blue-700'
-                                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                            }`}
-                          >
-                            {model}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {(planForm.allowedModels || []).length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1.5">
-                    已选择 {(planForm.allowedModels || []).length} 个模型
-                  </p>
-                )}
+              {/* 提示：可用模型在API系数配置中设置 */}
+              <div className="p-3 bg-blue-50 rounded-xl">
+                <p className="text-sm text-blue-700 font-medium">可用模型配置</p>
+                <p className="text-xs text-blue-500 mt-1">
+                  套餐可用模型在「API系数配置」页面中设置，选择已测试通过的模型并配置消耗倍数。
+                </p>
               </div>
             </div>
           </ModalBody>

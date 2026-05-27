@@ -21,7 +21,7 @@ import {
   ModalFooter,
   useDisclosure,
 } from '@nextui-org/react';
-import { Save, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { Save, Plus, Trash2, AlertCircle, Check } from 'lucide-react';
 
 interface ApiPolicy {
   id: string;
@@ -38,20 +38,21 @@ interface PlanItem {
   type?: string;
 }
 
-interface ApiKeyModel {
+interface HealthyModel {
+  id: string;
   provider: string;
+  name: string;
   model: string;
 }
 
-const PROVIDER_OPTIONS = [
-  { key: 'qwen', label: '通义千问' },
-  { key: 'deepseek', label: 'DeepSeek' },
-  { key: 'openai', label: 'OpenAI' },
-  { key: 'anthropic', label: 'Anthropic' },
-  { key: 'gemini', label: 'Gemini' },
-  { key: 'grok', label: 'Grok' },
-  { key: 'all', label: '全部' },
-];
+const PROVIDER_LABELS: Record<string, string> = {
+  qwen: '通义千问',
+  deepseek: 'DeepSeek',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  gemini: 'Gemini',
+  grok: 'Grok',
+};
 
 export default function ApiPoliciesPage() {
   const [plans, setPlans] = useState<PlanItem[]>([]);
@@ -61,12 +62,12 @@ export default function ApiPoliciesPage() {
   const [error, setError] = useState<string | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [editingPolicy, setEditingPolicy] = useState<Partial<ApiPolicy>>({});
-  const [apiKeyModels, setApiKeyModels] = useState<ApiKeyModel[]>([]);
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [healthyModels, setHealthyModels] = useState<HealthyModel[]>([]);
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
 
   useEffect(() => {
     fetchPlans();
-    fetchApiKeyModels();
+    fetchHealthyModels();
   }, []);
 
   useEffect(() => {
@@ -74,17 +75,6 @@ export default function ApiPoliciesPage() {
       fetchPolicies(selectedPlan);
     }
   }, [selectedPlan]);
-
-  useEffect(() => {
-    if (editingPolicy.provider) {
-      const models = apiKeyModels
-        .filter(m => m.provider === editingPolicy.provider)
-        .map(m => m.model);
-      setAvailableModels(Array.from(new Set(models)));
-    } else {
-      setAvailableModels([]);
-    }
-  }, [editingPolicy.provider, apiKeyModels]);
 
   const fetchPlans = async () => {
     try {
@@ -98,13 +88,12 @@ export default function ApiPoliciesPage() {
     }
   };
 
-  const fetchApiKeyModels = async () => {
+  const fetchHealthyModels = async () => {
     try {
-      const keys = await apiKeyAPI.getApiKeys();
-      const models = keys.map((k: any) => ({ provider: k.provider, model: k.model }));
-      setApiKeyModels(models);
+      const data = await apiKeyAPI.getHealthyModels();
+      setHealthyModels(data);
     } catch (err: any) {
-      console.error('获取API Key模型失败:', err);
+      console.error('获取健康模型失败:', err);
     }
   };
 
@@ -126,14 +115,18 @@ export default function ApiPoliciesPage() {
       return;
     }
     try {
-      await subscriptionAPI.updatePlanApiPolicy(selectedPlan, editingPolicy.modelPattern || '*', {
-        provider: editingPolicy.provider,
-        multiplier: editingPolicy.multiplier,
-        modelPattern: editingPolicy.modelPattern || '*',
-      });
+      // 为每个选中的模型创建策略
+      for (const model of selectedModels) {
+        await subscriptionAPI.updatePlanApiPolicy(selectedPlan, model, {
+          provider: editingPolicy.provider,
+          multiplier: editingPolicy.multiplier,
+          modelPattern: model,
+        });
+      }
       onClose();
       fetchPolicies(selectedPlan);
       setEditingPolicy({});
+      setSelectedModels([]);
     } catch (err: any) {
       setError(err.response?.data?.message || '保存失败');
     }
@@ -141,12 +134,22 @@ export default function ApiPoliciesPage() {
 
   const openAdd = () => {
     setEditingPolicy({
-      provider: 'qwen',
+      provider: '',
       multiplier: 1.0,
       isAllowed: true,
     });
+    setSelectedModels([]);
     onOpen();
   };
+
+  // 按提供商分组的健康模型
+  const modelsByProvider = healthyModels.reduce((acc, model) => {
+    if (!acc[model.provider]) {
+      acc[model.provider] = [];
+    }
+    acc[model.provider].push(model);
+    return acc;
+  }, {} as Record<string, HealthyModel[]>);
 
   return (
     <Layout currentPage="api-policies">
@@ -155,7 +158,7 @@ export default function ApiPoliciesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">API 系数配置</h1>
-            <p className="text-gray-500 mt-1">配置不同套餐的API使用策略和配额消耗倍数</p>
+            <p className="text-gray-500 mt-1">配置不同套餐的API使用策略和配额消耗倍数（仅显示已测试通过的模型）</p>
           </div>
           <Button
             color="primary"
@@ -201,7 +204,7 @@ export default function ApiPoliciesPage() {
             <Table aria-label="API策略列表">
               <TableHeader>
                 <TableColumn>提供商</TableColumn>
-                <TableColumn>模型匹配</TableColumn>
+                <TableColumn>模型</TableColumn>
                 <TableColumn>消耗倍数</TableColumn>
                 <TableColumn>状态</TableColumn>
                 <TableColumn>操作</TableColumn>
@@ -210,7 +213,7 @@ export default function ApiPoliciesPage() {
                 {policies?.map((policy) => (
                   <TableRow key={policy.id}>
                     <TableCell>
-                      {PROVIDER_OPTIONS.find(p => p.key === policy.provider)?.label || policy.provider}
+                      {PROVIDER_LABELS[policy.provider] || policy.provider}
                     </TableCell>
                     <TableCell>{policy.modelPattern || '全部'}</TableCell>
                     <TableCell>
@@ -278,39 +281,66 @@ export default function ApiPoliciesPage() {
           <ModalHeader>配置API策略</ModalHeader>
           <ModalBody>
             <div className="space-y-4">
-              <Select
-                label="提供商"
-                selectedKeys={[editingPolicy.provider || 'qwen']}
-                onChange={(e) => setEditingPolicy({ ...editingPolicy, provider: e.target.value, modelPattern: undefined })}
-                classNames={{ trigger: 'rounded-xl' }}
-              >
-                {PROVIDER_OPTIONS.map((p) => (
-                  <SelectItem key={p.key} value={p.key}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </Select>
+              <div className="p-3 bg-blue-50 rounded-xl">
+                <p className="text-sm text-blue-700 font-medium">选择模型（仅显示已测试通过的API Key）</p>
+                <p className="text-xs text-blue-500 mt-1">未测试通过的模型不会显示在列表中</p>
+              </div>
 
-              <Select
-                label="模型（从API Key自动匹配）"
-                selectedKeys={[editingPolicy.modelPattern || '']}
-                onChange={(e) => setEditingPolicy({ ...editingPolicy, modelPattern: e.target.value })}
-                classNames={{ trigger: 'rounded-xl' }}
-              >
-                {(['', ...availableModels] as string[]).map((model) => (
-                  <SelectItem key={model} value={model}>
-                    {model || '全部模型'}
-                  </SelectItem>
+              {/* 按提供商分组显示模型 */}
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {Object.entries(modelsByProvider).map(([provider, models]) => (
+                  <div key={provider} className="border border-gray-200 rounded-xl p-3">
+                    <p className="text-sm font-semibold text-gray-700 mb-2">
+                      {PROVIDER_LABELS[provider] || provider}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {models.map((model) => (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() => {
+                            const modelKey = `${model.provider}:${model.model}`;
+                            setSelectedModels((prev) =>
+                              prev.includes(modelKey)
+                                ? prev.filter((m) => m !== modelKey)
+                                : [...prev, modelKey]
+                            );
+                            // 自动设置提供商
+                            if (!editingPolicy.provider) {
+                              setEditingPolicy({ ...editingPolicy, provider });
+                            }
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                            selectedModels.includes(`${model.provider}:${model.model}`)
+                              ? 'bg-blue-50 border-blue-300 text-blue-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {selectedModels.includes(`${model.provider}:${model.model}`) && (
+                            <Check className="w-3 h-3" />
+                          )}
+                          {model.model}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
-              </Select>
 
-              <Input
-                label="或手动输入模型匹配规则"
-                placeholder="如：qwen-* 或 gpt-4o"
-                value={editingPolicy.modelPattern || ''}
-                onChange={(e) => setEditingPolicy({ ...editingPolicy, modelPattern: e.target.value })}
-                classNames={{ inputWrapper: 'rounded-xl' }}
-              />
+                {healthyModels.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>暂无已测试通过的模型</p>
+                    <p className="text-sm mt-1">请先在 API Key 管理中测试API连通性</p>
+                  </div>
+                )}
+              </div>
+
+              {selectedModels.length > 0 && (
+                <div className="p-3 bg-green-50 rounded-xl">
+                  <p className="text-sm text-green-700">
+                    已选择 {selectedModels.length} 个模型
+                  </p>
+                </div>
+              )}
 
               <Input
                 label="消耗倍数"
@@ -326,7 +356,13 @@ export default function ApiPoliciesPage() {
             <Button variant="light" onClick={onClose}>
               取消
             </Button>
-            <Button color="primary" className="bg-blue-600" onClick={handleSave} startContent={<Save className="w-4 h-4" />}>
+            <Button
+              color="primary"
+              className="bg-blue-600"
+              onClick={handleSave}
+              isDisabled={selectedModels.length === 0}
+              startContent={<Save className="w-4 h-4" />}
+            >
               保存
             </Button>
           </ModalFooter>

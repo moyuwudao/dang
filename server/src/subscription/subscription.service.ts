@@ -95,10 +95,26 @@ export class SubscriptionService {
 
     const plans = await this.planRepository.find({ where });
 
+    // 为每个套餐获取API策略中的模型列表
+    const plansWithModels = await Promise.all(
+      plans.map(async (plan) => {
+        const policies = await this.planApiPolicyRepository.find({
+          where: { planId: plan.id },
+        });
+        const allowedModels = policies
+          .filter(p => p.modelPattern && p.modelPattern !== '*')
+          .map(p => p.modelPattern);
+        return {
+          ...plan,
+          allowedModels: Array.from(new Set(allowedModels)),
+        };
+      }),
+    );
+
     return {
       code: 200,
       message: 'success',
-      data: plans,
+      data: plansWithModels,
     };
   }
 

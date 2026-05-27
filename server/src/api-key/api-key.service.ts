@@ -254,6 +254,30 @@ export class ApiKeyService {
     }
   }
 
+  // 获取已测试通过的健康 API Key 模型列表
+  async getHealthyModels() {
+    const keys = await this.apiKeyRepository.find({
+      where: {
+        status: ApiKeyStatus.ACTIVE,
+        lastHealthCheckStatus: 'healthy',
+      },
+    });
+
+    const models = keys.map(k => ({
+      id: k.id,
+      provider: k.provider,
+      name: k.name,
+      model: k.model,
+      lastHealthCheckAt: k.lastHealthCheckAt,
+    }));
+
+    return {
+      code: 200,
+      message: 'success',
+      data: models,
+    };
+  }
+
   async getApiKeyStats() {
     const totalKeys = await this.apiKeyRepository.count();
     const activeKeys = await this.apiKeyRepository.count({ where: { status: ApiKeyStatus.ACTIVE } });
