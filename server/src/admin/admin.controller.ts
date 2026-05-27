@@ -34,6 +34,12 @@ export class AdminController {
     return { code: 200, message: '创建成功', data: result };
   }
 
+  @Get('users/:id')
+  async getUserById(@Param('id') id: string) {
+    const result = await this.adminService.getUserById(id);
+    return { code: 200, message: 'success', data: result };
+  }
+
   @Put('users/:id')
   async updateUser(@Param('id') id: string, @Body() data: any) {
     const result = await this.adminService.updateUser(id, data);

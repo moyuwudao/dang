@@ -147,6 +147,11 @@ export class AdminService {
     return user;
   }
 
+  // 获取用户详情
+  async getUserById(userId: string) {
+    return this.userRepo.findOne({ where: { id: userId } });
+  }
+
   // 更新用户
   async updateUser(userId: string, data: Partial<User>) {
     await this.userRepo.update(userId, data);
