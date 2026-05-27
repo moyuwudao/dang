@@ -35,17 +35,17 @@ export class ApiKeyController {
     return this.apiKeyService.getApiKeyStats();
   }
 
-  @Get('admin/:id')
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  async getApiKeyById(@Param('id') id: string) {
-    return this.apiKeyService.getApiKeyById(id);
-  }
-
-  // 获取已测试通过的健康 API Key 模型列表
+  // 获取已测试通过的健康 API Key 模型列表（必须放在 admin/:id 之前）
   @Get('admin/healthy-models')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async getHealthyModels() {
     return this.apiKeyService.getHealthyModels();
+  }
+
+  @Get('admin/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getApiKeyById(@Param('id') id: string) {
+    return this.apiKeyService.getApiKeyById(id);
   }
 
   @Post('admin/create')
