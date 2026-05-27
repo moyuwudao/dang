@@ -112,7 +112,9 @@ export default function SubscriptionsPage() {
   const handleUpdatePlan = async () => {
     if (!editingPlan) return;
     try {
-      await adminAPI.updatePlan(editingPlan.id, planForm);
+      // 只提交套餐基本信息，allowedModels 由 API 策略自动管理
+      const { allowedModels, ...planData } = planForm;
+      await adminAPI.updatePlan(editingPlan.id, planData);
       setShowPlanModal(false);
       setEditingPlan(null);
       setPlanForm({ ...emptyPlan });

@@ -22,8 +22,12 @@ class SubscriptionMineScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
+            onPressed: () async {
+              await ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
+              // 同时刷新套餐列表
+              ref.invalidate(subscriptionPlansProvider);
+              ref.invalidate(packagePlansProvider);
+              ref.invalidate(userBalanceProvider);
             },
           ),
         ],
@@ -31,6 +35,10 @@ class SubscriptionMineScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
+          // 同时刷新套餐列表和余额
+          ref.invalidate(subscriptionPlansProvider);
+          ref.invalidate(packagePlansProvider);
+          ref.invalidate(userBalanceProvider);
         },
         child: ListView(
           padding: const EdgeInsets.all(16),
