@@ -71,16 +71,13 @@ export default function ServerMonitorPage() {
     setError(null);
     try {
       const [systemRes, servicesRes] = await Promise.all([
-        monitorAPI.getSystemInfo().catch(() => MOCK_SYSTEM_INFO),
-        monitorAPI.getServices().catch(() => MOCK_SERVICES),
+        monitorAPI.getSystemInfo(),
+        monitorAPI.getServices(),
       ]);
       setSystemInfo(systemRes);
       setServices(servicesRes);
     } catch (err: any) {
       setError(err.response?.data?.message || '加载数据失败');
-      // 使用模拟数据作为后备
-      setSystemInfo(MOCK_SYSTEM_INFO);
-      setServices(MOCK_SERVICES);
     } finally {
       setLoading(false);
     }
