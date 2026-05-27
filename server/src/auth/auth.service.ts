@@ -217,7 +217,9 @@ export class AuthService {
     return {
       code: 200,
       message: 'success',
-      data: this.sanitizeUser(user),
+      data: {
+        user: this.sanitizeUser(user),
+      },
     };
   }
 
