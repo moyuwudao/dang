@@ -12,6 +12,7 @@ import { ApiKey } from '../api-key/entities/api-key.entity';
 import { UserBalance } from '../subscription/entities/user-balance.entity';
 import { RechargeRecord } from '../subscription/entities/recharge-record.entity';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
+import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 import { AuditLog } from './entities/audit-log.entity';
 
 @Module({
@@ -24,6 +25,7 @@ import { AuditLog } from './entities/audit-log.entity';
       UserBalance,
       RechargeRecord,
       ApiUsageLog,
+      PlanApiPolicy,
       AuditLog,
     ]),
     AuthModule,
