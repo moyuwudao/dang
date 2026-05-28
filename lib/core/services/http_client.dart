@@ -242,4 +242,14 @@ class HttpClient {
       options: options,
     );
   }
+
+  void clear() {
+    _currentConfig = null;
+    _apiKey = null;
+    _appId = null;
+    _accessKeySecret = null;
+    _isConfigured = false;
+    _dio.options.baseUrl = '';
+    _dio.options.headers = {};
+  }
 }

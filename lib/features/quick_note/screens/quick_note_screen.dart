@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/expandable_text_field.dart';
 import '../../../core/widgets/tag_selector.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../records/providers/record_provider.dart';
 import '../providers/quick_note_provider.dart';
 
 class QuickNoteScreen extends ConsumerStatefulWidget {
@@ -36,6 +37,9 @@ class _QuickNoteScreenState extends ConsumerState<QuickNoteScreen> {
 
     try {
       await ref.read(quickNoteProvider.notifier).saveNote(content, _tags);
+
+      // 刷新首页列表
+      ref.invalidate(paginatedRecordsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

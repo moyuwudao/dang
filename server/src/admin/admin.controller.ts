@@ -162,4 +162,26 @@ export class AdminController {
     const data = await this.adminService.getRevenueStats(startDate, endDate);
     return { code: 200, message: 'success', data };
   }
+
+  // 套餐场景默认模型配置
+  @Get('plans/:id/default-configs')
+  async getPlanDefaultConfigs(@Param('id') planId: string) {
+    const data = await this.adminService.getPlanDefaultConfigs(planId);
+    return { code: 200, message: 'success', data };
+  }
+
+  @Post('plans/:id/default-configs')
+  async setPlanDefaultConfig(
+    @Param('id') planId: string,
+    @Body() data: { functionType: string; modelPattern: string; isActive?: boolean },
+  ) {
+    const result = await this.adminService.setPlanDefaultConfig(planId, data);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  @Delete('plans/default-configs/:configId')
+  async deletePlanDefaultConfig(@Param('configId') configId: string) {
+    await this.adminService.deletePlanDefaultConfig(configId);
+    return { code: 200, message: 'success', data: null };
+  }
 }

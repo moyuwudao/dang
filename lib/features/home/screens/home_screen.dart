@@ -271,6 +271,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           transcriptionStatus: TranscriptionStatus.none,
         );
 
+        // 刷新列表
+        ref.invalidate(paginatedRecordsProvider);
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

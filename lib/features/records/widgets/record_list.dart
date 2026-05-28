@@ -52,7 +52,8 @@ class _RecordListState extends ConsumerState<RecordList> {
         }
         return RefreshIndicator(
           onRefresh: () async {
-            ref.read(paginatedRecordsProvider.notifier).reset();
+            ref.invalidate(paginatedRecordsProvider);
+            await ref.read(paginatedRecordsProvider.future);
           },
           child: ListView.builder(
             controller: _scrollController,

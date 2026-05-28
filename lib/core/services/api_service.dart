@@ -10,6 +10,7 @@ import '../models/ai_model_config.dart';
 import '../models/realtime_transcription_result.dart';
 import 'app_logger.dart';
 import 'http_client.dart';
+import 'secure_storage_service.dart';
 import 'transcription_service.dart';
 import 'realtime_transcription_service.dart';
 import 'text_analysis_service.dart';
@@ -63,6 +64,79 @@ class ApiService {
       appId: appId,
       accessKeySecret: accessKeySecret,
     );
+  }
+
+  Future<void> configureFromServer(Map<String, dynamic> data) async {
+    final provider = data['provider'] as String?;
+    final apiKey = data['apiKey'] as String?;
+    final baseUrl = data['baseUrl'] as String?;
+    final model = data['model'] as String?;
+
+    if (provider == null || apiKey == null) {
+      AppLogger().w('ApiService', '缺少 provider 或 apiKey');
+      return;
+    }
+
+    final providerConfig = AiModelConfig.getConfigByName(provider);
+    if (providerConfig == null) {
+      AppLogger().w('ApiService', '未知的 provider: $provider');
+      return;
+    }
+
+    // 配置运行时 HttpClient
+    configure(
+      apiKey: apiKey,
+      config: providerConfig,
+      customBaseUrl: baseUrl,
+    );
+
+    // 云端配置独立存储到 SecureStorage，不覆盖本地配置
+    final cloudConfigJson = jsonEncode({
+      'provider': provider,
+      'apiKey': apiKey,
+      'baseUrl': baseUrl,
+      'model': model ?? providerConfig.defaultModel,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+    await SecureStorageService().write('cloud_api_config', cloudConfigJson);
+
+    AppLogger().i('ApiService', '已从服务器配置云端 API: provider=$provider（独立存储，不覆盖本地）');
+  }
+
+  /// 加载云端 API 配置（应用启动时调用）
+  Future<bool> loadCloudApiConfig() async {
+    try {
+      final jsonStr = await SecureStorageService().read('cloud_api_config');
+      if (jsonStr == null) return false;
+
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final provider = data['provider'] as String?;
+      final apiKey = data['apiKey'] as String?;
+      final baseUrl = data['baseUrl'] as String?;
+
+      if (provider == null || apiKey == null) return false;
+
+      final providerConfig = AiModelConfig.getConfigByName(provider);
+      if (providerConfig == null) return false;
+
+      configure(
+        apiKey: apiKey,
+        config: providerConfig,
+        customBaseUrl: baseUrl,
+      );
+
+      AppLogger().i('ApiService', '已加载云端 API 配置: provider=$provider');
+      return true;
+    } catch (e) {
+      AppLogger().w('ApiService', '加载云端 API 配置失败: $e');
+      return false;
+    }
+  }
+
+  /// 清除云端 API 配置（登出时调用）
+  Future<void> clearCloudApiConfig() async {
+    await SecureStorageService().delete('cloud_api_config');
+    AppLogger().i('ApiService', '已彻底删除云端 API 配置');
   }
 
   Future<bool> validateApiKey() async {
@@ -121,6 +195,10 @@ class ApiService {
 
   Future<String> recognizeImage(String imagePath, {String? model}) async {
     return await _imageRecognitionService.recognizeImage(imagePath, model: model);
+  }
+
+  void clear() {
+    _httpClient.clear();
   }
 
   // Legacy method for backward compatibility

@@ -521,8 +521,15 @@ class AccountCenterTab extends ConsumerWidget {
     final authAsync = ref.watch(authNotifierProvider);
     final authState = authAsync.valueOrNull ?? const AuthState();
     final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
-    final subscriptionState = subscriptionAsync.valueOrNull ?? const SubscriptionState();
 
+    return subscriptionAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => _buildContent(context, ref, authState, const SubscriptionState(), l10n),
+      data: (subscriptionState) => _buildContent(context, ref, authState, subscriptionState, l10n),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, WidgetRef ref, AuthState authState, SubscriptionState subscriptionState, AppLocalizations l10n) {
     return ListView(
       children: [
         _buildUserCard(context, authState, l10n),
@@ -595,10 +602,10 @@ class AccountCenterTab extends ConsumerWidget {
                     : l10n.cloudAiServiceNotLoggedIn,
               ),
               trailing: Switch(
-                value: ref.watch(cloudApiEnabledProvider) && authState.isLoggedIn,
+                value: (ref.watch(cloudApiEnabledProvider).valueOrNull ?? false) && authState.isLoggedIn,
                 onChanged: authState.isLoggedIn
                     ? (value) {
-                        ref.read(cloudApiEnabledProvider.notifier).state = value;
+                        ref.read(cloudApiEnabledProvider.notifier).setEnabled(value);
                       }
                     : null,
               ),

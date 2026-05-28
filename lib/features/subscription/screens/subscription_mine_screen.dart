@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../providers/subscription_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class SubscriptionMineScreen extends ConsumerStatefulWidget {
   const SubscriptionMineScreen({super.key});
@@ -12,6 +13,9 @@ class SubscriptionMineScreen extends ConsumerStatefulWidget {
 }
 
 class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen> {
+  bool _hasLoggedOut = false;
+  bool _isFirstLoad = true;
+
   @override
   void initState() {
     super.initState();
@@ -20,18 +24,41 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    ref.listen(
+      authNotifierProvider,
+      (previous, next) {
+        final wasLoggedIn = previous?.valueOrNull?.isLoggedIn ?? false;
+        final isLoggedIn = next.valueOrNull?.isLoggedIn ?? false;
+        
+        if (isLoggedIn && !wasLoggedIn) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            _refreshData();
+          });
+        } else if (!isLoggedIn && wasLoggedIn) {
+          _hasLoggedOut = true;
+        }
+      },
+    );
+  }
+
   Future<void> _refreshData() async {
-    await ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
-    ref.invalidate(subscriptionPlansProvider);
-    ref.invalidate(packagePlansProvider);
-    ref.invalidate(userBalanceProvider);
+    if (_hasLoggedOut) {
+      _hasLoggedOut = false;
+    }
+    try {
+      ref.invalidate(subscriptionNotifierProvider);
+      ref.invalidate(subscriptionPlansProvider);
+      ref.invalidate(packagePlansProvider);
+      ref.invalidate(userBalanceProvider);
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
-    final subscriptionState = subscriptionAsync.valueOrNull ?? const SubscriptionState();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -48,32 +75,38 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
       ),
       body: RefreshIndicator(
         onRefresh: _refreshData,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildCurrentPlanCard(context, subscriptionState, l10n),
-            const SizedBox(height: 24),
-            Text(
-              l10n.quotaDetails,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildQuotaCard(context, subscriptionState, l10n),
-            const SizedBox(height: 24),
-            const Text(
-              'API 配置',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildApiPoliciesCard(context, subscriptionState, l10n),
-            const SizedBox(height: 100),
-          ],
+        child: ref.watch(subscriptionNotifierProvider).when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildCurrentPlanCard(context, const SubscriptionState(), l10n),
+              const SizedBox(height: 24),
+              Text(l10n.quotaDetails, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _buildQuotaCard(context, const SubscriptionState(), l10n),
+              const SizedBox(height: 24),
+              const Text('API 配置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _buildApiPoliciesCard(context, const SubscriptionState(), l10n),
+              const SizedBox(height: 100),
+            ],
+          ),
+          data: (subscriptionState) => ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildCurrentPlanCard(context, subscriptionState, l10n),
+              const SizedBox(height: 24),
+              Text(l10n.quotaDetails, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _buildQuotaCard(context, subscriptionState, l10n),
+              const SizedBox(height: 24),
+              const Text('API 配置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _buildApiPoliciesCard(context, subscriptionState, l10n),
+              const SizedBox(height: 100),
+            ],
+          ),
         ),
       ),
     );

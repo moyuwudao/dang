@@ -13,6 +13,7 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/app_logger.dart';
 import '../../../data/models/record_model.dart';
 import '../../../data/repositories/record_repository.dart';
+import '../../records/providers/record_provider.dart';
 
 final recordingServiceProvider = Provider<RecordingService>((ref) {
   return RecordingService();
@@ -346,6 +347,9 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
         );
 
         AppLogger().i('Recording', 'Record saved with ID: $recordId, added to transcription queue');
+
+        // 刷新首页列表
+        ref.invalidate(paginatedRecordsProvider);
 
         // 如果开启了实时转写，保存实时转写结果到记录
         if (state.valueOrNull!.isRealtimeEnabled && state.valueOrNull!.realtimeText != null && state.valueOrNull!.realtimeText!.isNotEmpty) {

@@ -13,6 +13,7 @@ class SecureStorageService {
   static const String _cloudRefreshTokenKey = 'secure_cloud_refresh_token';
   static const String _encryptionKeyKey = 'secure_encryption_key';
   static const String _webdavPasswordKey = 'secure_webdav_password';
+  static const String _cloudApiEnabledKey = 'secure_cloud_api_enabled';
 
   Future<void> saveApiKey(String apiKey) async {
     await _storage.write(key: _apiKeyKey, value: apiKey);
@@ -82,6 +83,19 @@ class SecureStorageService {
     await _storage.delete(key: _webdavPasswordKey);
   }
 
+  Future<void> saveCloudApiEnabled(bool enabled) async {
+    await _storage.write(key: _cloudApiEnabledKey, value: enabled.toString());
+  }
+
+  Future<bool> getCloudApiEnabled() async {
+    final value = await _storage.read(key: _cloudApiEnabledKey);
+    return value == 'true';
+  }
+
+  Future<void> deleteCloudApiEnabled() async {
+    await _storage.delete(key: _cloudApiEnabledKey);
+  }
+
   Future<void> clearAll() async {
     await _storage.deleteAll();
   }
@@ -92,6 +106,10 @@ class SecureStorageService {
 
   Future<void> write(String key, String value) async {
     await _storage.write(key: key, value: value);
+  }
+
+  Future<void> delete(String key) async {
+    await _storage.delete(key: key);
   }
 
   String _bytesToBase64(List<int> bytes) {

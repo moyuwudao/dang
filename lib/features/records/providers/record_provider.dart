@@ -21,6 +21,7 @@ class PaginatedRecordsNotifier extends AsyncNotifier<List<RecordModel>> {
   int _currentPage = 0;
   bool _hasMore = true;
   bool _isLoading = false;
+  bool _isResetting = false;
 
   RecordRepository get _repository => ref.read(recordRepositoryProvider);
 
@@ -29,7 +30,31 @@ class PaginatedRecordsNotifier extends AsyncNotifier<List<RecordModel>> {
     _currentPage = 0;
     _hasMore = true;
     _isLoading = false;
-    return _loadMoreInternal();
+    return _fetchPage(0);
+  }
+
+  Future<List<RecordModel>> _fetchPage(int page) async {
+    if (_isLoading || !_hasMore) return state.valueOrNull ?? [];
+
+    _isLoading = true;
+
+    try {
+      final newRecords = await _repository.getRecordsWithPagination(
+        page * _pageSize,
+        _pageSize,
+      );
+
+      if (newRecords.length < _pageSize) {
+        _hasMore = false;
+      }
+
+      _currentPage = page + 1;
+      return newRecords;
+    } catch (e, stack) {
+      throw AsyncError(e, stack);
+    } finally {
+      _isLoading = false;
+    }
   }
 
   Future<List<RecordModel>> _loadMoreInternal() async {
@@ -85,15 +110,19 @@ class PaginatedRecordsNotifier extends AsyncNotifier<List<RecordModel>> {
   bool get isLoading => _isLoading;
 
   Future<void> reset() async {
+    if (_isResetting) return;
+    _isResetting = true;
     state = const AsyncLoading();
     try {
       _currentPage = 0;
       _hasMore = true;
       _isLoading = false;
-      final records = await _loadMoreInternal();
+      final records = await _fetchPage(0);
       state = AsyncData(records);
     } catch (e, stack) {
       state = AsyncError(e, stack);
+    } finally {
+      _isResetting = false;
     }
   }
 }

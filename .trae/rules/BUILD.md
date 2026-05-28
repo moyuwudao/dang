@@ -36,20 +36,26 @@ description: 构建流程规范 - APK 构建、测试构建、清理缓存
 | 使用 Windows copy/Copy-Item 复制 APK | 复制缓存文件，APK 不是最新 |
 | 跳过 flutter clean | 增量编译问题，构建不一致 |
 | 未验证 APK 时间戳 | 可能交付错误版本 |
+| **合并步骤为一条命令** | **无法逐步验证，跳过 clean/时间戳/验证** |
+| **使用固定文件名 `changji_app.apk`** | **无法区分版本，可能覆盖旧版本** |
+| **只同步 `lib/` 不同步 `android/`+`pubspec.yaml`+`assets/`** | **构建配置/资源可能过期** |
 
-## ✅ 强制流程
+## ✅ 强制流程（必须分步执行，禁止合并）
+
+> **⚠️ 关键约束：每一步必须作为独立的 RunCommand 调用执行，禁止用 `&&` 将多步合并为一条命令。**
+> 原因：合并命令会导致无法逐步验证、跳过 flutter clean、无法生成时间戳文件名、无法验证 APK。
 
 ```
 构建触发
   ↓
-1. 同步代码到 WSL（rsync lib/ + android/ + pubspec.yaml + assets/）
-  ↓
-2. WSL 环境构建（flutter clean && flutter build apk --release）
-  ↓
-3. WSL 复制 APK（带时间戳）到 D:\trae_projects\dang
-  ↓
-4. 验证 APK 时间戳（确认在 D:\trae_projects\dang 目录下）
-  ↓
+第1步：RunCommand - 同步代码到 WSL（rsync lib/ + android/ + pubspec.yaml + assets/）
+  ↓ 验证：rsync 输出含 sent 和 total size
+第2步：RunCommand - WSL 环境构建（flutter clean && flutter build apk --release）
+  ↓ 验证：输出含 ✓ Built build/app/outputs/flutter-apk/app-release.apk
+第3步：RunCommand - WSL cp 复制 APK（带时间戳）到 D:\trae_projects\dang
+  ↓ 验证：文件名匹配 changji_app_YYYYMMDD_HHMM.apk
+第4步：RunCommand - 验证 APK 时间戳（Get-Item 检查）
+  ↓ 验证：LastWriteTime 为当前时间 ±5 分钟
 构建完成
 ```
 
@@ -499,4 +505,5 @@ Get-Item D:\trae_projects\dang\changji_app_*.apk | Select-Object Name, LastWrite
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-05-27 | 重大更新：强制流程改为分步执行（禁止合并命令）；新增3条绝对禁止（合并步骤、固定文件名、只同步lib/）；INTERACTION.md 增加构建阻断5条规则 |
 | 2026-05-25 | 安全修复：rsync 加 --timeout=60；flutter build 加 timeout 1200；flutter pub get 加 timeout 300 |

@@ -29,12 +29,21 @@ const emptyPlan: Omit<Plan, 'id'> = {
 
 // 可用模型列表
 const AVAILABLE_MODELS = [
-  { provider: 'qwen', label: '通义千问', models: ['qwen-turbo', 'qwen-plus', 'qwen-max'] },
-  { provider: 'deepseek', label: 'DeepSeek', models: ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'] },
+  { provider: 'qwen', label: '通义千问', models: ['qwen3.6-flash', 'qwen3.6-plus', 'qwen3.6-max-preview'] },
+  { provider: 'deepseek', label: 'DeepSeek', models: ['deepseek-v4-flash', 'deepseek-v4-pro'] },
   { provider: 'openai', label: 'OpenAI', models: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4o', 'gpt-4o-mini'] },
   { provider: 'anthropic', label: 'Anthropic', models: ['claude-3-haiku', 'claude-3-sonnet', 'claude-3-opus'] },
   { provider: 'gemini', label: 'Gemini', models: ['gemini-pro', 'gemini-ultra'] },
   { provider: 'grok', label: 'Grok', models: ['grok-1', 'grok-2'] },
+];
+
+// 功能场景列表
+const FUNCTION_TYPES = [
+  { key: 'text_analysis', label: '文本分析', description: 'AI文本分析、摘要、翻译等' },
+  { key: 'voice_transcription', label: '语音转写', description: '音频文件转文字' },
+  { key: 'realtime_transcription', label: '实时转写', description: '实时语音转文字' },
+  { key: 'offline_transcription', label: '离线转写', description: '本地离线语音转写' },
+  { key: 'image_recognition', label: '图像识别', description: '图片文字识别、物体识别等' },
 ];
 
 export default function SubscriptionsPage() {
@@ -61,6 +70,10 @@ export default function SubscriptionsPage() {
   const [showEditSubModal, setShowEditSubModal] = useState(false);
   const [editingSub, setEditingSub] = useState<Subscription | null>(null);
   const [subStatusForm, setSubStatusForm] = useState('');
+
+  // 场景默认模型配置
+  const [planDefaultConfigs, setPlanDefaultConfigs] = useState<any[]>([]);
+  const [defaultConfigsLoading, setDefaultConfigsLoading] = useState(false);
 
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true);
@@ -155,7 +168,7 @@ export default function SubscriptionsPage() {
     setShowPlanModal(true);
   };
 
-  const openEditPlan = (plan: Plan) => {
+  const openEditPlan = async (plan: Plan) => {
     setPlanModalMode('edit');
     setEditingPlan(plan);
     setPlanForm({
@@ -169,7 +182,42 @@ export default function SubscriptionsPage() {
       type: plan.type,
       allowedModels: plan.allowedModels || [],
     });
+    // 加载场景默认配置
+    await loadPlanDefaultConfigs(plan.id);
     setShowPlanModal(true);
+  };
+
+  const loadPlanDefaultConfigs = async (planId: string) => {
+    setDefaultConfigsLoading(true);
+    try {
+      const configs = await adminAPI.getPlanDefaultConfigs(planId);
+      setPlanDefaultConfigs(configs);
+    } catch (err: any) {
+      setError(err.response?.data?.message || '加载场景默认配置失败');
+    } finally {
+      setDefaultConfigsLoading(false);
+    }
+  };
+
+  const handleSaveDefaultConfig = async (functionType: string, modelPattern: string) => {
+    if (!editingPlan) return;
+    try {
+      await adminAPI.setPlanDefaultConfig(editingPlan.id, { functionType, modelPattern });
+      await loadPlanDefaultConfigs(editingPlan.id);
+    } catch (err: any) {
+      setError(err.response?.data?.message || '保存场景默认配置失败');
+    }
+  };
+
+  const handleDeleteDefaultConfig = async (configId: string) => {
+    try {
+      await adminAPI.deletePlanDefaultConfig(configId);
+      if (editingPlan) {
+        await loadPlanDefaultConfigs(editingPlan.id);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || '删除场景默认配置失败');
+    }
   };
 
   const openDeletePlan = (id: string) => {
@@ -544,6 +592,74 @@ export default function SubscriptionsPage() {
                   套餐可用模型在「API系数配置」页面中设置，选择已测试通过的模型并配置消耗倍数。
                 </p>
               </div>
+
+              {/* 场景默认模型配置（仅编辑模式） */}
+              {planModalMode === 'edit' && editingPlan && (
+                <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-800">场景默认模型配置</p>
+                    <span className="text-xs text-gray-400">为各AI功能场景设置默认使用的模型</span>
+                  </div>
+                  
+                  {defaultConfigsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Spinner size="sm" color="primary" />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {FUNCTION_TYPES.map((func) => {
+                        const existingConfig = planDefaultConfigs.find(c => c.functionType === func.key);
+                        return (
+                          <div key={func.key} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-700">{func.label}</p>
+                              <p className="text-xs text-gray-400">{func.description}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {existingConfig ? (
+                                <>
+                                  <span className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border border-blue-100">
+                                    {existingConfig.modelPattern}
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="light"
+                                    color="danger"
+                                    className="min-w-0 px-2"
+                                    onClick={() => handleDeleteDefaultConfig(existingConfig.id)}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <Select
+                                  size="sm"
+                                  className="w-48"
+                                  placeholder="选择默认模型"
+                                  classNames={{ trigger: 'rounded-lg bg-white' }}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      handleSaveDefaultConfig(func.key, e.target.value);
+                                    }
+                                  }}
+                                >
+                                  {AVAILABLE_MODELS.map((provider) =>
+                                    provider.models.map((model) => (
+                                      <SelectItem key={`${provider.provider}:${model}`} value={`${provider.provider}:${model}`}>
+                                        {provider.label} {model}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </Select>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </ModalBody>
           <ModalFooter>

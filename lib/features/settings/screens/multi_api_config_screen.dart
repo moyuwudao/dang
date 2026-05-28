@@ -7,10 +7,13 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/ai_model_config.dart';
 import '../../../core/models/api_config.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/secure_storage_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/aliyun_signer.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../subscription/providers/subscription_provider.dart';
 
 class MultiApiConfigScreen extends ConsumerStatefulWidget {
   const MultiApiConfigScreen({super.key});
@@ -31,12 +34,118 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
     _loadConfig();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 监听登录状态变化：退出登录后重新加载配置（排除云端配置）
+    final authState = ref.watch(authNotifierProvider).valueOrNull;
+    if (authState != null && !authState.isLoggedIn && _config.hasCloudConfig) {
+      _loadConfig();
+      return;
+    }
+
+    // 监听云端AI开关变化：开关状态改变时重新加载配置
+    final cloudEnabled = ref.watch(cloudApiEnabledProvider).valueOrNull ?? false;
+    final hasCloudConfig = _config.hasCloudConfig;
+    
+    // 开关打开且已登录，但没有云端配置 → 重新加载
+    if (cloudEnabled && authState != null && authState.isLoggedIn && !hasCloudConfig) {
+      _loadConfig();
+      return;
+    }
+    
+    // 开关关闭，但有云端配置 → 重新加载（移除云端配置）
+    if (!cloudEnabled && hasCloudConfig) {
+      _loadConfig();
+      return;
+    }
+  }
+
   Future<void> _loadConfig() async {
-    final config = await StorageService.getMultiApiConfig();
+    final localConfig = await StorageService.getMultiApiConfig();
+
+    // 加载云端配置（已包含登录状态校验，未登录返回空）
+    final cloudEntries = await _loadCloudConfigEntries();
+
+    // 合并：本地配置 + 云端配置
+    final allConfigs = [...localConfig.configs, ...cloudEntries];
+    final mergedConfig = localConfig.copyWith(configs: allConfigs);
+
     setState(() {
-      _config = config;
+      _config = mergedConfig;
       _isLoading = false;
     });
+  }
+
+  Future<List<ApiConfigEntry>> _loadCloudConfigEntries() async {
+    try {
+      // 安全校验 1：必须已登录才能加载云端配置
+      final authState = ref.read(authNotifierProvider).valueOrNull;
+      if (authState == null || !authState.isLoggedIn) {
+        return [];
+      }
+
+      // 安全校验 2：必须已登录才能加载云端配置（双重校验）
+      final subscriptionState = ref.read(subscriptionNotifierProvider).valueOrNull;
+      final policies = subscriptionState?.apiPolicies ?? [];
+      if (policies.isEmpty) return [];
+
+      // 安全校验 3：从 SecureStorage 获取 API Key，未登录时应该已被清除
+      final jsonStr = await SecureStorageService().read('cloud_api_config');
+      if (jsonStr == null || jsonStr.isEmpty) return [];
+      final cloudData = Map<String, dynamic>.from(jsonDecode(jsonStr));
+      final apiKey = cloudData['apiKey'] as String?;
+      if (apiKey == null) return [];
+
+      final now = DateTime.now();
+      final entries = <ApiConfigEntry>[];
+
+      for (final policy in policies) {
+        // 云端返回的 provider 是小写（如 "qwen", "deepseek"），
+        // 需要兼容枚举名的大小写差异
+        final providerEnum = AiProvider.values.firstWhere(
+          (p) => p.name.toLowerCase() == policy.provider.toLowerCase(),
+          orElse: () => AiProvider.openAI,
+        );
+        final providerConfig = AiModelConfig.getConfig(providerEnum);
+
+        // 根据模型能力确定兼容的功能列表
+        final compatibleFunctions = ApiFunctionType.values
+            .where((f) => AiModelConfig.providerSupportsFunction(providerEnum, f))
+            .toList();
+
+        // 如实展示模型型号：直接使用云端返回的 model 名称
+        final modelName = policy.model ?? policy.modelPattern ?? providerConfig.defaultModel;
+
+        // 云端配置的 baseUrl：优先使用云端存储的，否则使用对应 provider 的默认 baseUrl
+        // 注意：不同 provider 有不同的 baseUrl（如 qwen 和 deepseek）
+        final cloudBaseUrl = (providerEnum == AiProvider.values.firstWhere(
+          (p) => p.name.toLowerCase() == (cloudData['provider'] as String?)?.toLowerCase(),
+          orElse: () => AiProvider.custom,
+        ))
+            ? cloudData['baseUrl'] as String?
+            : providerConfig.baseUrl;
+
+        entries.add(ApiConfigEntry(
+          id: 'cloud_${policy.provider}_${policy.model}',
+          name: '${providerConfig.displayName} $modelName',
+          provider: providerEnum,
+          apiKey: apiKey,
+          baseUrl: cloudBaseUrl,
+          model: modelName,
+          functions: compatibleFunctions,
+          isActive: true,
+          isCloudConfig: true,
+          cloudMultiplier: policy.multiplier,
+          createdAt: now,
+          updatedAt: now,
+        ));
+      }
+
+      return entries;
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<void> _syncRuntimeConfig() async {
@@ -60,7 +169,11 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   }
 
   Future<void> _saveConfig() async {
-    await StorageService.saveMultiApiConfig(_config);
+    // 只保存本地配置，云端配置从 SecureStorage 加载
+    final localOnlyConfig = _config.copyWith(
+      configs: _config.configs.where((c) => !c.isCloudConfig).toList(),
+    );
+    await StorageService.saveMultiApiConfig(localOnlyConfig);
     await _syncRuntimeConfig();
     if (mounted) {
       final l10n = AppLocalizations.of(context)!;
@@ -316,11 +429,18 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
     final providerConfig = AiModelConfig.getConfig(config.provider);
     final isActive = config.isActive;
     final hasIncompatible = config.hasIncompatibleFunctions;
+    final isCloud = config.isCloudConfig;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      shape: isCloud
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: AppColors.primary.withOpacity(0.3), width: 1.5),
+            )
+          : null,
       child: InkWell(
-        onTap: () => _showEditConfigDialog(config),
+        onTap: isCloud ? null : () => _showEditConfigDialog(config),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -330,8 +450,10 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
               Row(
                 children: [
                   Icon(
-                    _getProviderIcon(config.provider),
-                    color: isActive ? AppColors.primary : Colors.grey,
+                    isCloud ? Icons.cloud : _getProviderIcon(config.provider),
+                    color: isCloud
+                        ? AppColors.primary
+                        : (isActive ? AppColors.primary : Colors.grey),
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -349,6 +471,25 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                                 color: isActive ? null : Colors.grey,
                               ),
                             ),
+                            if (isCloud) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  '云端',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                             if (hasIncompatible) ...[
                               const SizedBox(width: 8),
                               Container(
@@ -382,20 +523,21 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                       ],
                     ),
                   ),
-                  Switch(
-                    value: isActive,
-                    onChanged: (value) {
-                      setState(() {
-                        final newConfigs = _config.configs.map((c) {
-                          if (c.id == config.id) {
-                            return c.copyWith(isActive: value);
-                          }
-                          return c;
-                        }).toList();
-                        _config = _config.copyWith(configs: newConfigs);
-                      });
-                    },
-                  ),
+                  if (!isCloud)
+                    Switch(
+                      value: isActive,
+                      onChanged: (value) {
+                        setState(() {
+                          final newConfigs = _config.configs.map((c) {
+                            if (c.id == config.id) {
+                              return c.copyWith(isActive: value);
+                            }
+                            return c;
+                          }).toList();
+                          _config = _config.copyWith(configs: newConfigs);
+                        });
+                      },
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -485,6 +627,23 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                 style: const TextStyle(
                     fontSize: 12, color: AppColors.textSecondary),
               ),
+              if (isCloud) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.speed, size: 14, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      '消耗系数: ${config.cloudMultiplier % 1 == 0 ? config.cloudMultiplier.toInt() : config.cloudMultiplier}x',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: config.cloudMultiplier > 1.0 ? Colors.orange : AppColors.textSecondary,
+                        fontWeight: config.cloudMultiplier > 1.0 ? FontWeight.w500 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               Text(
                 'Key: ${config.apiKey.substring(0, config.apiKey.length > 8 ? 8 : config.apiKey.length)}...',
                 style: const TextStyle(
@@ -503,6 +662,17 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
+                  if (isCloud) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '由套餐分配，不可编辑',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],

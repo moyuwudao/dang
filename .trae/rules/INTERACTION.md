@@ -106,6 +106,13 @@ A / B / C / 有其他想法
 - 构建前**必须主动读取** BUILD.md（非 alwaysApply）
 - 检测到构建操作时触发**阻断机制**，按 BUILD.md 的强制检查清单执行
 
+**🔴 构建阻断规则（强制执行）**：
+1. **禁止合并步骤**：每步必须独立 RunCommand，禁止用 `&&` 合并同步+构建+复制为一条命令
+2. **禁止跳过 flutter clean**：每次构建前必须执行 `flutter clean`
+3. **禁止固定文件名**：APK 必须使用时间戳命名 `changji_app_YYYYMMDD_HHMM.apk`，禁止 `changji_app.apk`
+4. **禁止只同步 lib/**：必须同步 `lib/` + `android/` + `pubspec.yaml` + `assets/`
+5. **必须验证 APK**：复制后必须用 `Get-Item` 检查时间戳
+
 ---
 
 ## ⚠️ 执行效率与防重复规则

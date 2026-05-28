@@ -11,6 +11,7 @@ import { UserBalance } from '../subscription/entities/user-balance.entity';
 import { RechargeRecord } from '../subscription/entities/recharge-record.entity';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
 import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
+import { PlanDefaultConfig } from '../subscription/entities/plan-default-config.entity';
 import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
@@ -32,6 +33,8 @@ export class AdminService {
     private apiUsageLogRepo: Repository<ApiUsageLog>,
     @InjectRepository(PlanApiPolicy)
     private planApiPolicyRepo: Repository<PlanApiPolicy>,
+    @InjectRepository(PlanDefaultConfig)
+    private planDefaultConfigRepo: Repository<PlanDefaultConfig>,
     private subscriptionService: SubscriptionService,
   ) {}
 
@@ -529,5 +532,46 @@ export class AdminService {
         count: parseInt(r.count, 10),
       })),
     };
+  }
+
+  // 套餐场景默认模型配置
+  async getPlanDefaultConfigs(planId: string) {
+    const configs = await this.planDefaultConfigRepo.find({
+      where: { planId },
+      order: { functionType: 'ASC' },
+    });
+    return configs;
+  }
+
+  async setPlanDefaultConfig(planId: string, data: {
+    functionType: string;
+    modelPattern: string;
+    isActive?: boolean;
+  }) {
+    // 查找是否已存在该场景的配置
+    let config = await this.planDefaultConfigRepo.findOne({
+      where: { planId, functionType: data.functionType },
+    });
+
+    if (config) {
+      // 更新现有配置
+      config.modelPattern = data.modelPattern;
+      config.isActive = data.isActive ?? true;
+    } else {
+      // 创建新配置
+      config = this.planDefaultConfigRepo.create({
+        planId,
+        functionType: data.functionType,
+        modelPattern: data.modelPattern,
+        isActive: data.isActive ?? true,
+      });
+    }
+
+    return this.planDefaultConfigRepo.save(config);
+  }
+
+  async deletePlanDefaultConfig(configId: string) {
+    await this.planDefaultConfigRepo.delete(configId);
+    return { success: true };
   }
 }

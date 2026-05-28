@@ -430,6 +430,21 @@ export const adminAPI = {
     });
     return response.data.data;
   },
+
+  // 套餐场景默认模型配置
+  getPlanDefaultConfigs: async (planId: string): Promise<any[]> => {
+    const response = await axiosInstance.get<ApiResponse<any[]>>(`/admin/plans/${planId}/default-configs`);
+    return response.data.data;
+  },
+
+  setPlanDefaultConfig: async (planId: string, data: { functionType: string; modelPattern: string; isActive?: boolean }): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/plans/${planId}/default-configs`, data);
+    return response.data.data;
+  },
+
+  deletePlanDefaultConfig: async (configId: string): Promise<void> => {
+    await axiosInstance.delete(`/admin/plans/default-configs/${configId}`);
+  },
 };
 
 export default axiosInstance;

@@ -7,6 +7,7 @@ import { UserBalance } from './entities/user-balance.entity';
 import { RechargeRecord } from './entities/recharge-record.entity';
 import { PlanApiPolicy } from './entities/plan-api-policy.entity';
 import { ApiUsageLog } from './entities/api-usage-log.entity';
+import { PlanDefaultConfig } from './entities/plan-default-config.entity';
 import { CreatePlanDto, RechargeDto, RefundDto } from './dto';
 
 @Injectable()
@@ -24,6 +25,8 @@ export class SubscriptionService {
     private planApiPolicyRepository: Repository<PlanApiPolicy>,
     @InjectRepository(ApiUsageLog)
     private apiUsageLogRepository: Repository<ApiUsageLog>,
+    @InjectRepository(PlanDefaultConfig)
+    private planDefaultConfigRepository: Repository<PlanDefaultConfig>,
   ) {}
 
   async getSubscription(userId: string) {
@@ -64,6 +67,11 @@ export class SubscriptionService {
       where: { planId: subscription.planId },
     });
 
+    // 获取套餐的场景默认模型配置
+    const defaultConfigs = await this.planDefaultConfigRepository.find({
+      where: { planId: subscription.planId, isActive: true },
+    });
+
     return {
       code: 200,
       message: 'success',
@@ -76,11 +84,24 @@ export class SubscriptionService {
         usedQuota: subscription.usedQuota,
         remainingQuota: Math.max(0, remainingQuota),
         balanceCents: userBalance?.balanceCents || 0,
-        apiPolicies: apiPolicies.map(p => ({
-          provider: p.provider,
-          modelPattern: p.modelPattern,
-          multiplier: p.multiplier,
-          isAllowed: p.isAllowed,
+        apiPolicies: apiPolicies
+          .filter(p => p.isAllowed && p.modelPattern)
+          .map(p => {
+            // 解析 modelPattern 格式: "provider:model-name"
+            const parts = p.modelPattern.split(':');
+            const modelProvider = parts.length > 1 ? parts[0] : p.provider;
+            const modelName = parts.length > 1 ? parts.slice(1).join(':') : p.modelPattern;
+            return {
+              provider: modelProvider,
+              model: modelName,
+              modelPattern: p.modelPattern,
+              multiplier: Number(p.multiplier),
+              isAllowed: p.isAllowed,
+            };
+          }),
+        defaultConfigs: defaultConfigs.map(c => ({
+          functionType: c.functionType,
+          modelPattern: c.modelPattern,
         })),
       },
     };

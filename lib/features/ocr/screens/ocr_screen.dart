@@ -7,6 +7,7 @@ import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/tag_selector.dart';
 import '../../../l10n/generated/app_localizations.dart';
+import '../../records/providers/record_provider.dart';
 import '../providers/ocr_provider.dart';
 
 class OCRScreen extends ConsumerStatefulWidget {
@@ -86,6 +87,9 @@ class _OCRScreenState extends ConsumerState<OCRScreen> {
         content: _recognizedText!,
         tags: _tags,
       );
+
+      // 刷新首页列表
+      ref.invalidate(paginatedRecordsProvider);
 
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;

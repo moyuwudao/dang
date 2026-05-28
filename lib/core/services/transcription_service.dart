@@ -17,6 +17,7 @@ import 'api_service.dart';
 import 'stats_service.dart';
 import 'storage_service.dart';
 import 'app_logger.dart';
+import 'api_config_resolver.dart';
 import 'realtime_transcription_service.dart';
 import 'tingwu_service.dart';
 
@@ -40,6 +41,7 @@ final transcriptionServiceProvider = Provider<TranscriptionService>((ref) {
     statsService: statsService,
     realtimeTranscriptionService: realtimeService,
     tingwuService: tingwuService,
+    ref: ref,
   );
 });
 
@@ -49,6 +51,7 @@ class TranscriptionService {
   final StatsNotifier? _statsService;
   final RealtimeTranscriptionService _realtimeTranscriptionService;
   TingwuService? _tingwuService;
+  final Ref? _ref;
 
   final AppLogger _logger = AppLogger();
 
@@ -78,11 +81,13 @@ class TranscriptionService {
     StatsNotifier? statsService,
     RealtimeTranscriptionService? realtimeTranscriptionService,
     TingwuService? tingwuService,
+    Ref? ref,
   })  : _httpClient = httpClient ?? HttpClient(),
         _audioProcessor = audioProcessor ?? AudioProcessor(),
         _statsService = statsService,
         _realtimeTranscriptionService = realtimeTranscriptionService ?? RealtimeTranscriptionService(httpClient: httpClient ?? HttpClient()),
-        _tingwuService = tingwuService;
+        _tingwuService = tingwuService,
+        _ref = ref;
 
   bool get isConfigured => _httpClient.isConfigured;
 
@@ -96,6 +101,11 @@ class TranscriptionService {
     void Function(String step, String detail)? onProgress,
     bool useChunking = true,
   }) async {
+    // 使用 ApiConfigResolver 自动选择配置
+    if (_ref != null) {
+      await ApiConfigResolver(_ref!).applyToHttpClient(ApiFunctionType.voice);
+    }
+
     if (!isConfigured) {
       throw Exception('API未配置，请先在设置中配置API Key');
     }

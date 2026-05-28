@@ -15,6 +15,8 @@ class ApiConfigEntry {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? accessKeySecret;
+  final bool isCloudConfig; // 标记是否为云端分配的配置
+  final double cloudMultiplier; // 云端配置的消耗系数（1.0=标准，2.0=双倍消耗）
 
   const ApiConfigEntry({
     required this.id,
@@ -31,6 +33,8 @@ class ApiConfigEntry {
     required this.createdAt,
     required this.updatedAt,
     this.accessKeySecret,
+    this.isCloudConfig = false,
+    this.cloudMultiplier = 1.0,
   });
 
   ApiConfigEntry copyWith({
@@ -48,6 +52,8 @@ class ApiConfigEntry {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? accessKeySecret,
+    bool? isCloudConfig,
+    double? cloudMultiplier,
   }) {
     return ApiConfigEntry(
       id: id ?? this.id,
@@ -64,6 +70,8 @@ class ApiConfigEntry {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       accessKeySecret: accessKeySecret ?? this.accessKeySecret,
+      isCloudConfig: isCloudConfig ?? this.isCloudConfig,
+      cloudMultiplier: cloudMultiplier ?? this.cloudMultiplier,
     );
   }
 
@@ -83,6 +91,8 @@ class ApiConfigEntry {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'accessKeySecret': accessKeySecret,
+      'isCloudConfig': isCloudConfig,
+      'cloudMultiplier': cloudMultiplier,
     };
   }
 
@@ -111,6 +121,8 @@ class ApiConfigEntry {
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
       accessKeySecret: json['accessKeySecret'],
+      isCloudConfig: json['isCloudConfig'] ?? false,
+      cloudMultiplier: (json['cloudMultiplier'] as num?)?.toDouble() ?? 1.0,
     );
   }
 
@@ -251,5 +263,15 @@ class MultiApiConfig {
   List<ApiConfigEntry> get activeConfigs =>
       configs.where((c) => c.isActive).toList();
 
+  /// 仅本地配置（用于备份，排除云端配置）
+  List<ApiConfigEntry> get localConfigs =>
+      configs.where((c) => !c.isCloudConfig).toList();
+
+  /// 仅云端配置
+  List<ApiConfigEntry> get cloudConfigs =>
+      configs.where((c) => c.isCloudConfig).toList();
+
   bool get hasAnyConfig => configs.any((c) => c.isActive);
+
+  bool get hasCloudConfig => configs.any((c) => c.isCloudConfig && c.isActive);
 }

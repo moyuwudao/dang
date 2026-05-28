@@ -1,6 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/app_logger.dart';
 import '../../../core/services/cloud_api_service.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/services/secure_storage_service.dart';
+import '../../settings/providers/settings_provider.dart';
+import '../../subscription/providers/subscription_provider.dart';
 import '../models/user_model.dart';
 
 class AuthState {
@@ -73,6 +77,9 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       await CloudApiService.instance.setToken(accessToken);
       AppLogger().i('Auth', '密码登录成功');
 
+      await _fetchAndConfigureApiKey();
+      await _fetchSubscription();
+
       state = AsyncData(AuthState(
         isLoggedIn: true,
         user: UserModel.fromJson(data['user']),
@@ -82,6 +89,22 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     } catch (e, st) {
       AppLogger().e('Auth', '密码登录失败: $e');
       state = AsyncError(e, st);
+    }
+  }
+
+  Future<void> _fetchAndConfigureApiKey() async {
+    try {
+      AppLogger().i('Auth', '尝试从服务器获取 API Key');
+      final response = await CloudApiService.instance.get('/api-key');
+      final data = response.data['data'];
+      if (data != null && data['apiKey'] != null) {
+        AppLogger().i('Auth', '成功获取 API Key, provider=${data['provider']}');
+        await ref.read(apiServiceProvider).configureFromServer(data);
+      } else {
+        AppLogger().w('Auth', '服务器未返回 API Key，用户需要手动配置');
+      }
+    } catch (e) {
+      AppLogger().w('Auth', '获取 API Key 失败: $e');
     }
   }
 
@@ -99,6 +122,9 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       final accessToken = data['accessToken'] as String;
       await CloudApiService.instance.setToken(accessToken);
       AppLogger().i('Auth', '短信登录成功');
+
+      await _fetchAndConfigureApiKey();
+      await _fetchSubscription();
 
       state = AsyncData(AuthState(
         isLoggedIn: true,
@@ -129,6 +155,9 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       final accessToken = data['accessToken'] as String;
       await CloudApiService.instance.setToken(accessToken);
 
+      await _fetchAndConfigureApiKey();
+      await _fetchSubscription();
+
       state = AsyncData(AuthState(
         isLoggedIn: true,
         user: UserModel.fromJson(data['user']),
@@ -140,8 +169,30 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     }
   }
 
+  Future<void> _fetchSubscription() async {
+    try {
+      AppLogger().i('Auth', '登录成功，自动刷新套餐数据');
+      await ref.read(subscriptionNotifierProvider.notifier).fetchSubscription();
+      AppLogger().i('Auth', '套餐数据刷新完成');
+    } catch (e) {
+      AppLogger().w('Auth', '套餐数据刷新失败: $e');
+    }
+  }
+
   Future<void> logout() async {
+    // 1. 彻底删除所有云端相关数据（SecureStorage + SharedPreferences）
+    await ref.read(apiServiceProvider).clearCloudApiConfig();
+    await SecureStorageService().deleteCloudApiEnabled();
     await CloudApiService.instance.clearToken();
+
+    // 2. 清除内存中的 API 配置
+    ref.read(apiServiceProvider).clear();
+
+    // 3. 刷新相关 Provider（使订阅数据重新加载，未登录时为空）
+    ref.invalidate(configuredProviderProvider);
+    ref.invalidate(cloudApiEnabledProvider);
+    ref.invalidate(subscriptionNotifierProvider);
+
     state = const AsyncData(AuthState());
   }
 
