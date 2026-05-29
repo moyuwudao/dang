@@ -139,6 +139,38 @@ let AdminController = class AdminController {
         await this.adminService.deleteTokenPricing(id);
         return { code: 200, message: 'success', data: null };
     }
+    async getBillingStandards() {
+        const data = await this.adminService.getBillingStandards();
+        return { code: 200, message: 'success', data };
+    }
+    async createBillingStandard(data) {
+        const result = await this.adminService.createBillingStandard(data);
+        return { code: 200, message: 'success', data: result };
+    }
+    async updateBillingStandard(id, data) {
+        const result = await this.adminService.updateBillingStandard(id, data);
+        return { code: 200, message: 'success', data: result };
+    }
+    async deleteBillingStandard(id) {
+        await this.adminService.deleteBillingStandard(id);
+        return { code: 200, message: 'success', data: null };
+    }
+    async getApiPolicies(planId) {
+        const data = await this.adminService.getApiPolicies(planId);
+        return { code: 200, message: 'success', data };
+    }
+    async createApiPolicy(data) {
+        const result = await this.adminService.createApiPolicy(data);
+        return { code: 200, message: 'success', data: result };
+    }
+    async updateApiPolicy(id, data) {
+        const result = await this.adminService.updateApiPolicy(id, data);
+        return { code: 200, message: 'success', data: result };
+    }
+    async deleteApiPolicy(id) {
+        await this.adminService.deleteApiPolicy(id);
+        return { code: 200, message: 'success', data: null };
+    }
     async getUserFeatureUsage(userId) {
         const data = await this.adminService.getUserFeatureUsage(userId);
         return { code: 200, message: 'success', data };
@@ -362,6 +394,63 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "deleteTokenPricing", null);
+__decorate([
+    (0, common_1.Get)('billing-standards'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getBillingStandards", null);
+__decorate([
+    (0, common_1.Post)('billing-standards'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "createBillingStandard", null);
+__decorate([
+    (0, common_1.Put)('billing-standards/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "updateBillingStandard", null);
+__decorate([
+    (0, common_1.Delete)('billing-standards/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "deleteBillingStandard", null);
+__decorate([
+    (0, common_1.Get)('api-policies'),
+    __param(0, (0, common_1.Query)('planId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getApiPolicies", null);
+__decorate([
+    (0, common_1.Post)('api-policies'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "createApiPolicy", null);
+__decorate([
+    (0, common_1.Put)('api-policies/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "updateApiPolicy", null);
+__decorate([
+    (0, common_1.Delete)('api-policies/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "deleteApiPolicy", null);
 __decorate([
     (0, common_1.Get)('users/:id/feature-usage'),
     __param(0, (0, common_1.Param)('id')),

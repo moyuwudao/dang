@@ -24,6 +24,8 @@ const api_usage_log_entity_1 = require("../subscription/entities/api-usage-log.e
 const plan_default_config_entity_1 = require("../subscription/entities/plan-default-config.entity");
 const plan_feature_quota_entity_1 = require("../subscription/entities/plan-feature-quota.entity");
 const token_pricing_entity_1 = require("../subscription/entities/token-pricing.entity");
+const billing_standard_entity_1 = require("../subscription/entities/billing-standard.entity");
+const plan_api_policy_entity_1 = require("../subscription/entities/plan-api-policy.entity");
 const user_feature_usage_entity_1 = require("../subscription/entities/user-feature-usage.entity");
 const audit_log_entity_1 = require("./entities/audit-log.entity");
 let AdminModule = class AdminModule {
@@ -42,6 +44,8 @@ exports.AdminModule = AdminModule = __decorate([
                 plan_default_config_entity_1.PlanDefaultConfig,
                 plan_feature_quota_entity_1.PlanFeatureQuota,
                 token_pricing_entity_1.TokenPricing,
+                billing_standard_entity_1.BillingStandard,
+                plan_api_policy_entity_1.PlanApiPolicy,
                 user_feature_usage_entity_1.UserFeatureUsage,
                 audit_log_entity_1.AuditLog,
             ]),

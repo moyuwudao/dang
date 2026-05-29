@@ -306,6 +306,46 @@ export declare class AdminController {
         message: string;
         data: any;
     }>;
+    getBillingStandards(): Promise<{
+        code: number;
+        message: string;
+        data: import("../subscription/entities/billing-standard.entity").BillingStandard[];
+    }>;
+    createBillingStandard(data: any): Promise<{
+        code: number;
+        message: string;
+        data: import("../subscription/entities/billing-standard.entity").BillingStandard;
+    }>;
+    updateBillingStandard(id: string, data: any): Promise<{
+        code: number;
+        message: string;
+        data: import("../subscription/entities/billing-standard.entity").BillingStandard;
+    }>;
+    deleteBillingStandard(id: string): Promise<{
+        code: number;
+        message: string;
+        data: any;
+    }>;
+    getApiPolicies(planId?: string): Promise<{
+        code: number;
+        message: string;
+        data: import("../subscription/entities/plan-api-policy.entity").PlanApiPolicy[];
+    }>;
+    createApiPolicy(data: any): Promise<{
+        code: number;
+        message: string;
+        data: import("../subscription/entities/plan-api-policy.entity").PlanApiPolicy;
+    }>;
+    updateApiPolicy(id: string, data: any): Promise<{
+        code: number;
+        message: string;
+        data: import("../subscription/entities/plan-api-policy.entity").PlanApiPolicy;
+    }>;
+    deleteApiPolicy(id: string): Promise<{
+        code: number;
+        message: string;
+        data: any;
+    }>;
     getUserFeatureUsage(userId: string): Promise<{
         code: number;
         message: string;

@@ -26,11 +26,13 @@ const api_usage_log_entity_1 = require("../subscription/entities/api-usage-log.e
 const plan_default_config_entity_1 = require("../subscription/entities/plan-default-config.entity");
 const plan_feature_quota_entity_1 = require("../subscription/entities/plan-feature-quota.entity");
 const token_pricing_entity_1 = require("../subscription/entities/token-pricing.entity");
+const billing_standard_entity_1 = require("../subscription/entities/billing-standard.entity");
+const plan_api_policy_entity_1 = require("../subscription/entities/plan-api-policy.entity");
 const user_feature_usage_entity_1 = require("../subscription/entities/user-feature-usage.entity");
 const subscription_service_1 = require("../subscription/subscription.service");
 const plan_service_1 = require("../plan/plan.service");
 let AdminService = class AdminService {
-    constructor(userRepo, subscriptionRepo, apiKeyRepo, balanceRepo, rechargeRepo, apiUsageLogRepo, planDefaultConfigRepo, planFeatureQuotaRepo, tokenPricingRepo, userFeatureUsageRepo, subscriptionService, planService) {
+    constructor(userRepo, subscriptionRepo, apiKeyRepo, balanceRepo, rechargeRepo, apiUsageLogRepo, planDefaultConfigRepo, planFeatureQuotaRepo, tokenPricingRepo, billingStandardRepo, planApiPolicyRepo, userFeatureUsageRepo, subscriptionService, planService) {
         this.userRepo = userRepo;
         this.subscriptionRepo = subscriptionRepo;
         this.apiKeyRepo = apiKeyRepo;
@@ -40,6 +42,8 @@ let AdminService = class AdminService {
         this.planDefaultConfigRepo = planDefaultConfigRepo;
         this.planFeatureQuotaRepo = planFeatureQuotaRepo;
         this.tokenPricingRepo = tokenPricingRepo;
+        this.billingStandardRepo = billingStandardRepo;
+        this.planApiPolicyRepo = planApiPolicyRepo;
         this.userFeatureUsageRepo = userFeatureUsageRepo;
         this.subscriptionService = subscriptionService;
         this.planService = planService;
@@ -454,6 +458,48 @@ let AdminService = class AdminService {
         await this.tokenPricingRepo.delete(id);
         return { success: true };
     }
+    async getBillingStandards() {
+        return this.billingStandardRepo.find({
+            order: { functionType: 'ASC', tier: 'ASC' },
+        });
+    }
+    async createBillingStandard(data) {
+        const standard = this.billingStandardRepo.create({
+            ...data,
+            isActive: data.isActive ?? true,
+        });
+        return this.billingStandardRepo.save(standard);
+    }
+    async updateBillingStandard(id, data) {
+        await this.billingStandardRepo.update(id, data);
+        return this.billingStandardRepo.findOne({ where: { id } });
+    }
+    async deleteBillingStandard(id) {
+        await this.billingStandardRepo.delete(id);
+        return { success: true };
+    }
+    async getApiPolicies(planId) {
+        const where = planId ? { planId } : {};
+        return this.planApiPolicyRepo.find({
+            where,
+            order: { provider: 'ASC', modelPattern: 'ASC' },
+        });
+    }
+    async createApiPolicy(data) {
+        const policy = this.planApiPolicyRepo.create({
+            ...data,
+            isAllowed: data.isAllowed ?? true,
+        });
+        return this.planApiPolicyRepo.save(policy);
+    }
+    async updateApiPolicy(id, data) {
+        await this.planApiPolicyRepo.update(id, data);
+        return this.planApiPolicyRepo.findOne({ where: { id } });
+    }
+    async deleteApiPolicy(id) {
+        await this.planApiPolicyRepo.delete(id);
+        return { success: true };
+    }
     async getUserFeatureUsage(userId) {
         const usage = await this.userFeatureUsageRepo.find({
             where: { userId },
@@ -495,8 +541,12 @@ exports.AdminService = AdminService = __decorate([
     __param(6, (0, typeorm_1.InjectRepository)(plan_default_config_entity_1.PlanDefaultConfig)),
     __param(7, (0, typeorm_1.InjectRepository)(plan_feature_quota_entity_1.PlanFeatureQuota)),
     __param(8, (0, typeorm_1.InjectRepository)(token_pricing_entity_1.TokenPricing)),
-    __param(9, (0, typeorm_1.InjectRepository)(user_feature_usage_entity_1.UserFeatureUsage)),
+    __param(9, (0, typeorm_1.InjectRepository)(billing_standard_entity_1.BillingStandard)),
+    __param(10, (0, typeorm_1.InjectRepository)(plan_api_policy_entity_1.PlanApiPolicy)),
+    __param(11, (0, typeorm_1.InjectRepository)(user_feature_usage_entity_1.UserFeatureUsage)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

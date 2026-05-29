@@ -9,6 +9,8 @@ import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
 import { PlanDefaultConfig } from '../subscription/entities/plan-default-config.entity';
 import { PlanFeatureQuota } from '../subscription/entities/plan-feature-quota.entity';
 import { TokenPricing } from '../subscription/entities/token-pricing.entity';
+import { BillingStandard } from '../subscription/entities/billing-standard.entity';
+import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 import { UserFeatureUsage } from '../subscription/entities/user-feature-usage.entity';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { PlanService } from '../plan/plan.service';
@@ -22,10 +24,12 @@ export declare class AdminService {
     private planDefaultConfigRepo;
     private planFeatureQuotaRepo;
     private tokenPricingRepo;
+    private billingStandardRepo;
+    private planApiPolicyRepo;
     private userFeatureUsageRepo;
     private subscriptionService;
     private planService;
-    constructor(userRepo: Repository<User>, subscriptionRepo: Repository<Subscription>, apiKeyRepo: Repository<ApiKey>, balanceRepo: Repository<UserBalance>, rechargeRepo: Repository<RechargeRecord>, apiUsageLogRepo: Repository<ApiUsageLog>, planDefaultConfigRepo: Repository<PlanDefaultConfig>, planFeatureQuotaRepo: Repository<PlanFeatureQuota>, tokenPricingRepo: Repository<TokenPricing>, userFeatureUsageRepo: Repository<UserFeatureUsage>, subscriptionService: SubscriptionService, planService: PlanService);
+    constructor(userRepo: Repository<User>, subscriptionRepo: Repository<Subscription>, apiKeyRepo: Repository<ApiKey>, balanceRepo: Repository<UserBalance>, rechargeRepo: Repository<RechargeRecord>, apiUsageLogRepo: Repository<ApiUsageLog>, planDefaultConfigRepo: Repository<PlanDefaultConfig>, planFeatureQuotaRepo: Repository<PlanFeatureQuota>, tokenPricingRepo: Repository<TokenPricing>, billingStandardRepo: Repository<BillingStandard>, planApiPolicyRepo: Repository<PlanApiPolicy>, userFeatureUsageRepo: Repository<UserFeatureUsage>, subscriptionService: SubscriptionService, planService: PlanService);
     getStats(): Promise<{
         totalUsers: number;
         activeSubscriptions: number;
@@ -211,6 +215,18 @@ export declare class AdminService {
     createTokenPricing(data: Partial<TokenPricing>): Promise<TokenPricing>;
     updateTokenPricing(id: string, data: Partial<TokenPricing>): Promise<TokenPricing>;
     deleteTokenPricing(id: string): Promise<{
+        success: boolean;
+    }>;
+    getBillingStandards(): Promise<BillingStandard[]>;
+    createBillingStandard(data: Partial<BillingStandard>): Promise<BillingStandard>;
+    updateBillingStandard(id: string, data: Partial<BillingStandard>): Promise<BillingStandard>;
+    deleteBillingStandard(id: string): Promise<{
+        success: boolean;
+    }>;
+    getApiPolicies(planId?: string): Promise<PlanApiPolicy[]>;
+    createApiPolicy(data: Partial<PlanApiPolicy>): Promise<PlanApiPolicy>;
+    updateApiPolicy(id: string, data: Partial<PlanApiPolicy>): Promise<PlanApiPolicy>;
+    deleteApiPolicy(id: string): Promise<{
         success: boolean;
     }>;
     getUserFeatureUsage(userId: string): Promise<{
