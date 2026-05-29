@@ -44,6 +44,10 @@ const emptyPlan: Omit<Plan, 'id'> = {
   type: 'subscription',
   allowedModels: [],
   featureQuotas: [],
+  actualCostCents: 0,
+  standardCostCents: 0,
+  profitMargin: 0,
+  userSavings: 0,
 };
 
 // 可用模型列表
@@ -217,6 +221,10 @@ export default function SubscriptionsPage() {
       type: plan.type,
       allowedModels: plan.allowedModels || [],
       featureQuotas: plan.featureQuotas || [],
+      actualCostCents: plan.actualCostCents || 0,
+      standardCostCents: plan.standardCostCents || 0,
+      profitMargin: plan.profitMargin || 0,
+      userSavings: plan.userSavings || 0,
     });
     // 加载功能配额
     await loadPlanFeatureQuotas(plan.id);
@@ -403,6 +411,24 @@ export default function SubscriptionsPage() {
                               </span>
                               <span className="text-xs text-gray-400">ID: {plan.id.slice(0, 8)}</span>
                             </div>
+                            {/* 成本核算信息 */}
+                            {(plan.actualCostCents !== undefined || plan.standardCostCents !== undefined) && (
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 p-1.5 bg-green-50 rounded border border-green-100">
+                                <span className="text-xs text-gray-500">成本:</span>
+                                {plan.actualCostCents !== undefined && (
+                                  <span className="text-xs text-red-600">实际¥{(plan.actualCostCents / 100).toFixed(2)}</span>
+                                )}
+                                {plan.standardCostCents !== undefined && (
+                                  <span className="text-xs text-blue-600">标准¥{(plan.standardCostCents / 100).toFixed(2)}</span>
+                                )}
+                                {plan.profitMargin !== undefined && (
+                                  <span className="text-xs text-green-600 font-medium">毛利{plan.profitMargin.toFixed(1)}%</span>
+                                )}
+                                {plan.userSavings !== undefined && (
+                                  <span className="text-xs text-orange-600">省{plan.userSavings.toFixed(0)}%</span>
+                                )}
+                              </div>
+                            )}
                             {plan.featureQuotas && plan.featureQuotas.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 <span className="text-xs text-gray-400 mr-1">功能配额:</span>
@@ -627,20 +653,74 @@ export default function SubscriptionsPage() {
                 onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
                 classNames={{ inputWrapper: 'rounded-xl' }}
               />
-              <Input
-                label="价格（分）"
-                type="number"
-                value={String(planForm.priceCents)}
-                onChange={(e) => setPlanForm({ ...planForm, priceCents: parseInt(e.target.value) || 0 })}
-                classNames={{ inputWrapper: 'rounded-xl' }}
-              />
-              <Input
-                label="有效期（天）"
-                type="number"
-                value={String(planForm.durationDays)}
-                onChange={(e) => setPlanForm({ ...planForm, durationDays: parseInt(e.target.value) || 30 })}
-                classNames={{ inputWrapper: 'rounded-xl' }}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="套餐定价（分）"
+                  type="number"
+                  value={String(planForm.priceCents)}
+                  onChange={(e) => setPlanForm({ ...planForm, priceCents: parseInt(e.target.value) || 0 })}
+                  classNames={{ inputWrapper: 'rounded-xl' }}
+                />
+                <Input
+                  label="有效期（天）"
+                  type="number"
+                  value={String(planForm.durationDays)}
+                  onChange={(e) => setPlanForm({ ...planForm, durationDays: parseInt(e.target.value) || 30 })}
+                  classNames={{ inputWrapper: 'rounded-xl' }}
+                />
+              </div>
+
+              {/* 成本核算 */}
+              <div className="p-3 bg-blue-50 rounded-xl">
+                <p className="text-sm font-medium text-blue-800 mb-2">成本核算</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="实际成本（分）- 支付给厂商"
+                    type="number"
+                    value={String(planForm.actualCostCents || 0)}
+                    onChange={(e) => setPlanForm({ ...planForm, actualCostCents: parseInt(e.target.value) || 0 })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                  />
+                  <Input
+                    label="标准成本（分）- 按量计费价格"
+                    type="number"
+                    value={String(planForm.standardCostCents || 0)}
+                    onChange={(e) => setPlanForm({ ...planForm, standardCostCents: parseInt(e.target.value) || 0 })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <Input
+                    label="利润率（%）"
+                    type="number"
+                    value={String(planForm.profitMargin || 0)}
+                    onChange={(e) => setPlanForm({ ...planForm, profitMargin: parseFloat(e.target.value) || 0 })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                  />
+                  <Input
+                    label="用户节省比例（%）"
+                    type="number"
+                    value={String(planForm.userSavings || 0)}
+                    onChange={(e) => setPlanForm({ ...planForm, userSavings: parseFloat(e.target.value) || 0 })}
+                    classNames={{ inputWrapper: 'rounded-xl' }}
+                  />
+                </div>
+                {(planForm.priceCents > 0 && planForm.actualCostCents > 0) && (
+                  <div className="mt-2 p-2 bg-white rounded-lg text-xs text-blue-600">
+                    <p>
+                      售价¥{(planForm.priceCents / 100).toFixed(2)} - 成本¥{(planForm.actualCostCents / 100).toFixed(2)} = 
+                      毛利¥{((planForm.priceCents - planForm.actualCostCents) / 100).toFixed(2)} 
+                      ({((planForm.priceCents - planForm.actualCostCents) / planForm.priceCents * 100).toFixed(1)}%)
+                    </p>
+                    {planForm.standardCostCents > 0 && (
+                      <p className="mt-1">
+                        用户按量付费需¥{(planForm.standardCostCents / 100).toFixed(2)}，套餐仅需¥{(planForm.priceCents / 100).toFixed(2)}，
+                        节省{((1 - planForm.priceCents / planForm.standardCostCents) * 100).toFixed(0)}%
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
               
               {/* 套餐类型选择 */}
               <Select

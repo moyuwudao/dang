@@ -486,6 +486,26 @@ export const adminAPI = {
     const response = await axiosInstance.get<ApiResponse<any>>(`/admin/users/${userId}/feature-usage`);
     return response.data.data;
   },
+
+  // 计费标准配置
+  getBillingStandards: async (): Promise<any[]> => {
+    const response = await axiosInstance.get<ApiResponse<any[]>>('/admin/billing-standards');
+    return response.data.data;
+  },
+
+  createBillingStandard: async (data: any): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>('/admin/billing-standards', data);
+    return response.data.data;
+  },
+
+  updateBillingStandard: async (id: string, data: any): Promise<any> => {
+    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/billing-standards/${id}`, data);
+    return response.data.data;
+  },
+
+  deleteBillingStandard: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`/admin/billing-standards/${id}`);
+  },
 };
 
 export default axiosInstance;

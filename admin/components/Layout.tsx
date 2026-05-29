@@ -30,6 +30,7 @@ const menuItems = [
   { id: 'subscriptions', label: '订阅管理', icon: CreditCard },
   { id: 'api-keys', label: 'API Key管理', icon: Key },
   { id: 'api-policies', label: 'API系数配置', icon: Sliders },
+  { id: 'billing-standard', label: '计费标准', icon: Settings },
   { id: 'token-pricing', label: 'Token价格', icon: Coins },
   { id: 'monitor', label: 'API监控', icon: BarChart3 },
   { id: 'revenue', label: '收入报表', icon: BarChart3 },

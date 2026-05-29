@@ -33,6 +33,11 @@ export interface Plan {
   isRecommended?: boolean;
   allowedModels?: string[];
   featureQuotas?: PlanFeatureQuota[];
+  // 成本核算字段
+  actualCostCents?: number;      // 实际成本（支付给厂商，单位：分）
+  standardCostCents?: number;    // 标准成本（按量计费价格，单位：分）
+  profitMargin?: number;         // 利润率（%）
+  userSavings?: number;          // 用户节省比例（%）
 }
 
 export interface Subscription {
