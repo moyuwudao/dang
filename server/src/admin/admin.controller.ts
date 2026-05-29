@@ -236,6 +236,56 @@ export class AdminController {
     return { code: 200, message: 'success', data: null };
   }
 
+  // 计费标准管理
+  @Get('billing-standards')
+  async getBillingStandards() {
+    const data = await this.adminService.getBillingStandards();
+    return { code: 200, message: 'success', data };
+  }
+
+  @Post('billing-standards')
+  async createBillingStandard(@Body() data: any) {
+    const result = await this.adminService.createBillingStandard(data);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  @Put('billing-standards/:id')
+  async updateBillingStandard(@Param('id') id: string, @Body() data: any) {
+    const result = await this.adminService.updateBillingStandard(id, data);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  @Delete('billing-standards/:id')
+  async deleteBillingStandard(@Param('id') id: string) {
+    await this.adminService.deleteBillingStandard(id);
+    return { code: 200, message: 'success', data: null };
+  }
+
+  // API系数配置管理
+  @Get('api-policies')
+  async getApiPolicies(@Query('planId') planId?: string) {
+    const data = await this.adminService.getApiPolicies(planId);
+    return { code: 200, message: 'success', data };
+  }
+
+  @Post('api-policies')
+  async createApiPolicy(@Body() data: any) {
+    const result = await this.adminService.createApiPolicy(data);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  @Put('api-policies/:id')
+  async updateApiPolicy(@Param('id') id: string, @Body() data: any) {
+    const result = await this.adminService.updateApiPolicy(id, data);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  @Delete('api-policies/:id')
+  async deleteApiPolicy(@Param('id') id: string) {
+    await this.adminService.deleteApiPolicy(id);
+    return { code: 200, message: 'success', data: null };
+  }
+
   // 多模式计费：用户功能使用查询
   @Get('users/:id/feature-usage')
   async getUserFeatureUsage(@Param('id') userId: string) {

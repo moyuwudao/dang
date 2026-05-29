@@ -15,6 +15,8 @@ import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
 import { PlanDefaultConfig } from '../subscription/entities/plan-default-config.entity';
 import { PlanFeatureQuota } from '../subscription/entities/plan-feature-quota.entity';
 import { TokenPricing } from '../subscription/entities/token-pricing.entity';
+import { BillingStandard } from '../subscription/entities/billing-standard.entity';
+import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 import { UserFeatureUsage } from '../subscription/entities/user-feature-usage.entity';
 import { AuditLog } from './entities/audit-log.entity';
 
@@ -30,6 +32,8 @@ import { AuditLog } from './entities/audit-log.entity';
       PlanDefaultConfig,
       PlanFeatureQuota,
       TokenPricing,
+      BillingStandard,
+      PlanApiPolicy,
       UserFeatureUsage,
       AuditLog,
     ]),

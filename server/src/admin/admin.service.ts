@@ -12,6 +12,8 @@ import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
 import { PlanDefaultConfig } from '../subscription/entities/plan-default-config.entity';
 import { PlanFeatureQuota } from '../subscription/entities/plan-feature-quota.entity';
 import { TokenPricing } from '../subscription/entities/token-pricing.entity';
+import { BillingStandard } from '../subscription/entities/billing-standard.entity';
+import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 import { UserFeatureUsage } from '../subscription/entities/user-feature-usage.entity';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { PlanService } from '../plan/plan.service';
@@ -37,6 +39,10 @@ export class AdminService {
     private planFeatureQuotaRepo: Repository<PlanFeatureQuota>,
     @InjectRepository(TokenPricing)
     private tokenPricingRepo: Repository<TokenPricing>,
+    @InjectRepository(BillingStandard)
+    private billingStandardRepo: Repository<BillingStandard>,
+    @InjectRepository(PlanApiPolicy)
+    private planApiPolicyRepo: Repository<PlanApiPolicy>,
     @InjectRepository(UserFeatureUsage)
     private userFeatureUsageRepo: Repository<UserFeatureUsage>,
     private subscriptionService: SubscriptionService,
@@ -579,6 +585,58 @@ export class AdminService {
 
   async deleteTokenPricing(id: string) {
     await this.tokenPricingRepo.delete(id);
+    return { success: true };
+  }
+
+  // 计费标准管理
+  async getBillingStandards() {
+    return this.billingStandardRepo.find({
+      order: { functionType: 'ASC', tier: 'ASC' },
+    });
+  }
+
+  async createBillingStandard(data: Partial<BillingStandard>) {
+    const standard = this.billingStandardRepo.create({
+      ...data,
+      isActive: data.isActive ?? true,
+    });
+    return this.billingStandardRepo.save(standard);
+  }
+
+  async updateBillingStandard(id: string, data: Partial<BillingStandard>) {
+    await this.billingStandardRepo.update(id, data);
+    return this.billingStandardRepo.findOne({ where: { id } });
+  }
+
+  async deleteBillingStandard(id: string) {
+    await this.billingStandardRepo.delete(id);
+    return { success: true };
+  }
+
+  // API系数配置管理
+  async getApiPolicies(planId?: string) {
+    const where = planId ? { planId } : {};
+    return this.planApiPolicyRepo.find({
+      where,
+      order: { provider: 'ASC', modelPattern: 'ASC' },
+    });
+  }
+
+  async createApiPolicy(data: Partial<PlanApiPolicy>) {
+    const policy = this.planApiPolicyRepo.create({
+      ...data,
+      isAllowed: data.isAllowed ?? true,
+    });
+    return this.planApiPolicyRepo.save(policy);
+  }
+
+  async updateApiPolicy(id: string, data: Partial<PlanApiPolicy>) {
+    await this.planApiPolicyRepo.update(id, data);
+    return this.planApiPolicyRepo.findOne({ where: { id } });
+  }
+
+  async deleteApiPolicy(id: string) {
+    await this.planApiPolicyRepo.delete(id);
     return { success: true };
   }
 
