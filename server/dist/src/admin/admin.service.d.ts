@@ -208,13 +208,7 @@ export declare class AdminService {
         success: boolean;
     }>;
     getTokenPricing(): Promise<TokenPricing[]>;
-    createTokenPricing(data: {
-        provider: string;
-        modelPattern: string;
-        promptPricePer1k: number;
-        completionPricePer1k: number;
-        isActive?: boolean;
-    }): Promise<TokenPricing>;
+    createTokenPricing(data: Partial<TokenPricing>): Promise<TokenPricing>;
     updateTokenPricing(id: string, data: Partial<TokenPricing>): Promise<TokenPricing>;
     deleteTokenPricing(id: string): Promise<{
         success: boolean;

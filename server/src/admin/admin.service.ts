@@ -564,13 +564,7 @@ export class AdminService {
     });
   }
 
-  async createTokenPricing(data: {
-    provider: string;
-    modelPattern: string;
-    promptPricePer1k: number;
-    completionPricePer1k: number;
-    isActive?: boolean;
-  }) {
+  async createTokenPricing(data: Partial<TokenPricing>) {
     const pricing = this.tokenPricingRepo.create({
       ...data,
       isActive: data.isActive ?? true,

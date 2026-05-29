@@ -646,7 +646,19 @@ export default function SubscriptionsPage() {
               <Select
                 label="套餐类型"
                 selectedKeys={[planForm.type || 'subscription']}
-                onChange={(e) => setPlanForm({ ...planForm, type: e.target.value })}
+                onChange={(e) => {
+                  const newType = e.target.value;
+                  // 根据套餐类型自动设置默认配额类型
+                  let newQuotaType = planForm.quotaType;
+                  if (newType === 'subscription') {
+                    newQuotaType = 'minutes';
+                  } else if (newType === 'package') {
+                    newQuotaType = 'minutes';
+                  } else if (newType === 'recharge') {
+                    newQuotaType = 'balance';
+                  }
+                  setPlanForm({ ...planForm, type: newType, quotaType: newQuotaType });
+                }}
                 classNames={{ trigger: 'rounded-xl' }}
               >
                 <SelectItem key="subscription" value="subscription">订阅制（月度/年度）</SelectItem>
@@ -654,15 +666,40 @@ export default function SubscriptionsPage() {
                 <SelectItem key="recharge" value="recharge">充值（按量付费）</SelectItem>
               </Select>
 
-              <Select
-                label="配额类型"
-                selectedKeys={[planForm.quotaType]}
-                onChange={(e) => setPlanForm({ ...planForm, quotaType: e.target.value })}
-                classNames={{ trigger: 'rounded-xl' }}
-              >
-                <SelectItem key="minutes" value="minutes">分钟</SelectItem>
-                <SelectItem key="unlimited" value="unlimited">无限</SelectItem>
-              </Select>
+              {/* 配额类型 - 根据套餐类型动态变化 */}
+              {planForm.type === 'subscription' && (
+                <Select
+                  label="配额类型"
+                  selectedKeys={[planForm.quotaType]}
+                  onChange={(e) => setPlanForm({ ...planForm, quotaType: e.target.value })}
+                  classNames={{ trigger: 'rounded-xl' }}
+                >
+                  <SelectItem key="minutes" value="minutes">语音转写分钟数</SelectItem>
+                  <SelectItem key="unlimited" value="unlimited">无限配额</SelectItem>
+                </Select>
+              )}
+              {planForm.type === 'package' && (
+                <Select
+                  label="资源包类型"
+                  selectedKeys={[planForm.quotaType]}
+                  onChange={(e) => setPlanForm({ ...planForm, quotaType: e.target.value })}
+                  classNames={{ trigger: 'rounded-xl' }}
+                >
+                  <SelectItem key="minutes" value="minutes">语音转写（分钟）</SelectItem>
+                  <SelectItem key="text_analysis" value="text_analysis">文本分析（千字符）</SelectItem>
+                  <SelectItem key="image_recognition" value="image_recognition">图像识别（张）</SelectItem>
+                  <SelectItem key="ocr" value="ocr">OCR识别（张）</SelectItem>
+                  <SelectItem key="ai_chat" value="ai_chat">AI对话（tokens）</SelectItem>
+                  <SelectItem key="tts" value="tts">语音合成（千字符）</SelectItem>
+                  <SelectItem key="combo" value="combo">组合包（多种功能）</SelectItem>
+                </Select>
+              )}
+              {planForm.type === 'recharge' && (
+                <div className="p-3 bg-green-50 rounded-xl">
+                  <p className="text-sm text-green-700 font-medium">按量付费模式</p>
+                  <p className="text-xs text-green-500 mt-1">用户充值金额，按实际使用扣费，无需设置配额类型</p>
+                </div>
+              )}
               {planForm.quotaType !== 'unlimited' && (
                 <Input
                   label="配额值"

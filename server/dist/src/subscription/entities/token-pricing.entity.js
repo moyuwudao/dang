@@ -27,13 +27,29 @@ __decorate([
     __metadata("design:type", String)
 ], TokenPricing.prototype, "modelPattern", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'prompt_price_per_1k' }),
+    (0, typeorm_1.Column)({ name: 'model_name', nullable: true }),
+    __metadata("design:type", String)
+], TokenPricing.prototype, "modelName", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'feature_type', default: 'ai_chat' }),
+    __metadata("design:type", String)
+], TokenPricing.prototype, "featureType", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'billing_unit', default: 'tokens' }),
+    __metadata("design:type", String)
+], TokenPricing.prototype, "billingUnit", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'prompt_price_per_1k', type: 'decimal', precision: 10, scale: 6, default: 0 }),
     __metadata("design:type", Number)
 ], TokenPricing.prototype, "promptPricePer1k", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'completion_price_per_1k' }),
+    (0, typeorm_1.Column)({ name: 'completion_price_per_1k', type: 'decimal', precision: 10, scale: 6, default: 0 }),
     __metadata("design:type", Number)
 ], TokenPricing.prototype, "completionPricePer1k", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'currency', default: 'CNY' }),
+    __metadata("design:type", String)
+], TokenPricing.prototype, "currency", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: 'is_active', default: true }),
     __metadata("design:type", Boolean)
