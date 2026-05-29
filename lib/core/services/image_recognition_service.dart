@@ -4,18 +4,32 @@ import '../models/ai_model_config.dart';
 import 'http_client.dart';
 import 'app_logger.dart';
 import 'storage_service.dart';
+import 'billing_service.dart';
 
 class ImageRecognitionService {
   final HttpClient _httpClient;
+  final BillingService? _billingService;
 
-  ImageRecognitionService({HttpClient? httpClient})
-      : _httpClient = httpClient ?? HttpClient();
+  ImageRecognitionService({HttpClient? httpClient, BillingService? billingService})
+      : _httpClient = httpClient ?? HttpClient(),
+        _billingService = billingService;
 
   bool get isConfigured => _httpClient.isConfigured;
 
   Future<String> recognizeImage(String imagePath, {String? model}) async {
     if (!isConfigured) {
       throw Exception('API未配置，请先在设置中配置API Key');
+    }
+
+    // 计费检查
+    if (_billingService != null) {
+      final canUse = await _billingService!.canUseFeature(
+        FeatureType.imageRecognition,
+        1,
+      );
+      if (!canUse) {
+        throw Exception('图像识别配额不足，请充值或升级套餐');
+      }
     }
 
     final config = _httpClient.currentConfig!;
@@ -66,6 +80,16 @@ class ImageRecognitionService {
           throw Exception('${config.displayName} 暂不支持图像识别');
         case AiProvider.tingwu:
           throw Exception('${config.displayName} 不支持图像识别');
+      }
+
+      // 计费扣减
+      if (_billingService != null) {
+        await _billingService!.consumeFeature(
+          FeatureType.imageRecognition,
+          1,
+          provider: config.provider.name,
+          model: useModel,
+        );
       }
 
       await StorageService.incrementUsageStat(

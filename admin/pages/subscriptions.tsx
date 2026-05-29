@@ -5,13 +5,31 @@ import { Card, CardBody, Button, Input, Select, SelectItem, Modal, ModalContent,
 import { Plus, Search, Edit, Package, Clock, Zap, Crown, Sparkles, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { adminAPI } from '@/services/api';
-import type { Plan, Subscription } from '@/types';
+import type { Plan, Subscription, PlanFeatureQuota } from '@/types';
 
 const getPlanIcon = (planId: string) => {
   switch (planId) {
     case 'enterprise': return Crown;
     case 'pro': return Sparkles;
     default: return Package;
+  }
+};
+
+const getPlanTypeLabel = (type?: string) => {
+  switch (type) {
+    case 'subscription': return '订阅制';
+    case 'package': return '资源包';
+    case 'recharge': return '充值';
+    default: return '订阅制';
+  }
+};
+
+const getPlanTypeColor = (type?: string) => {
+  switch (type) {
+    case 'subscription': return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'package': return 'bg-purple-50 text-purple-700 border-purple-200';
+    case 'recharge': return 'bg-green-50 text-green-700 border-green-200';
+    default: return 'bg-gray-50 text-gray-700 border-gray-200';
   }
 };
 
@@ -25,6 +43,7 @@ const emptyPlan: Omit<Plan, 'id'> = {
   isActive: true,
   type: 'subscription',
   allowedModels: [],
+  featureQuotas: [],
 };
 
 // 可用模型列表
@@ -35,6 +54,17 @@ const AVAILABLE_MODELS = [
   { provider: 'anthropic', label: 'Anthropic', models: ['claude-3-haiku', 'claude-3-sonnet', 'claude-3-opus'] },
   { provider: 'gemini', label: 'Gemini', models: ['gemini-pro', 'gemini-ultra'] },
   { provider: 'grok', label: 'Grok', models: ['grok-1', 'grok-2'] },
+];
+
+// 功能类型列表
+const FEATURE_TYPES = [
+  { key: 'transcription', label: '语音转写', unit: 'minutes', unitLabel: '分钟' },
+  { key: 'realtime_transcription', label: '实时转写', unit: 'minutes', unitLabel: '分钟' },
+  { key: 'text_analysis', label: '文本分析', unit: 'thousand_chars', unitLabel: '千字符' },
+  { key: 'image_recognition', label: '图像识别', unit: 'images', unitLabel: '张' },
+  { key: 'ocr', label: 'OCR识别', unit: 'images', unitLabel: '张' },
+  { key: 'ai_chat', label: 'AI对话', unit: 'tokens', unitLabel: 'tokens' },
+  { key: 'tts', label: '语音合成', unit: 'thousand_chars', unitLabel: '千字符' },
 ];
 
 // 功能场景列表
@@ -74,6 +104,10 @@ export default function SubscriptionsPage() {
   // 场景默认模型配置
   const [planDefaultConfigs, setPlanDefaultConfigs] = useState<any[]>([]);
   const [defaultConfigsLoading, setDefaultConfigsLoading] = useState(false);
+
+  // 功能配额配置
+  const [planFeatureQuotas, setPlanFeatureQuotas] = useState<PlanFeatureQuota[]>([]);
+  const [featureQuotasLoading, setFeatureQuotasLoading] = useState(false);
 
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true);
@@ -165,6 +199,7 @@ export default function SubscriptionsPage() {
     setPlanModalMode('create');
     setEditingPlan(null);
     setPlanForm({ ...emptyPlan });
+    setPlanFeatureQuotas([]);
     setShowPlanModal(true);
   };
 
@@ -181,10 +216,25 @@ export default function SubscriptionsPage() {
       isActive: plan.isActive,
       type: plan.type,
       allowedModels: plan.allowedModels || [],
+      featureQuotas: plan.featureQuotas || [],
     });
+    // 加载功能配额
+    await loadPlanFeatureQuotas(plan.id);
     // 加载场景默认配置
     await loadPlanDefaultConfigs(plan.id);
     setShowPlanModal(true);
+  };
+
+  const loadPlanFeatureQuotas = async (planId: string) => {
+    setFeatureQuotasLoading(true);
+    try {
+      const quotas = await adminAPI.getPlanFeatureQuotas(planId);
+      setPlanFeatureQuotas(quotas);
+    } catch (err: any) {
+      setError(err.response?.data?.message || '加载功能配额失败');
+    } finally {
+      setFeatureQuotasLoading(false);
+    }
   };
 
   const loadPlanDefaultConfigs = async (planId: string) => {
@@ -196,6 +246,27 @@ export default function SubscriptionsPage() {
       setError(err.response?.data?.message || '加载场景默认配置失败');
     } finally {
       setDefaultConfigsLoading(false);
+    }
+  };
+
+  const handleSaveFeatureQuota = async (featureType: string, quotaValue: number, quotaUnit: string) => {
+    if (!editingPlan) return;
+    try {
+      await adminAPI.setPlanFeatureQuota(editingPlan.id, { featureType, quotaValue, quotaUnit });
+      await loadPlanFeatureQuotas(editingPlan.id);
+    } catch (err: any) {
+      setError(err.response?.data?.message || '保存功能配额失败');
+    }
+  };
+
+  const handleDeleteFeatureQuota = async (quotaId: string) => {
+    try {
+      await adminAPI.deletePlanFeatureQuota(quotaId);
+      if (editingPlan) {
+        await loadPlanFeatureQuotas(editingPlan.id);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || '删除功能配额失败');
     }
   };
 
@@ -320,6 +391,9 @@ export default function SubscriptionsPage() {
                               {plan.isRecommended && (
                                 <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">推荐</span>
                               )}
+                              <span className={`px-2 py-0.5 text-xs rounded-full border ${getPlanTypeColor(plan.type)}`}>
+                                {getPlanTypeLabel(plan.type)}
+                              </span>
                             </div>
                             <p className="text-sm text-gray-500">{plan.description || '-'}</p>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
@@ -329,6 +403,16 @@ export default function SubscriptionsPage() {
                               </span>
                               <span className="text-xs text-gray-400">ID: {plan.id.slice(0, 8)}</span>
                             </div>
+                            {plan.featureQuotas && plan.featureQuotas.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                <span className="text-xs text-gray-400 mr-1">功能配额:</span>
+                                {plan.featureQuotas.map((quota) => (
+                                  <span key={quota.featureType} className="px-1.5 py-0.5 text-xs bg-purple-50 text-purple-600 rounded border border-purple-100">
+                                    {FEATURE_TYPES.find(f => f.key === quota.featureType)?.label || quota.featureType}: {quota.quotaValue}{FEATURE_TYPES.find(f => f.key === quota.featureType)?.unitLabel || quota.quotaUnit}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                             {plan.features && plan.features.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 {plan.features.map((feature, idx) => (
@@ -557,6 +641,19 @@ export default function SubscriptionsPage() {
                 onChange={(e) => setPlanForm({ ...planForm, durationDays: parseInt(e.target.value) || 30 })}
                 classNames={{ inputWrapper: 'rounded-xl' }}
               />
+              
+              {/* 套餐类型选择 */}
+              <Select
+                label="套餐类型"
+                selectedKeys={[planForm.type || 'subscription']}
+                onChange={(e) => setPlanForm({ ...planForm, type: e.target.value })}
+                classNames={{ trigger: 'rounded-xl' }}
+              >
+                <SelectItem key="subscription" value="subscription">订阅制（月度/年度）</SelectItem>
+                <SelectItem key="package" value="package">资源包（一次性）</SelectItem>
+                <SelectItem key="recharge" value="recharge">充值（按量付费）</SelectItem>
+              </Select>
+
               <Select
                 label="配额类型"
                 selectedKeys={[planForm.quotaType]}
@@ -584,6 +681,71 @@ export default function SubscriptionsPage() {
                 <SelectItem key="true" value="true">启用</SelectItem>
                 <SelectItem key="false" value="false">禁用</SelectItem>
               </Select>
+
+              {/* 功能配额配置（仅编辑模式） */}
+              {planModalMode === 'edit' && editingPlan && (
+                <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-800">功能配额配置</p>
+                    <span className="text-xs text-gray-400">为各功能设置配额</span>
+                  </div>
+                  
+                  {featureQuotasLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Spinner size="sm" color="primary" />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {FEATURE_TYPES.map((feature) => {
+                        const existingQuota = planFeatureQuotas.find(q => q.featureType === feature.key);
+                        return (
+                          <div key={feature.key} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-700">{feature.label}</p>
+                              <p className="text-xs text-gray-400">单位: {feature.unitLabel}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {existingQuota ? (
+                                <>
+                                  <span className="px-2 py-1 text-xs bg-purple-50 text-purple-600 rounded border border-purple-100">
+                                    {existingQuota.quotaValue} {feature.unitLabel}
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="light"
+                                    color="danger"
+                                    className="min-w-0 px-2"
+                                    onClick={() => handleDeleteFeatureQuota(existingQuota.id)}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    size="sm"
+                                    className="w-20"
+                                    placeholder="配额"
+                                    classNames={{ inputWrapper: 'rounded-lg bg-white' }}
+                                    onChange={(e) => {
+                                      const value = parseInt(e.target.value) || 0;
+                                      if (value > 0) {
+                                        handleSaveFeatureQuota(feature.key, value, feature.unit);
+                                      }
+                                    }}
+                                  />
+                                  <span className="text-xs text-gray-400">{feature.unitLabel}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 提示：可用模型在API系数配置中设置 */}
               <div className="p-3 bg-blue-50 rounded-xl">
@@ -643,7 +805,7 @@ export default function SubscriptionsPage() {
                                     }
                                   }}
                                 >
-                                  {AVAILABLE_MODELS.map((provider) =>
+                                  {AVAILABLE_MODELS.flatMap((provider) =>
                                     provider.models.map((model) => (
                                       <SelectItem key={`${provider.provider}:${model}`} value={`${provider.provider}:${model}`}>
                                         {provider.label} {model}
@@ -710,15 +872,11 @@ export default function SubscriptionsPage() {
             </div>
             <div>
               <p className="text-lg font-bold text-gray-800">编辑订阅</p>
-              <p className="text-sm text-gray-500">{editingSub?.userPhone || editingSub?.userId}</p>
+              <p className="text-sm text-gray-500">修改订阅状态</p>
             </div>
           </ModalHeader>
           <ModalBody>
             <div className="space-y-4">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-500">套餐</p>
-                <p className="font-medium text-gray-800">{editingSub?.planName || editingSub?.planId}</p>
-              </div>
               <Select
                 label="订阅状态"
                 selectedKeys={[subStatusForm]}
@@ -732,8 +890,8 @@ export default function SubscriptionsPage() {
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onClick={() => setShowEditSubModal(false)} className="hover:bg-gray-100">取消</Button>
-            <Button color="primary" className="bg-blue-600 hover:bg-blue-700" onClick={handleUpdateSubscription}>保存</Button>
+            <Button variant="light" onClick={() => setShowEditSubModal(false)} className="hover:bg-gray-100 rounded-xl">取消</Button>
+            <Button color="primary" className="bg-blue-600 hover:bg-blue-700 rounded-xl" onClick={handleUpdateSubscription}>保存</Button>
           </ModalFooter>
           </ModalContent>
         </Modal>

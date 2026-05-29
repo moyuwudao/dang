@@ -1,0 +1,13 @@
+#!/bin/bash
+echo "=== PM2 Processes ==="
+cat /home/admin/.pm2/dump.pm2 2>/dev/null | head -20 || echo "no dump.pm2"
+echo ""
+echo "=== PM2 Logs ==="
+tail -20 /home/admin/.pm2/logs/changji-api-out.log 2>/dev/null || echo "no out log"
+tail -20 /home/admin/.pm2/logs/changji-api-error.log 2>/dev/null || echo "no error log"
+echo ""
+echo "=== Nginx Config ==="
+cat /etc/nginx/sites-enabled/default 2>/dev/null | head -30 || echo "no nginx config"
+echo ""
+echo "=== Listening Ports ==="
+ss -tlnp | grep -E "3000|80|443" || echo "no web ports"

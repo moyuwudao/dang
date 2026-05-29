@@ -1,25 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/transcription_service.dart';
+import '../../../core/services/cloud_config_sync_service.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../providers/settings_provider.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../auth/screens/login_screen.dart';
-import '../../auth/screens/profile_screen.dart';
 import '../../subscription/providers/subscription_provider.dart';
-import 'multi_api_config_screen.dart';
-import 'api_key_wizard_screen.dart';
-import 'role_management_screen.dart';
-import 'auto_analysis_settings_screen.dart';
-import 'tool_ai_config_screen.dart';
-import 'backup_management_screen.dart';
-import 'recycle_bin_screen.dart';
-import 'log_screen.dart';
-import 'analysis_template_settings_screen.dart';
-import 'prompt_template_management_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -604,9 +592,7 @@ class AccountCenterTab extends ConsumerWidget {
               trailing: Switch(
                 value: (ref.watch(cloudApiEnabledProvider).valueOrNull ?? false) && authState.isLoggedIn,
                 onChanged: authState.isLoggedIn
-                    ? (value) {
-                        ref.read(cloudApiEnabledProvider.notifier).setEnabled(value);
-                      }
+                    ? (value) => _onCloudAiToggle(context, ref, value)
                     : null,
               ),
               onTap: !authState.isLoggedIn
@@ -634,6 +620,82 @@ class AccountCenterTab extends ConsumerWidget {
       return;
     }
     context.push(route);
+  }
+
+  /// 处理云端AI开关切换
+  Future<void> _onCloudAiToggle(BuildContext context, WidgetRef ref, bool value) async {
+    if (!value) {
+      // 关闭云端AI：直接关闭并清除云端配置
+      await ref.read(cloudApiEnabledProvider.notifier).setEnabled(false);
+      await CloudConfigSyncService.clearCloudConfigs();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已关闭云端AI服务，恢复本地配置')),
+        );
+      }
+      return;
+    }
+
+    // 开启云端AI：弹出确认对话框
+    final subscriptionState = ref.read(subscriptionNotifierProvider).valueOrNull;
+    final defaultConfigs = subscriptionState?.defaultConfigs ?? [];
+
+    if (defaultConfigs.isEmpty) {
+      // 没有默认配置，直接开启
+      await ref.read(cloudApiEnabledProvider.notifier).setEnabled(true);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已开启云端AI服务')),
+        );
+      }
+      return;
+    }
+
+    // 显示确认对话框
+    final result = await showDialog<CloudSyncAction>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _CloudSyncDialog(
+        defaultConfigs: defaultConfigs,
+      ),
+    );
+
+    if (result == null || !context.mounted) return;
+
+    switch (result) {
+      case CloudSyncAction.sync:
+        // 同步云端默认配置
+        await ref.read(cloudApiEnabledProvider.notifier).setEnabled(true);
+        final syncResult = await CloudConfigSyncService.syncCloudDefaults(
+          defaultConfigs: defaultConfigs,
+          apiPolicies: subscriptionState?.apiPolicies ?? [],
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(syncResult.success
+                  ? '云端AI已开启，${syncResult.message}'
+                  : '同步失败：${syncResult.message}'),
+              backgroundColor: syncResult.success ? Colors.green : Colors.orange,
+            ),
+          );
+        }
+      case CloudSyncAction.manual:
+        // 开启但不同步，引导用户手动设置
+        await ref.read(cloudApiEnabledProvider.notifier).setEnabled(true);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('已开启云端AI，请前往API配置管理手动设置模型'),
+            ),
+          );
+          // 跳转到API配置管理页面
+          context.push('/settings/multi-api');
+        }
+      case CloudSyncAction.cancel:
+        // 取消，不做任何操作
+        break;
+    }
   }
 
   void _showLoginPrompt(BuildContext context) {
@@ -838,6 +900,108 @@ class AccountCenterTab extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// 云端配置同步操作类型
+enum CloudSyncAction { sync, manual, cancel }
+
+/// 云端配置同步确认对话框
+class _CloudSyncDialog extends StatelessWidget {
+  final List<DefaultConfig> defaultConfigs;
+
+  const _CloudSyncDialog({required this.defaultConfigs});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      icon: const Icon(Icons.cloud_sync, color: AppColors.primary, size: 32),
+      title: const Text('同步云端AI配置'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '开启云端AI服务后，系统将使用云端分配的模型替换API配置管理中的对应场景配置。',
+            style: TextStyle(fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '云端默认模型：',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          ...defaultConfigs.map((config) => Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${_getFunctionTypeName(config.functionType)}: ${config.modelPattern}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          )),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '如需保留部分本地配置，请选择"手动设置"跳转至API配置管理页面。',
+                    style: TextStyle(fontSize: 12, color: Colors.orange),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, CloudSyncAction.cancel),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, CloudSyncAction.manual),
+          child: const Text('手动设置'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, CloudSyncAction.sync),
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+          child: const Text('确认同步'),
+        ),
+      ],
+    );
+  }
+
+  String _getFunctionTypeName(String functionType) {
+    switch (functionType) {
+      case 'text_analysis':
+        return '文本分析';
+      case 'voice_transcription':
+        return '语音转写';
+      case 'realtime_transcription':
+        return '实时转写';
+      case 'offline_transcription':
+        return '离线转写';
+      case 'image_recognition':
+        return '图像识别';
+      default:
+        return functionType;
+    }
   }
 }
 

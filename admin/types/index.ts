@@ -10,6 +10,15 @@ export interface User {
   balance?: number;
 }
 
+export interface PlanFeatureQuota {
+  id: string;
+  planId: string;
+  featureType: string;
+  quotaValue: number;
+  quotaUnit: string;
+  multiplier: number;
+}
+
 export interface Plan {
   id: string;
   name: string;
@@ -23,6 +32,7 @@ export interface Plan {
   features?: string[];
   isRecommended?: boolean;
   allowedModels?: string[];
+  featureQuotas?: PlanFeatureQuota[];
 }
 
 export interface Subscription {

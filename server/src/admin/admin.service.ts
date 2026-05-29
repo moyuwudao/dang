@@ -2,7 +2,6 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
 import { User } from '../auth/entities/user.entity';
 import { Plan } from '../subscription/entities/plan.entity';
 import { Subscription } from '../subscription/entities/subscription.entity';
@@ -10,17 +9,18 @@ import { ApiKey } from '../api-key/entities/api-key.entity';
 import { UserBalance } from '../subscription/entities/user-balance.entity';
 import { RechargeRecord } from '../subscription/entities/recharge-record.entity';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
-import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 import { PlanDefaultConfig } from '../subscription/entities/plan-default-config.entity';
+import { PlanFeatureQuota } from '../subscription/entities/plan-feature-quota.entity';
+import { TokenPricing } from '../subscription/entities/token-pricing.entity';
+import { UserFeatureUsage } from '../subscription/entities/user-feature-usage.entity';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { PlanService } from '../plan/plan.service';
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectRepository(User)
     private userRepo: Repository<User>,
-    @InjectRepository(Plan)
-    private planRepo: Repository<Plan>,
     @InjectRepository(Subscription)
     private subscriptionRepo: Repository<Subscription>,
     @InjectRepository(ApiKey)
@@ -31,11 +31,16 @@ export class AdminService {
     private rechargeRepo: Repository<RechargeRecord>,
     @InjectRepository(ApiUsageLog)
     private apiUsageLogRepo: Repository<ApiUsageLog>,
-    @InjectRepository(PlanApiPolicy)
-    private planApiPolicyRepo: Repository<PlanApiPolicy>,
     @InjectRepository(PlanDefaultConfig)
     private planDefaultConfigRepo: Repository<PlanDefaultConfig>,
+    @InjectRepository(PlanFeatureQuota)
+    private planFeatureQuotaRepo: Repository<PlanFeatureQuota>,
+    @InjectRepository(TokenPricing)
+    private tokenPricingRepo: Repository<TokenPricing>,
+    @InjectRepository(UserFeatureUsage)
+    private userFeatureUsageRepo: Repository<UserFeatureUsage>,
     private subscriptionService: SubscriptionService,
+    private planService: PlanService,
   ) {}
 
   // 统计
@@ -169,45 +174,22 @@ export class AdminService {
 
   // 套餐列表
   async getPlans() {
-    const plans = await this.planRepo.find({ order: { priceCents: 'ASC' } });
-    // 为每个套餐获取API策略中的模型列表
-    const plansWithModels = await Promise.all(
-      plans.map(async (plan) => {
-        const policies = await this.planApiPolicyRepo.find({
-          where: { planId: plan.id },
-        });
-        const allowedModels = policies
-          .filter(p => p.modelPattern && p.modelPattern !== '*')
-          .map(p => p.modelPattern);
-        return {
-          ...plan,
-          allowedModels: Array.from(new Set(allowedModels)),
-        };
-      }),
-    );
-    return plansWithModels;
+    return this.planService.getPlans(true);
   }
 
   // 创建套餐
   async createPlan(data: Partial<Plan>) {
-    // 如果没有提供 id，自动生成 UUID
-    if (!data.id) {
-      data.id = uuidv4();
-    }
-    const plan = this.planRepo.create(data);
-    return this.planRepo.save(plan);
+    return this.planService.createPlan(data);
   }
 
   // 更新套餐
   async updatePlan(planId: string, data: Partial<Plan>) {
-    await this.planRepo.update(planId, data);
-    return this.planRepo.findOne({ where: { id: planId } });
+    return this.planService.updatePlan(planId, data);
   }
 
   // 删除套餐
   async deletePlan(planId: string) {
-    await this.planRepo.delete(planId);
-    return { success: true };
+    return this.planService.deletePlan(planId);
   }
 
   // 订阅列表
@@ -315,7 +297,7 @@ export class AdminService {
 
   // 管理员为用户分配套餐
   async assignPlanToUser(userId: string, planId: string) {
-    const plan = await this.planRepo.findOne({ where: { id: planId } });
+    const plan = await this.planService.getPlanById(planId);
     if (!plan) {
       throw new BadRequestException('套餐不存在');
     }
@@ -573,5 +555,69 @@ export class AdminService {
   async deletePlanDefaultConfig(configId: string) {
     await this.planDefaultConfigRepo.delete(configId);
     return { success: true };
+  }
+
+  // 多模式计费：Token价格管理
+  async getTokenPricing() {
+    return this.tokenPricingRepo.find({
+      order: { provider: 'ASC', modelPattern: 'ASC' },
+    });
+  }
+
+  async createTokenPricing(data: {
+    provider: string;
+    modelPattern: string;
+    promptPricePer1k: number;
+    completionPricePer1k: number;
+    isActive?: boolean;
+  }) {
+    const pricing = this.tokenPricingRepo.create({
+      ...data,
+      isActive: data.isActive ?? true,
+    });
+    return this.tokenPricingRepo.save(pricing);
+  }
+
+  async updateTokenPricing(id: string, data: Partial<TokenPricing>) {
+    await this.tokenPricingRepo.update(id, data);
+    return this.tokenPricingRepo.findOne({ where: { id } });
+  }
+
+  async deleteTokenPricing(id: string) {
+    await this.tokenPricingRepo.delete(id);
+    return { success: true };
+  }
+
+  // 多模式计费：用户功能使用查询
+  async getUserFeatureUsage(userId: string) {
+    const usage = await this.userFeatureUsageRepo.find({
+      where: { userId },
+      order: { featureType: 'ASC' },
+    });
+
+    // 获取用户订阅信息
+    const subscriptions = await this.subscriptionRepo.find({
+      where: { userId },
+      relations: ['plan'],
+    });
+
+    return {
+      userId,
+      subscriptions: subscriptions.map(s => ({
+        id: s.id,
+        planId: s.planId,
+        planName: s.plan?.name,
+        type: s.type,
+        status: s.status,
+        expiresAt: s.expiresAt,
+      })),
+      featureUsage: usage.map(u => ({
+        featureType: u.featureType,
+        usedAmount: u.usedAmount,
+        totalAmount: u.totalAmount,
+        remaining: u.totalAmount - u.usedAmount,
+        unit: u.unit,
+      })),
+    };
   }
 }

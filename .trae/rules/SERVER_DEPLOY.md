@@ -158,6 +158,51 @@ curl --connect-timeout 5 --max-time 10 http://101.133.238.249/api/v1/health
 ❌ 禁止共享账户密码
 ```
 
+### 2.5 代码存放规范（强制）
+
+```
+❌ 禁止将项目代码放置在 /root/ 目录下
+❌ 禁止将构建产物、日志、配置文件放在 root 用户目录
+✅ 所有项目代码必须存放在 /home/admin/ 目录下
+✅ 文件权限必须设置为 admin:admin
+```
+
+**为什么重要**：
+- root 目录下的代码在系统更新或安全审计时可能被清除
+- 不利于团队协作和权限管理
+- 违反最小权限原则
+
+**正确示例**：
+```bash
+# ✅ 正确：代码在 admin 用户目录
+cd /home/admin/dang
+git pull origin master
+npm run build
+pm2 restart changji-api
+
+# ❌ 错误：代码在 root 目录
+cd /root/dang        # 禁止！
+sudo git pull        # 禁止！
+```
+
+**迁移方法**（如已有代码在 /root/ 下）：
+```bash
+# 1. 复制代码到 admin 目录
+sudo cp -r /root/dang /home/admin/dang
+sudo chown -R admin:admin /home/admin/dang
+
+# 2. 更新 PM2 配置
+pm2 delete changji-api
+pm2 start /home/admin/dang/server/dist/main.js --name changji-api
+pm2 save
+
+# 3. 更新部署脚本
+sed -i 's|/root/dang|/home/admin/dang|g' /home/admin/dang/deploy_backend.sh
+
+# 4. 删除 root 下的代码（确认迁移成功后）
+sudo rm -rf /root/dang
+```
+
 ---
 
 ## 三、已知问题与解决方案

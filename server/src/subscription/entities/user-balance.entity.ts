@@ -15,6 +15,9 @@ export class UserBalance {
   @Column({ default: 0 })
   totalRefundedCents: number;
 
+  @Column({ name: 'gift_balance_cents', default: 0 })
+  giftBalanceCents: number;
+
   @OneToOne(() => User, user => user.balance)
   @JoinColumn({ name: 'userId' })
   user: User;

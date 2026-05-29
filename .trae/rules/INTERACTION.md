@@ -115,11 +115,52 @@ A / B / C / 有其他想法
 
 ---
 
+## 🛠 工具选择决策（执行前必走）
+
+### 决策流程（强制遵循）
+
+**每次接到任务，按以下决策树选择工具，而不是默认 RunCommand**：
+
+```
+接收到任务
+  ↓
+第1步：这个任务有专用 Skill 吗？
+  ├→ 查 SOUL.md 中的"Skill 触发速查"表
+  ├→ 匹配？ → 调用 Skill 工具（如 Skill: build-apk）
+  └→ 不匹配 → 继续
+  ↓
+第2步：这个任务能用 MCP 工具吗？
+  ├→ 需要理解代码？ → CodeGraph MCP（codegraph_context/search/files）
+  ├→ 需要操作浏览器？ → Chrome DevTools MCP
+  ├→ 需要 Git/GitHub 操作？ → GitHub MCP
+  ├→ 需要 SSH 到服务器？ → aliyun-servers MCP + server-* Skill
+  └→ 不匹配 → 继续
+  ↓
+第3步：这个任务需要专业 Agent 吗？
+  ├→ 复杂多步骤任务 → 分派对应 Agent（frontend/backend/devops/performance）
+  └→ 简单任务 → 继续
+  ↓
+第4步：使用基础工具
+  └→ RunCommand / Read / Write / SearchReplace / Grep
+```
+
+### 违规自检清单
+
+**每次使用 RunCommand 前，必须自问**：
+1. ☐ 有对应的 Skill 吗？（查 SOUL.md Skill 触发表）
+2. ☐ 有对应的 MCP 工具吗？（查 SOUL.md MCP 决策矩阵）
+3. ☐ 能用 Agent 分派吗？
+4. ☐ 如果以上都没有 → 才用 RunCommand
+
+**如果跳过第 1-3 步直接用了 RunCommand → 这是浪费 TOKEN 的行为**
+
+---
+
 ## ⚠️ 执行效率与防重复规则
 
 ### 覆盖范围
 
-此规则适用于**所有工具调用**：`RunCommand`、`SearchCodebase`、`Grep`、`Glob`、`Read`、`Write`、`SearchReplace`、`Task`（Agent 分派）、`TodoWrite`。
+此规则适用于**所有工具调用**：`RunCommand`、`SearchCodebase`、`Grep`、`Glob`、`Read`、`Write`、`SearchReplace`、`Task`（Agent 分派）、`TodoWrite`、`Skill`。
 
 ### 通用原则
 
@@ -312,6 +353,7 @@ python3 /tmp/fix.py"'
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-05-28 | 新增"工具选择决策"章节：决策流程（4步决策树）、违规自检清单（RunCommand 前必自问 4 项） |
 | 2026-05-25 | 新增"命令超时自动处理"章节；"直接执行"增加只读操作超时场景 |
 | 2026-05-25 | 合并 COMMUNICATION.md 内容，精简沟通规范 |
 | 2026-05-21 | 拆分优化：构建触发→BUILD_TRIGGER.md，沟通规范→COMMUNICATION.md |

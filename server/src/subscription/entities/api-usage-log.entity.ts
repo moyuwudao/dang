@@ -35,6 +35,15 @@ export class ApiUsageLog {
   @Column({ name: 'cost_cents', nullable: true })
   costCents: number;
 
+  @Column({ name: 'feature_type', nullable: true })
+  featureType: string;
+
+  @Column({ name: 'resource_consumed', nullable: true })
+  resourceConsumed: number;
+
+  @Column({ name: 'unit', nullable: true })
+  unit: string;
+
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;

@@ -11,6 +11,7 @@ import { MonitorModule } from './monitor/monitor.module';
 import { RedisModule } from './redis/redis.module';
 import { AiModule } from './ai/ai.module';
 import { PaymentModule } from './payment/payment.module';
+import { PlanModule } from './plan/plan.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -40,6 +41,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     RedisModule,
     AiModule,
     PaymentModule,
+    PlanModule,
   ],
   providers: [
     {

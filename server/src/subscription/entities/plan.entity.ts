@@ -1,4 +1,5 @@
-import { Entity, PrimaryColumn, Column } from 'typeorm';
+import { Entity, PrimaryColumn, Column, OneToMany } from 'typeorm';
+import { PlanFeatureQuota } from './plan-feature-quota.entity';
 
 @Entity('plans')
 export class Plan {
@@ -40,4 +41,7 @@ export class Plan {
 
   @Column('simple-array', { name: 'allowed_models', nullable: true })
   allowedModels: string[];
+
+  @OneToMany(() => PlanFeatureQuota, quota => quota.plan)
+  featureQuotas: PlanFeatureQuota[];
 }

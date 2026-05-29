@@ -1,12 +1,16 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
+import { PlanService } from '../plan/plan.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly planService: PlanService,
+  ) {}
 
   @Get('stats')
   async getStats() {
@@ -183,5 +187,59 @@ export class AdminController {
   async deletePlanDefaultConfig(@Param('configId') configId: string) {
     await this.adminService.deletePlanDefaultConfig(configId);
     return { code: 200, message: 'success', data: null };
+  }
+
+  // 多模式计费：套餐功能配额管理
+  @Get('plans/:id/feature-quotas')
+  async getPlanFeatureQuotas(@Param('id') planId: string) {
+    const data = await this.planService.getPlanFeatureQuotas(planId);
+    return { code: 200, message: 'success', data };
+  }
+
+  @Post('plans/:id/feature-quotas')
+  async setPlanFeatureQuota(
+    @Param('id') planId: string,
+    @Body() data: { featureType: string; quotaValue: number; quotaUnit: string; multiplier?: number },
+  ) {
+    const result = await this.planService.setPlanFeatureQuota(planId, data);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  @Delete('plans/feature-quotas/:quotaId')
+  async deletePlanFeatureQuota(@Param('quotaId') quotaId: string) {
+    await this.planService.deletePlanFeatureQuota(quotaId);
+    return { code: 200, message: 'success', data: null };
+  }
+
+  // 多模式计费：Token价格管理
+  @Get('token-pricing')
+  async getTokenPricing() {
+    const data = await this.adminService.getTokenPricing();
+    return { code: 200, message: 'success', data };
+  }
+
+  @Post('token-pricing')
+  async createTokenPricing(@Body() data: any) {
+    const result = await this.adminService.createTokenPricing(data);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  @Put('token-pricing/:id')
+  async updateTokenPricing(@Param('id') id: string, @Body() data: any) {
+    const result = await this.adminService.updateTokenPricing(id, data);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  @Delete('token-pricing/:id')
+  async deleteTokenPricing(@Param('id') id: string) {
+    await this.adminService.deleteTokenPricing(id);
+    return { code: 200, message: 'success', data: null };
+  }
+
+  // 多模式计费：用户功能使用查询
+  @Get('users/:id/feature-usage')
+  async getUserFeatureUsage(@Param('id') userId: string) {
+    const data = await this.adminService.getUserFeatureUsage(userId);
+    return { code: 200, message: 'success', data };
   }
 }

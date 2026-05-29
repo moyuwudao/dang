@@ -1,4 +1,23 @@
-import { IsString, IsNumber, IsOptional, IsBoolean, IsNotEmpty, IsArray } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsBoolean, IsNotEmpty, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class PlanFeatureQuotaDto {
+  @IsString()
+  @IsNotEmpty()
+  featureType: string;
+
+  @IsNumber()
+  @IsNotEmpty()
+  quotaValue: number;
+
+  @IsString()
+  @IsNotEmpty()
+  quotaUnit: string;
+
+  @IsNumber()
+  @IsOptional()
+  multiplier?: number;
+}
 
 export class CreatePlanDto {
   @IsString()
@@ -50,4 +69,10 @@ export class CreatePlanDto {
   @IsString({ each: true })
   @IsOptional()
   allowedModels?: string[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PlanFeatureQuotaDto)
+  @IsOptional()
+  featureQuotas?: PlanFeatureQuotaDto[];
 }

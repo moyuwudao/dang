@@ -79,18 +79,24 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
   Future<List<ApiConfigEntry>> _loadCloudConfigEntries() async {
     try {
-      // 安全校验 1：必须已登录才能加载云端配置
+      // 安全校验 1：必须已登录且云端AI开关开启才能加载云端配置
       final authState = ref.read(authNotifierProvider).valueOrNull;
       if (authState == null || !authState.isLoggedIn) {
         return [];
       }
+      
+      // 安全校验 2：云端AI开关必须开启
+      final cloudEnabled = ref.read(cloudApiEnabledProvider).valueOrNull ?? false;
+      if (!cloudEnabled) {
+        return [];
+      }
 
-      // 安全校验 2：必须已登录才能加载云端配置（双重校验）
+      // 安全校验 3：获取订阅状态和可用模型
       final subscriptionState = ref.read(subscriptionNotifierProvider).valueOrNull;
-      final policies = subscriptionState?.apiPolicies ?? [];
-      if (policies.isEmpty) return [];
+      final apiPolicies = subscriptionState?.apiPolicies ?? [];
+      if (apiPolicies.isEmpty) return [];
 
-      // 安全校验 3：从 SecureStorage 获取 API Key，未登录时应该已被清除
+      // 安全校验 4：从 SecureStorage 获取 API Key
       final jsonStr = await SecureStorageService().read('cloud_api_config');
       if (jsonStr == null || jsonStr.isEmpty) return [];
       final cloudData = Map<String, dynamic>.from(jsonDecode(jsonStr));
@@ -100,38 +106,34 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       final now = DateTime.now();
       final entries = <ApiConfigEntry>[];
 
-      for (final policy in policies) {
-        // 云端返回的 provider 是小写（如 "qwen", "deepseek"），
-        // 需要兼容枚举名的大小写差异
+      // 使用 apiPolicies 创建云端配置条目（显示所有可用模型）
+      for (final policy in apiPolicies) {
+        final providerName = policy.provider;
+        final modelPattern = policy.modelPattern ?? '';
+        final modelName = policy.model ?? modelPattern.split(':').last;
+
+        if (providerName.isEmpty || modelPattern.isEmpty) continue;
+
         final providerEnum = AiProvider.values.firstWhere(
-          (p) => p.name.toLowerCase() == policy.provider.toLowerCase(),
+          (p) => p.name.toLowerCase() == providerName.toLowerCase(),
           orElse: () => AiProvider.openAI,
         );
         final providerConfig = AiModelConfig.getConfig(providerEnum);
 
-        // 根据模型能力确定兼容的功能列表
+        // 显示名称：provider + model（不显示默认标注）
+        final displayName = '${providerConfig.displayName} $modelName';
+
+        // 获取该模型支持的功能列表
         final compatibleFunctions = ApiFunctionType.values
             .where((f) => AiModelConfig.providerSupportsFunction(providerEnum, f))
             .toList();
 
-        // 如实展示模型型号：直接使用云端返回的 model 名称
-        final modelName = policy.model ?? policy.modelPattern ?? providerConfig.defaultModel;
-
-        // 云端配置的 baseUrl：优先使用云端存储的，否则使用对应 provider 的默认 baseUrl
-        // 注意：不同 provider 有不同的 baseUrl（如 qwen 和 deepseek）
-        final cloudBaseUrl = (providerEnum == AiProvider.values.firstWhere(
-          (p) => p.name.toLowerCase() == (cloudData['provider'] as String?)?.toLowerCase(),
-          orElse: () => AiProvider.custom,
-        ))
-            ? cloudData['baseUrl'] as String?
-            : providerConfig.baseUrl;
-
         entries.add(ApiConfigEntry(
-          id: 'cloud_${policy.provider}_${policy.model}',
-          name: '${providerConfig.displayName} $modelName',
+          id: 'cloud_${providerName}_$modelName',
+          name: displayName,
           provider: providerEnum,
           apiKey: apiKey,
-          baseUrl: cloudBaseUrl,
+          baseUrl: cloudData['baseUrl'] as String? ?? providerConfig.baseUrl,
           model: modelName,
           functions: compatibleFunctions,
           isActive: true,
@@ -541,42 +543,44 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              // 显示模型能力标签
+              // 显示模型能力标签（云端配置只显示能力标签，不显示用户选择的功能）
               _buildCapabilityChips(providerConfig),
-              const SizedBox(height: 8),
-              // 显示用户选择的功能（标记不兼容的）
-              Wrap(
-                spacing: 8,
-                children: config.functions.map((f) {
-                  final isCompatible = config.isFunctionCompatible(f);
-                  return Chip(
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (!isCompatible)
-                          const Icon(
-                            Icons.warning_amber,
-                            size: 12,
-                            color: AppColors.error,
+              // 本地配置显示用户选择的功能（标记不兼容的）
+              if (!isCloud) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: config.functions.map((f) {
+                    final isCompatible = config.isFunctionCompatible(f);
+                    return Chip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!isCompatible)
+                            const Icon(
+                              Icons.warning_amber,
+                              size: 12,
+                              color: AppColors.error,
+                            ),
+                          if (!isCompatible) const SizedBox(width: 4),
+                          Text(
+                            AiModelConfig.getFunctionTypeLabel(f),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isCompatible ? null : AppColors.error,
+                            ),
                           ),
-                        if (!isCompatible) const SizedBox(width: 4),
-                        Text(
-                          AiModelConfig.getFunctionTypeLabel(f),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isCompatible ? null : AppColors.error,
-                          ),
-                        ),
-                      ],
-                    ),
-                    backgroundColor: isCompatible
-                        ? AppColors.primary.withOpacity(0.1)
-                        : AppColors.error.withOpacity(0.1),
-                    padding: EdgeInsets.zero,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  );
-                }).toList(),
-              ),
+                        ],
+                      ),
+                      backgroundColor: isCompatible
+                          ? AppColors.primary.withOpacity(0.1)
+                          : AppColors.error.withOpacity(0.1),
+                      padding: EdgeInsets.zero,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    );
+                  }).toList(),
+                ),
+              ],
               if (hasIncompatible) ...[
                 const SizedBox(height: 8),
                 Container(

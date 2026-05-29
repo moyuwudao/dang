@@ -3,18 +3,32 @@ import '../models/ai_model_config.dart';
 import 'app_logger.dart';
 import 'http_client.dart';
 import 'storage_service.dart';
+import 'billing_service.dart';
 
 class TextAnalysisService {
   final HttpClient _httpClient;
+  final BillingService? _billingService;
 
-  TextAnalysisService({HttpClient? httpClient})
-      : _httpClient = httpClient ?? HttpClient();
+  TextAnalysisService({HttpClient? httpClient, BillingService? billingService})
+      : _httpClient = httpClient ?? HttpClient(),
+        _billingService = billingService;
 
   bool get isConfigured => _httpClient.isConfigured;
 
   Future<String> summarizeText(String text, {String? model}) async {
     if (!isConfigured) {
       throw Exception('API未配置，请先在设置中配置API Key');
+    }
+
+    // 计费检查
+    if (_billingService != null) {
+      final canUse = await _billingService!.canUseFeature(
+        FeatureType.textAnalysis,
+        text.length / 1000,
+      );
+      if (!canUse) {
+        throw Exception('文本分析配额不足，请充值或升级套餐');
+      }
     }
 
     final config = _httpClient.currentConfig!;
@@ -53,6 +67,16 @@ class TextAnalysisService {
           break;
       }
 
+      // 计费扣减
+      if (_billingService != null) {
+        await _billingService!.consumeFeature(
+          FeatureType.textAnalysis,
+          (text.length + result.length) / 1000,
+          provider: config.provider.name,
+          model: useModel,
+        );
+      }
+
       await StorageService.incrementUsageStat(
           config.name, 'text_analysis',
           tokens: result.length);
@@ -66,6 +90,17 @@ class TextAnalysisService {
   Future<String> generateTitle(String text, {String? model}) async {
     if (!isConfigured) {
       throw Exception('API未配置，请先在设置中配置API Key');
+    }
+
+    // 计费检查
+    if (_billingService != null) {
+      final canUse = await _billingService!.canUseFeature(
+        FeatureType.textAnalysis,
+        text.length / 1000,
+      );
+      if (!canUse) {
+        throw Exception('文本分析配额不足，请充值或升级套餐');
+      }
     }
 
     final config = _httpClient.currentConfig!;
@@ -104,6 +139,16 @@ class TextAnalysisService {
           break;
       }
 
+      // 计费扣减
+      if (_billingService != null) {
+        await _billingService!.consumeFeature(
+          FeatureType.textAnalysis,
+          (text.length + result.length) / 1000,
+          provider: config.provider.name,
+          model: useModel,
+        );
+      }
+
       await StorageService.incrementUsageStat(
           config.name, 'text_analysis',
           tokens: result.length);
@@ -117,6 +162,17 @@ class TextAnalysisService {
   Future<String> chatCompletion(String prompt, {String? model}) async {
     if (!isConfigured) {
       throw Exception('API未配置，请先在设置中配置API Key');
+    }
+
+    // 计费检查
+    if (_billingService != null) {
+      final canUse = await _billingService!.canUseFeature(
+        FeatureType.aiChat,
+        prompt.length / 1000,
+      );
+      if (!canUse) {
+        throw Exception('AI对话配额不足，请充值或升级套餐');
+      }
     }
 
     final config = _httpClient.currentConfig!;
@@ -150,6 +206,16 @@ class TextAnalysisService {
           break;
       }
 
+      // 计费扣减
+      if (_billingService != null) {
+        await _billingService!.consumeFeature(
+          FeatureType.aiChat,
+          (prompt.length + result.length) / 1000,
+          provider: config.provider.name,
+          model: useModel,
+        );
+      }
+
       await StorageService.incrementUsageStat(
           config.name, 'chat',
           tokens: result.length);
@@ -167,6 +233,17 @@ class TextAnalysisService {
   }) async {
     if (!isConfigured) {
       throw Exception('API未配置，请先在设置中配置API Key');
+    }
+
+    // 计费检查
+    if (_billingService != null) {
+      final canUse = await _billingService!.canUseFeature(
+        FeatureType.aiChat,
+        (prompt.length + systemPrompt.length) / 1000,
+      );
+      if (!canUse) {
+        throw Exception('AI对话配额不足，请充值或升级套餐');
+      }
     }
 
     final config = _httpClient.currentConfig!;
@@ -201,6 +278,16 @@ class TextAnalysisService {
             userContent: prompt,
           );
           break;
+      }
+
+      // 计费扣减
+      if (_billingService != null) {
+        await _billingService!.consumeFeature(
+          FeatureType.aiChat,
+          (prompt.length + systemPrompt.length + result.length) / 1000,
+          provider: config.provider.name,
+          model: useModel,
+        );
       }
 
       await StorageService.incrementUsageStat(

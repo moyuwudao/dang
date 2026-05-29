@@ -20,6 +20,7 @@ import 'app_logger.dart';
 import 'api_config_resolver.dart';
 import 'realtime_transcription_service.dart';
 import 'tingwu_service.dart';
+import 'billing_service.dart';
 
 final realtimeTranscriptionServiceProvider = Provider<RealtimeTranscriptionService>((ref) {
   final sharedClient = ref.read(sharedHttpClientProvider);
@@ -36,11 +37,13 @@ final transcriptionServiceProvider = Provider<TranscriptionService>((ref) {
   final statsService = ref.read(statsServiceProvider.notifier);
   final realtimeService = ref.read(realtimeTranscriptionServiceProvider);
   final tingwuService = ref.read(tingwuServiceProvider);
+  final billingService = ref.read(billingServiceProvider);
   return TranscriptionService(
     httpClient: sharedClient,
     statsService: statsService,
     realtimeTranscriptionService: realtimeService,
     tingwuService: tingwuService,
+    billingService: billingService,
     ref: ref,
   );
 });
@@ -51,6 +54,7 @@ class TranscriptionService {
   final StatsNotifier? _statsService;
   final RealtimeTranscriptionService _realtimeTranscriptionService;
   TingwuService? _tingwuService;
+  final BillingService? _billingService;
   final Ref? _ref;
 
   final AppLogger _logger = AppLogger();
@@ -81,12 +85,14 @@ class TranscriptionService {
     StatsNotifier? statsService,
     RealtimeTranscriptionService? realtimeTranscriptionService,
     TingwuService? tingwuService,
+    BillingService? billingService,
     Ref? ref,
   })  : _httpClient = httpClient ?? HttpClient(),
         _audioProcessor = audioProcessor ?? AudioProcessor(),
         _statsService = statsService,
         _realtimeTranscriptionService = realtimeTranscriptionService ?? RealtimeTranscriptionService(httpClient: httpClient ?? HttpClient()),
         _tingwuService = tingwuService,
+        _billingService = billingService,
         _ref = ref;
 
   bool get isConfigured => _httpClient.isConfigured;
@@ -108,6 +114,17 @@ class TranscriptionService {
 
     if (!isConfigured) {
       throw Exception('API未配置，请先在设置中配置API Key');
+    }
+
+    // 计费检查
+    if (_billingService != null) {
+      final canUse = await _billingService!.canUseFeature(
+        FeatureType.transcription,
+        1, // 预估1分钟
+      );
+      if (!canUse) {
+        throw Exception('语音转写配额不足，请充值或升级套餐');
+      }
     }
 
     final config = _httpClient.currentConfig!;
@@ -167,11 +184,38 @@ class TranscriptionService {
         }
       }
 
+      // 计费扣减（按实际音频时长）
+      if (_billingService != null) {
+        final durationMinutes = await _getAudioDuration(audioFilePath);
+        await _billingService!.consumeFeature(
+          FeatureType.transcription,
+          durationMinutes,
+          provider: config.provider.name,
+          model: effectiveModel,
+        );
+      }
+
       _statsService?.apiVoiceCallCompleted(true);
       return result;
     } catch (e) {
       _statsService?.apiVoiceCallCompleted(false);
       rethrow;
+    }
+  }
+
+  // 获取音频时长（分钟）
+  Future<double> _getAudioDuration(String audioFilePath) async {
+    try {
+      final file = File(audioFilePath);
+      final audioBytes = await file.readAsBytes();
+      if (audioFilePath.endsWith('.wav')) {
+        return _audioProcessor.getWavDurationSeconds(audioBytes) / 60;
+      }
+      // 对于其他格式，估算：假设平均比特率128kbps
+      final fileSize = await file.length();
+      return (fileSize * 8 / 128000) / 60;
+    } catch (e) {
+      return 1.0; // 默认1分钟
     }
   }
 

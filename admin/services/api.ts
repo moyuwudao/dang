@@ -445,6 +445,47 @@ export const adminAPI = {
   deletePlanDefaultConfig: async (configId: string): Promise<void> => {
     await axiosInstance.delete(`/admin/plans/default-configs/${configId}`);
   },
+
+  // 多模式计费：套餐功能配额管理
+  getPlanFeatureQuotas: async (planId: string): Promise<any[]> => {
+    const response = await axiosInstance.get<ApiResponse<any[]>>(`/admin/plans/${planId}/feature-quotas`);
+    return response.data.data;
+  },
+
+  setPlanFeatureQuota: async (planId: string, data: { featureType: string; quotaValue: number; quotaUnit: string; multiplier?: number }): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/plans/${planId}/feature-quotas`, data);
+    return response.data.data;
+  },
+
+  deletePlanFeatureQuota: async (quotaId: string): Promise<void> => {
+    await axiosInstance.delete(`/admin/plans/feature-quotas/${quotaId}`);
+  },
+
+  // 多模式计费：Token价格管理
+  getTokenPricing: async (): Promise<any[]> => {
+    const response = await axiosInstance.get<ApiResponse<any[]>>('/admin/token-pricing');
+    return response.data.data;
+  },
+
+  createTokenPricing: async (data: any): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>('/admin/token-pricing', data);
+    return response.data.data;
+  },
+
+  updateTokenPricing: async (id: string, data: any): Promise<any> => {
+    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/token-pricing/${id}`, data);
+    return response.data.data;
+  },
+
+  deleteTokenPricing: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`/admin/token-pricing/${id}`);
+  },
+
+  // 多模式计费：用户功能使用查询
+  getUserFeatureUsage: async (userId: string): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>(`/admin/users/${userId}/feature-usage`);
+    return response.data.data;
+  },
 };
 
 export default axiosInstance;

@@ -31,6 +31,9 @@ export class Subscription {
   @Column({ name: 'balance_quota', default: 0 })
   balanceQuota: number;
 
+  @Column({ default: 'subscription' })
+  type: string; // subscription | package
+
   @ManyToOne(() => User, user => user.subscriptions)
   @JoinColumn({ name: 'userId' })
   user: User;

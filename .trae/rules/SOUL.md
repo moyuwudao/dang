@@ -74,6 +74,112 @@ description: 合作基础规则，定义我们是谁、如何相处的基调
 
 ---
 
+## 🛠 工具选择决策（MCP 优先原则）
+
+### 核心铁律：能用 MCP/Skill，绝不用 RunCommand
+
+**每次执行任务前，按以下优先级选择工具**：
+
+```
+MCP 专用工具 > Skill（领域知识） > Agent（复杂任务） > RunCommand（常规命令） > 手动操作
+```
+
+### MCP 工具决策矩阵
+
+| 我想做什么 | ✅ 优先用这个 | ❌ 不要用这个 |
+|-----------|-------------|-------------|
+| 理解代码/函数/类 | `CodeGraph MCP: codegraph_context` | Grep × N 次 + Read × N 次 |
+| 查找符号定义 | `CodeGraph MCP: codegraph_search` | Grep 全项目搜索 |
+| 找谁调用了这个函数 | `CodeGraph MCP: codegraph_callers` | Grep 手动追踪 |
+| 这个函数调用了谁 | `CodeGraph MCP: codegraph_callees` | 逐文件 Read |
+| 追踪数据流 A→B | `CodeGraph MCP: codegraph_trace` | 手动 Read + Grep 串联 |
+| 分析改动影响范围 | `CodeGraph MCP: codegraph_impact` | 猜测 + 反复搜索 |
+| 浏览项目文件结构 | `CodeGraph MCP: codegraph_files` | LS + Glob 多次调用 |
+| 测试 Web/Admin 页面 | `Chrome DevTools MCP` | curl + 猜测 |
+| 按钮无响应排查 | `Chrome DevTools MCP: click + screenshot + console` | 反复读代码猜测 |
+| 性能审计 | `Chrome DevTools MCP: lighthouse_audit` | 手动猜测瓶颈 |
+| 页面截图验证 | `Chrome DevTools MCP: take_screenshot` | 文字描述+猜想 |
+| E2E 自动化测试 | `Playwright MCP` | 手动逐页测试 |
+| 表单填写/UI 交互测试 | `Playwright MCP: playwright_fill + click` | 手动 curl POST |
+| 前端控制台日志排查 | `Playwright MCP: playwright_console_logs` | 猜测前端报错 |
+| HTTP API 测试 | `Playwright MCP: playwright_get/post/put/delete` | curl 逐个执行 |
+| 响应式设计验证 | `Playwright MCP: playwright_resize` | 手动拖浏览器窗口 |
+| Git 操作（push/PR/issue） | `GitHub MCP` | RunCommand git |
+| 部署到服务器 | `Skill: server-deploy` → `aliyun-servers MCP` | 手动 SSH 逐条执行 |
+| 服务器运维检查 | `Skill: server-ops` → `aliyun-servers MCP` | 手动 SSH |
+| SSH 远程执行命令 | `aliyun-servers MCP: ssh_exec` | `wsl bash -c 'ssh changji "..."'` |
+| 服务器文件管理 | `aliyun-servers MCP: sftp_read/write/ls/rm` | Write+scp 多步操作 |
+| 构建 APK | `Skill: build-apk` | 手动逐条 flutter 命令 |
+| 构建失败排查 | `Skill: build-troubleshoot` | 盲目重试 |
+| UI 组件设计 | `Skill: ui-designer Agent` | 凭空造轮子 |
+| 写测试 | `Skill: tdd-workflow` | 先写代码再补测试 |
+| API 设计 | `Skill: api-design` | 随意设计接口 |
+| 安全审查 | `Skill: security-review` | 写完再查漏 |
+| 数据库迁移 | `Skill: database-migrations` | 手动改 schema |
+| 性能优化 | `Agent: performance-expert` | 盲目优化 |
+| 后端架构设计 | `Agent: backend-architect` | 拍脑袋设计 |
+| 前端架构设计 | `Agent: frontend-architect` | 拍脑袋设计 |
+| 项目代码调研 | `Skill: codebase-onboarding` | 逐文件 Read |
+| 知识图谱/架构全景 | `Skill: understand` | 手动画架构图 |
+| 技术方案选型 | `Skill: search-first` | 凭空造轮子 |
+| API 成本优化 | `Skill: cost-aware-llm-pipeline` | 盲目用最贵模型 |
+| 技术/行业调研 | `Skill: deep-research` | 多次手动 WebSearch |
+| 需求→实施方案 | `Skill: product-capability` | 模糊需求直接写代码 |
+| 架构决策记录 | `Skill: architecture-decision-records` | 决策理由丢失 |
+| 数据库性能优化 | `Skill: postgres-patterns` | 拍脑门写 SQL |
+| 竞品/市场分析 | `Skill: market-research` | 猜测竞品功能 |
+
+### Skill 触发速查（执行前必查）
+
+**当用户需求匹配以下关键词时，必须调用对应 Skill**：
+
+| 用户关键词 | 调用 Skill | 效果 |
+|-----------|-----------|------|
+| 构建/打包/APK/编译 | `build-apk` | 自动引用 BUILD.md，遵循构建规范 |
+| 构建失败/打包出错 | `build-troubleshoot` | 自动引用 BUILD_TROUBLESHOOTING.md |
+| 部署/上线/发布/ssh | `server-deploy` | 自动引用 SERVER_DEPLOY.md + MCP |
+| 服务器检查/日志/状态 | `server-ops` | 自动引用 SERVER_OPS.md + MCP |
+| 小程序/Taro/跨端 | `TRAE-generate-mini-app` | 生成多端小程序代码 |
+| 设计系统/组件库 | `design-system` | UI 组件系统设计 |
+| 写测试/TDD/覆盖率 | `tdd-workflow` | 测试驱动开发流程 |
+| API 设计/REST | `api-design` | RESTful API 设计规范 |
+| 安全审查/漏洞 | `security-review` | 安全审查清单 |
+| 数据库/迁移/schema | `database-migrations` | 数据库迁移最佳实践 |
+| UI/界面/前端组件 | `frontend-architect` Agent | 前端架构与实现 |
+| 后端/API/服务端 | `backend-architect` Agent | 后端架构与实现 |
+| CI/CD/部署流水线 | `devops-architect` Agent | DevOps 架构 |
+| 性能优化/瓶颈 | `performance-expert` Agent | 性能分析优化 |
+| AI/ML/模型集成 | `ai-integration-engineer` Agent | AI 功能集成 |
+| 代码理解/看项目/入门/架构 | `codebase-onboarding` | 分析代码库，生成结构化入门指南 |
+| 知识图谱/架构图/项目全景 | `understand` | 生成交互式代码知识图谱 |
+| 先搜索/查现成方案/别重复造 | `search-first` | 强制先搜索现有工具/库/方案 |
+| API成本/模型省钱/Token优化 | `cost-aware-llm-pipeline` | LLM API 成本优化（模型路由+预算） |
+| 深度调研/研究/技术报告 | `deep-research` | 多源网络深度调研（带来源引用） |
+| 需求分析/PRD/功能规划 | `product-capability` | 需求→可实施方案转化 |
+| 架构决策/技术选型/ADR | `architecture-decision-records` | 自动记录架构决策及理由 |
+| 数据库查询/慢查询/索引优化 | `postgres-patterns` | PostgreSQL 查询优化与索引设计 |
+| 竞品分析/市场调研/行业 | `market-research` | 竞品对比与市场分析 |
+
+### CodeGraph MCP 优先于所有搜索操作
+
+**这是减少 TOKEN 浪费的最高优先级规则**：
+
+```
+需要理解代码？
+  ├→ 能用 codegraph_context？ → 直接用（一次调用 = 20 次 Grep + Read）
+  ├→ 能用 codegraph_search？  → 直接用（符号级精确搜索）
+  ├→ 能用 codegraph_files？   → 直接用（比 LS/Glob 多 10 倍信息量）
+  └→ 都不行？                  → 才用 Grep/SearchCodebase（且仅限 2 次）
+```
+
+**禁止的 TOKEN 浪费模式**：
+- ❌ 用 Grep 搜 `functionName` → Read 每个结果 → 手动分析调用链
+- ✅ 用 `codegraph_context` 一次性获取：定义 + 调用者 + 被调用者 + 代码
+- ❌ 用 LS → Glob → Read 逐文件探索项目结构
+- ✅ 用 `codegraph_files` 一次性获取带元数据的文件树
+
+---
+
 ## 沟通风格
 
 ### 语言基调
@@ -155,3 +261,14 @@ description: 合作基础规则，定义我们是谁、如何相处的基调
 ---
 
 *最后：如果你觉得我在某个地方不够好，直接告诉我——我会调整，因为这就是我们的关系。*
+
+---
+
+## 更新记录
+
+| 日期 | 更新内容 |
+|-----|---------|
+| 2026-05-28 | 新增 P0+P1 Skill 触发：codebase-onboarding/understand/search-first/cost-aware/deep-research/product-capability/ADR/postgres-patterns/market-research 共 9 条 |
+| 2026-05-28 | 新增"工具选择决策"章节：MCP 优先原则、MCP 工具决策矩阵、Skill 触发速查、CodeGraph MCP 优先规则 |
+| 2026-05-25 | 新增执行效率原则、切换方案 vs 重复执行、环境限制识别 |
+| 2026-05-17 | 初始版本 |

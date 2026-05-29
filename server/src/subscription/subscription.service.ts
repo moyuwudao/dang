@@ -8,7 +8,11 @@ import { RechargeRecord } from './entities/recharge-record.entity';
 import { PlanApiPolicy } from './entities/plan-api-policy.entity';
 import { ApiUsageLog } from './entities/api-usage-log.entity';
 import { PlanDefaultConfig } from './entities/plan-default-config.entity';
+import { PlanFeatureQuota } from './entities/plan-feature-quota.entity';
+import { UserFeatureUsage } from './entities/user-feature-usage.entity';
 import { CreatePlanDto, RechargeDto, RefundDto } from './dto';
+import { PlanService } from '../plan/plan.service';
+import { BillingStrategyFactory } from './billing/billing-strategy.factory';
 
 @Injectable()
 export class SubscriptionService {
@@ -27,6 +31,12 @@ export class SubscriptionService {
     private apiUsageLogRepository: Repository<ApiUsageLog>,
     @InjectRepository(PlanDefaultConfig)
     private planDefaultConfigRepository: Repository<PlanDefaultConfig>,
+    @InjectRepository(PlanFeatureQuota)
+    private planFeatureQuotaRepository: Repository<PlanFeatureQuota>,
+    @InjectRepository(UserFeatureUsage)
+    private userFeatureUsageRepository: Repository<UserFeatureUsage>,
+    private planService: PlanService,
+    private billingStrategyFactory: BillingStrategyFactory,
   ) {}
 
   async getSubscription(userId: string) {
@@ -108,34 +118,12 @@ export class SubscriptionService {
   }
 
   async getPlans(type?: string) {
-    const where: any = { isActive: true };
-    // 注意：plans 表目前没有 type 列，暂不使用 type 过滤
-    // if (type) {
-    //   where.type = type;
-    // }
-
-    const plans = await this.planRepository.find({ where });
-
-    // 为每个套餐获取API策略中的模型列表
-    const plansWithModels = await Promise.all(
-      plans.map(async (plan) => {
-        const policies = await this.planApiPolicyRepository.find({
-          where: { planId: plan.id },
-        });
-        const allowedModels = policies
-          .filter(p => p.modelPattern && p.modelPattern !== '*')
-          .map(p => p.modelPattern);
-        return {
-          ...plan,
-          allowedModels: Array.from(new Set(allowedModels)),
-        };
-      }),
-    );
+    const plans = await this.planService.getPlans(false);
 
     return {
       code: 200,
       message: 'success',
-      data: plansWithModels,
+      data: plans,
     };
   }
 
@@ -191,9 +179,7 @@ export class SubscriptionService {
   }
 
   async createPlan(dto: CreatePlanDto) {
-    const existingPlan = await this.planRepository.findOne({
-      where: { id: dto.id },
-    });
+    const existingPlan = await this.planService.getPlanById(dto.id);
 
     if (existingPlan) {
       return {
@@ -203,7 +189,7 @@ export class SubscriptionService {
       };
     }
 
-    const plan = this.planRepository.create({
+    const plan = await this.planService.createPlan({
       id: dto.id,
       name: dto.name,
       description: dto.description,
@@ -217,8 +203,6 @@ export class SubscriptionService {
       isActive: dto.isActive ?? true,
       allowedModels: dto.allowedModels || [],
     });
-
-    await this.planRepository.save(plan);
 
     return {
       code: 200,
@@ -598,5 +582,95 @@ export class SubscriptionService {
     }
 
     return { allowed: true };
+  }
+
+  // 多模式计费：检查功能是否可用
+  async canUseFeature(userId: string, featureType: string, amount: number): Promise<{ canUse: boolean; reason?: string }> {
+    const strategy = await this.billingStrategyFactory.getStrategy(userId, featureType);
+    const canUse = await strategy.canUse(userId, featureType, amount);
+    
+    if (!canUse) {
+      return { canUse: false, reason: '配额不足或余额不足' };
+    }
+    
+    return { canUse: true };
+  }
+
+  // 多模式计费：消费功能
+  async consumeFeature(
+    userId: string, 
+    featureType: string, 
+    amount: number, 
+    metadata?: any
+  ): Promise<{ success: boolean; consumed: number; remaining: number; costCents?: number; message?: string }> {
+    const strategy = await this.billingStrategyFactory.getStrategy(userId, featureType);
+    const result = await strategy.consume(userId, featureType, amount, metadata);
+    return result;
+  }
+
+  // 多模式计费：获取功能剩余配额
+  async getFeatureRemaining(userId: string, featureType: string): Promise<number> {
+    const strategy = await this.billingStrategyFactory.getStrategy(userId, featureType);
+    return strategy.getRemaining(userId, featureType);
+  }
+
+  // 获取用户所有功能使用情况
+  async getFeatureUsage(userId: string): Promise<any> {
+    const featureTypes = ['transcription', 'realtime_transcription', 'text_analysis', 'image_recognition', 'ocr', 'ai_chat', 'tts'];
+    const usage = {};
+
+    for (const featureType of featureTypes) {
+      const remaining = await this.getFeatureRemaining(userId, featureType);
+      usage[featureType] = {
+        remaining,
+        unit: this.getFeatureUnit(featureType),
+      };
+    }
+
+    return usage;
+  }
+
+  private getFeatureUnit(featureType: string): string {
+    const unitMap = {
+      transcription: 'minutes',
+      realtime_transcription: 'minutes',
+      text_analysis: 'thousand_chars',
+      image_recognition: 'images',
+      ocr: 'images',
+      ai_chat: 'tokens',
+      tts: 'thousand_chars',
+    };
+    return unitMap[featureType] || 'unknown';
+  }
+
+  // 使用余额购买套餐/资源包
+  async purchaseWithBalance(userId: string, planId: string): Promise<{ success: boolean; message: string; subscription?: Subscription }> {
+    const plan = await this.planService.getPlanById(planId);
+    if (!plan) {
+      return { success: false, message: '套餐不存在' };
+    }
+
+    const balance = await this.userBalanceRepository.findOne({ where: { userId } });
+    if (!balance || balance.balanceCents < plan.priceCents) {
+      return { success: false, message: '余额不足' };
+    }
+
+    // 扣减余额
+    balance.balanceCents -= plan.priceCents;
+    await this.userBalanceRepository.save(balance);
+
+    // 创建订阅/资源包
+    const subscription = await this.createSubscription(userId, planId);
+
+    // 记录转换日志
+    await this.rechargeRecordRepository.save({
+      userId,
+      amountCents: -plan.priceCents,
+      paymentMethod: 'balance_conversion',
+      status: 'success',
+      remark: `余额购买套餐: ${plan.name}`,
+    });
+
+    return { success: true, message: '购买成功', subscription: subscription.data };
   }
 }

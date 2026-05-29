@@ -1,0 +1,585 @@
+{
+  "project": {
+    "name": "changji_app",
+    "description": "畅记 - AI语音笔记应用，支持录音转写、AI分析、OCR、速记、思维导图等功能",
+    "languages": ["Dart", "Kotlin", "Swift", "TypeScript"],
+    "frameworks": ["Flutter", "Riverpod", "Drift", "Go Router"],
+    "analyzedAt": "2026-05-28T11:00:00.000Z",
+    "gitCommitHash": "18cdd6702486a3a4e5501a36dc8008a4cc77e0e4",
+    "version": "1.0.0"
+  },
+  "nodes": [
+    {
+      "id": "file:lib/main.dart",
+      "type": "file",
+      "name": "main.dart",
+      "filePath": "lib/main.dart",
+      "summary": "应用入口文件，初始化Riverpod、数据库、主题等全局配置",
+      "tags": ["entry", "bootstrap", "riverpod"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/routes/app_router.dart",
+      "type": "file",
+      "name": "app_router.dart",
+      "filePath": "lib/routes/app_router.dart",
+      "summary": "Go Router路由配置，定义所有页面导航路径",
+      "tags": ["routing", "navigation", "go_router"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/features/auth/providers/auth_provider.dart",
+      "type": "file",
+      "name": "auth_provider.dart",
+      "filePath": "lib/features/auth/providers/auth_provider.dart",
+      "summary": "认证状态管理Provider，处理登录/注册/登出/用户信息",
+      "tags": ["auth", "riverpod", "provider", "login"],
+      "complexity": 5
+    },
+    {
+      "id": "file:lib/features/auth/screens/login_screen.dart",
+      "type": "file",
+      "name": "login_screen.dart",
+      "filePath": "lib/features/auth/screens/login_screen.dart",
+      "summary": "用户登录页面，支持账号密码和短信登录",
+      "tags": ["auth", "ui", "screen", "login"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/features/auth/screens/register_screen.dart",
+      "type": "file",
+      "name": "register_screen.dart",
+      "filePath": "lib/features/auth/screens/register_screen.dart",
+      "summary": "用户注册页面",
+      "tags": ["auth", "ui", "screen", "register"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/features/auth/screens/profile_screen.dart",
+      "type": "file",
+      "name": "profile_screen.dart",
+      "filePath": "lib/features/auth/screens/profile_screen.dart",
+      "summary": "个人资料页面，展示和编辑用户信息",
+      "tags": ["auth", "ui", "screen", "profile"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/features/home/screens/home_screen.dart",
+      "type": "file",
+      "name": "home_screen.dart",
+      "filePath": "lib/features/home/screens/home_screen.dart",
+      "summary": "应用首页，展示记录列表和快捷操作入口",
+      "tags": ["home", "ui", "screen", "main"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/features/recording/screens/recording_screen.dart",
+      "type": "file",
+      "name": "recording_screen.dart",
+      "filePath": "lib/features/recording/screens/recording_screen.dart",
+      "summary": "录音页面，支持开始/暂停/停止录音",
+      "tags": ["recording", "ui", "screen", "audio"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/features/recording/providers/recording_provider.dart",
+      "type": "file",
+      "name": "recording_provider.dart",
+      "filePath": "lib/features/recording/providers/recording_provider.dart",
+      "summary": "录音状态管理，控制录音流程和状态",
+      "tags": ["recording", "riverpod", "provider", "audio"],
+      "complexity": 5
+    },
+    {
+      "id": "file:lib/features/records/screens/record_detail_screen.dart",
+      "type": "file",
+      "name": "record_detail_screen.dart",
+      "filePath": "lib/features/records/screens/record_detail_screen.dart",
+      "summary": "记录详情页，展示转写文本和AI分析结果",
+      "tags": ["records", "ui", "screen", "detail"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/features/records/providers/record_provider.dart",
+      "type": "file",
+      "name": "record_provider.dart",
+      "filePath": "lib/features/records/providers/record_provider.dart",
+      "summary": "记录列表状态管理，CRUD操作",
+      "tags": ["records", "riverpod", "provider", "crud"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/features/ocr/screens/ocr_screen.dart",
+      "type": "file",
+      "name": "ocr_screen.dart",
+      "filePath": "lib/features/ocr/screens/ocr_screen.dart",
+      "summary": "OCR拍照识别页面，支持拍照和选择图片识别文字",
+      "tags": ["ocr", "ui", "screen", "camera"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/features/quick_note/screens/quick_note_screen.dart",
+      "type": "file",
+      "name": "quick_note_screen.dart",
+      "filePath": "lib/features/quick_note/screens/quick_note_screen.dart",
+      "summary": "速记页面，快速创建文字笔记",
+      "tags": ["quick_note", "ui", "screen", "note"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/features/mindmap/screens/mindmap_screen.dart",
+      "type": "file",
+      "name": "mindmap_screen.dart",
+      "filePath": "lib/features/mindmap/screens/mindmap_screen.dart",
+      "summary": "思维导图页面，AI生成思维导图",
+      "tags": ["mindmap", "ui", "screen", "ai"],
+      "complexity": 5
+    },
+    {
+      "id": "file:lib/features/settings/screens/settings_screen.dart",
+      "type": "file",
+      "name": "settings_screen.dart",
+      "filePath": "lib/features/settings/screens/settings_screen.dart",
+      "summary": "设置页面，应用配置入口",
+      "tags": ["settings", "ui", "screen", "config"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/features/settings/providers/settings_provider.dart",
+      "type": "file",
+      "name": "settings_provider.dart",
+      "filePath": "lib/features/settings/providers/settings_provider.dart",
+      "summary": "应用设置状态管理",
+      "tags": ["settings", "riverpod", "provider", "config"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/features/subscription/screens/subscription_mine_screen.dart",
+      "type": "file",
+      "name": "subscription_mine_screen.dart",
+      "filePath": "lib/features/subscription/screens/subscription_mine_screen.dart",
+      "summary": "我的订阅页面，展示当前订阅状态",
+      "tags": ["subscription", "ui", "screen", "membership"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/features/subscription/screens/subscription_store_screen.dart",
+      "type": "file",
+      "name": "subscription_store_screen.dart",
+      "filePath": "lib/features/subscription/screens/subscription_store_screen.dart",
+      "summary": "订阅商店页面，展示可购买的套餐",
+      "tags": ["subscription", "ui", "screen", "store"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/features/subscription/providers/subscription_provider.dart",
+      "type": "file",
+      "name": "subscription_provider.dart",
+      "filePath": "lib/features/subscription/providers/subscription_provider.dart",
+      "summary": "订阅状态管理，处理套餐和订单",
+      "tags": ["subscription", "riverpod", "provider", "payment"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/features/workbench/screens/workbench_screen.dart",
+      "type": "file",
+      "name": "workbench_screen.dart",
+      "filePath": "lib/features/workbench/screens/workbench_screen.dart",
+      "summary": "工作台页面，AI工具集合",
+      "tags": ["workbench", "ui", "screen", "ai_tools"],
+      "complexity": 5
+    },
+    {
+      "id": "file:lib/features/statistics/screens/statistics_screen.dart",
+      "type": "file",
+      "name": "statistics_screen.dart",
+      "filePath": "lib/features/statistics/screens/statistics_screen.dart",
+      "summary": "统计页面，展示使用数据和分析",
+      "tags": ["statistics", "ui", "screen", "analytics"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/features/splash/screens/splash_screen.dart",
+      "type": "file",
+      "name": "splash_screen.dart",
+      "filePath": "lib/features/splash/screens/splash_screen.dart",
+      "summary": "启动页，初始化检查和加载",
+      "tags": ["splash", "ui", "screen", "bootstrap"],
+      "complexity": 2
+    },
+    {
+      "id": "file:lib/core/services/recording_service.dart",
+      "type": "file",
+      "name": "recording_service.dart",
+      "filePath": "lib/core/services/recording_service.dart",
+      "summary": "录音服务，封装record插件的录音功能",
+      "tags": ["recording", "service", "audio", "microphone"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/core/services/transcription_service.dart",
+      "type": "file",
+      "name": "transcription_service.dart",
+      "filePath": "lib/core/services/transcription_service.dart",
+      "summary": "转写服务，调用云端API将音频转为文字",
+      "tags": ["transcription", "service", "api", "asr"],
+      "complexity": 5
+    },
+    {
+      "id": "file:lib/core/services/ai_summary_service.dart",
+      "type": "file",
+      "name": "ai_summary_service.dart",
+      "filePath": "lib/core/services/ai_summary_service.dart",
+      "summary": "AI摘要服务，调用大模型生成内容分析",
+      "tags": ["ai", "service", "llm", "summary"],
+      "complexity": 5
+    },
+    {
+      "id": "file:lib/core/services/api_service.dart",
+      "type": "file",
+      "name": "api_service.dart",
+      "filePath": "lib/core/services/api_service.dart",
+      "summary": "API服务基类，封装Dio网络请求",
+      "tags": ["api", "service", "network", "dio"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/core/services/cloud_api_service.dart",
+      "type": "file",
+      "name": "cloud_api_service.dart",
+      "filePath": "lib/core/services/cloud_api_service.dart",
+      "summary": "云端API服务，调用畅记云后端服务",
+      "tags": ["api", "service", "cloud", "backend"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/core/services/secure_storage_service.dart",
+      "type": "file",
+      "name": "secure_storage_service.dart",
+      "filePath": "lib/core/services/secure_storage_service.dart",
+      "summary": "安全存储服务，存储敏感数据如API密钥",
+      "tags": ["storage", "service", "security", "encrypted"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/core/services/webdav_sync_service.dart",
+      "type": "file",
+      "name": "webdav_sync_service.dart",
+      "filePath": "lib/core/services/webdav_sync_service.dart",
+      "summary": "WebDAV同步服务，数据备份到WebDAV服务器",
+      "tags": ["sync", "service", "webdav", "backup"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/core/services/tingwu_service.dart",
+      "type": "file",
+      "name": "tingwu_service.dart",
+      "filePath": "lib/core/services/tingwu_service.dart",
+      "summary": "通义听悟服务，阿里云语音转写API封装",
+      "tags": ["transcription", "service", "aliyun", "tingwu"],
+      "complexity": 5
+    },
+    {
+      "id": "file:lib/data/database/app_database.dart",
+      "type": "file",
+      "name": "app_database.dart",
+      "filePath": "lib/data/database/app_database.dart",
+      "summary": "Drift数据库定义，包含所有表结构和DAO",
+      "tags": ["database", "drift", "sqlite", "schema"],
+      "complexity": 5
+    },
+    {
+      "id": "file:lib/data/repositories/record_repository.dart",
+      "type": "file",
+      "name": "record_repository.dart",
+      "filePath": "lib/data/repositories/record_repository.dart",
+      "summary": "记录数据仓库，封装数据库CRUD操作",
+      "tags": ["repository", "data", "crud", "records"],
+      "complexity": 4
+    },
+    {
+      "id": "file:lib/core/theme/app_theme.dart",
+      "type": "file",
+      "name": "app_theme.dart",
+      "filePath": "lib/core/theme/app_theme.dart",
+      "summary": "应用主题定义，包含亮色/暗色主题配置",
+      "tags": ["theme", "ui", "design", "dark_mode"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/core/models/ai_role.dart",
+      "type": "file",
+      "name": "ai_role.dart",
+      "filePath": "lib/core/models/ai_role.dart",
+      "summary": "AI角色模型，定义不同AI分析角色配置",
+      "tags": ["model", "ai", "role", "config"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/core/models/user.dart",
+      "type": "file",
+      "name": "user.dart",
+      "filePath": "lib/core/models/user.dart",
+      "summary": "用户数据模型",
+      "tags": ["model", "user", "data"],
+      "complexity": 2
+    },
+    {
+      "id": "file:lib/core/models/note.dart",
+      "type": "file",
+      "name": "note.dart",
+      "filePath": "lib/core/models/note.dart",
+      "summary": "笔记数据模型",
+      "tags": ["model", "note", "data"],
+      "complexity": 2
+    },
+    {
+      "id": "file:lib/core/models/prompt_template.dart",
+      "type": "file",
+      "name": "prompt_template.dart",
+      "filePath": "lib/core/models/prompt_template.dart",
+      "summary": "提示词模板模型",
+      "tags": ["model", "prompt", "ai", "template"],
+      "complexity": 3
+    },
+    {
+      "id": "file:lib/core/models/ai_model_config.dart",
+      "type": "file",
+      "name": "ai_model_config.dart",
+      "filePath": "lib/core/models/ai_model_config.dart",
+      "summary": "AI模型配置模型，管理多API密钥和模型参数",
+      "tags": ["model", "ai", "config", "api_key"],
+      "complexity": 4
+    },
+    {
+      "id": "concept:riverpod_state_management",
+      "type": "concept",
+      "name": "Riverpod状态管理",
+      "summary": "使用flutter_riverpod进行应用状态管理，所有Provider分布在各feature的providers目录",
+      "tags": ["riverpod", "state_management", "architecture"],
+      "complexity": 4
+    },
+    {
+      "id": "concept:feature_based_architecture",
+      "type": "concept",
+      "name": "功能模块化架构",
+      "summary": "按功能划分模块，每个feature包含screens、widgets、providers、models等",
+      "tags": ["architecture", "feature_module", "organization"],
+      "complexity": 3
+    },
+    {
+      "id": "concept:ai_transcription_pipeline",
+      "type": "concept",
+      "name": "AI转写流程",
+      "summary": "录音→上传音频→调用ASR API→获取转写文本→AI分析→展示结果",
+      "tags": ["pipeline", "transcription", "ai", "workflow"],
+      "complexity": 5
+    }
+  ],
+  "edges": [
+    { "source": "file:lib/main.dart", "target": "file:lib/routes/app_router.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/main.dart", "target": "file:lib/data/database/app_database.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/home/screens/home_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/auth/screens/login_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/auth/screens/register_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/auth/screens/profile_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/recording/screens/recording_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/records/screens/record_detail_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/ocr/screens/ocr_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/quick_note/screens/quick_note_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/mindmap/screens/mindmap_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/settings/screens/settings_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/subscription/screens/subscription_mine_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/subscription/screens/subscription_store_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/workbench/screens/workbench_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/statistics/screens/statistics_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/routes/app_router.dart", "target": "file:lib/features/splash/screens/splash_screen.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/auth/screens/login_screen.dart", "target": "file:lib/features/auth/providers/auth_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/auth/screens/register_screen.dart", "target": "file:lib/features/auth/providers/auth_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/auth/screens/profile_screen.dart", "target": "file:lib/features/auth/providers/auth_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/settings/screens/settings_screen.dart", "target": "file:lib/features/auth/providers/auth_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/subscription/screens/subscription_mine_screen.dart", "target": "file:lib/features/auth/providers/auth_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/settings/screens/settings_screen.dart", "target": "file:lib/features/settings/providers/settings_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/subscription/screens/subscription_mine_screen.dart", "target": "file:lib/features/subscription/providers/subscription_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/subscription/screens/subscription_store_screen.dart", "target": "file:lib/features/subscription/providers/subscription_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/recording/screens/recording_screen.dart", "target": "file:lib/features/recording/providers/recording_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/records/screens/record_detail_screen.dart", "target": "file:lib/features/records/providers/record_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/home/screens/home_screen.dart", "target": "file:lib/features/records/providers/record_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/recording/providers/recording_provider.dart", "target": "file:lib/core/services/recording_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/recording/providers/recording_provider.dart", "target": "file:lib/core/services/transcription_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/core/services/transcription_service.dart", "target": "file:lib/core/services/tingwu_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/core/services/transcription_service.dart", "target": "file:lib/core/services/cloud_api_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/core/services/ai_summary_service.dart", "target": "file:lib/core/services/cloud_api_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/core/services/cloud_api_service.dart", "target": "file:lib/core/services/api_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/core/services/api_service.dart", "target": "file:lib/core/services/secure_storage_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/auth/providers/auth_provider.dart", "target": "file:lib/core/services/secure_storage_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/auth/providers/auth_provider.dart", "target": "file:lib/core/services/auth_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/records/providers/record_provider.dart", "target": "file:lib/data/repositories/record_repository.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/data/repositories/record_repository.dart", "target": "file:lib/data/database/app_database.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/core/services/webdav_sync_service.dart", "target": "file:lib/core/services/secure_storage_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/settings/providers/settings_provider.dart", "target": "file:lib/core/services/secure_storage_service.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/workbench/screens/workbench_screen.dart", "target": "file:lib/features/workbench/providers/workbench_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/features/splash/screens/splash_screen.dart", "target": "file:lib/features/auth/providers/auth_provider.dart", "type": "imports", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/main.dart", "target": "concept:riverpod_state_management", "type": "contains", "direction": "directed", "weight": 1 },
+    { "source": "file:lib/main.dart", "target": "concept:feature_based_architecture", "type": "contains", "direction": "directed", "weight": 1 },
+    { "source": "concept:ai_transcription_pipeline", "target": "file:lib/core/services/recording_service.dart", "type": "depends_on", "direction": "directed", "weight": 1 },
+    { "source": "concept:ai_transcription_pipeline", "target": "file:lib/core/services/transcription_service.dart", "type": "depends_on", "direction": "directed", "weight": 1 },
+    { "source": "concept:ai_transcription_pipeline", "target": "file:lib/core/services/ai_summary_service.dart", "type": "depends_on", "direction": "directed", "weight": 1 },
+    { "source": "concept:ai_transcription_pipeline", "target": "file:lib/features/recording/providers/recording_provider.dart", "type": "depends_on", "direction": "directed", "weight": 1 }
+  ],
+  "layers": [
+    {
+      "id": "layer:ui",
+      "name": "UI层",
+      "description": "页面和组件，负责用户界面展示",
+      "nodeIds": [
+        "file:lib/features/auth/screens/login_screen.dart",
+        "file:lib/features/auth/screens/register_screen.dart",
+        "file:lib/features/auth/screens/profile_screen.dart",
+        "file:lib/features/home/screens/home_screen.dart",
+        "file:lib/features/recording/screens/recording_screen.dart",
+        "file:lib/features/records/screens/record_detail_screen.dart",
+        "file:lib/features/ocr/screens/ocr_screen.dart",
+        "file:lib/features/quick_note/screens/quick_note_screen.dart",
+        "file:lib/features/mindmap/screens/mindmap_screen.dart",
+        "file:lib/features/settings/screens/settings_screen.dart",
+        "file:lib/features/subscription/screens/subscription_mine_screen.dart",
+        "file:lib/features/subscription/screens/subscription_store_screen.dart",
+        "file:lib/features/workbench/screens/workbench_screen.dart",
+        "file:lib/features/statistics/screens/statistics_screen.dart",
+        "file:lib/features/splash/screens/splash_screen.dart"
+      ]
+    },
+    {
+      "id": "layer:state",
+      "name": "状态管理层",
+      "description": "Riverpod Provider，管理应用状态和业务逻辑",
+      "nodeIds": [
+        "file:lib/features/auth/providers/auth_provider.dart",
+        "file:lib/features/recording/providers/recording_provider.dart",
+        "file:lib/features/records/providers/record_provider.dart",
+        "file:lib/features/settings/providers/settings_provider.dart",
+        "file:lib/features/subscription/providers/subscription_provider.dart",
+        "concept:riverpod_state_management"
+      ]
+    },
+    {
+      "id": "layer:service",
+      "name": "服务层",
+      "description": "核心业务服务，封装外部API和原生功能",
+      "nodeIds": [
+        "file:lib/core/services/recording_service.dart",
+        "file:lib/core/services/transcription_service.dart",
+        "file:lib/core/services/ai_summary_service.dart",
+        "file:lib/core/services/api_service.dart",
+        "file:lib/core/services/cloud_api_service.dart",
+        "file:lib/core/services/secure_storage_service.dart",
+        "file:lib/core/services/webdav_sync_service.dart",
+        "file:lib/core/services/tingwu_service.dart"
+      ]
+    },
+    {
+      "id": "layer:data",
+      "name": "数据层",
+      "description": "数据库定义和数据仓库",
+      "nodeIds": [
+        "file:lib/data/database/app_database.dart",
+        "file:lib/data/repositories/record_repository.dart"
+      ]
+    },
+    {
+      "id": "layer:model",
+      "name": "模型层",
+      "description": "数据模型和实体定义",
+      "nodeIds": [
+        "file:lib/core/models/user.dart",
+        "file:lib/core/models/note.dart",
+        "file:lib/core/models/ai_role.dart",
+        "file:lib/core/models/prompt_template.dart",
+        "file:lib/core/models/ai_model_config.dart"
+      ]
+    },
+    {
+      "id": "layer:infra",
+      "name": "基础设施层",
+      "description": "路由、主题、入口等基础设施",
+      "nodeIds": [
+        "file:lib/main.dart",
+        "file:lib/routes/app_router.dart",
+        "file:lib/core/theme/app_theme.dart"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "应用入口",
+      "description": "从main.dart开始，了解应用启动流程和全局配置",
+      "nodeIds": ["file:lib/main.dart", "file:lib/routes/app_router.dart"]
+    },
+    {
+      "order": 2,
+      "title": "用户认证",
+      "description": "了解登录、注册和个人资料功能",
+      "nodeIds": [
+        "file:lib/features/auth/providers/auth_provider.dart",
+        "file:lib/features/auth/screens/login_screen.dart",
+        "file:lib/features/auth/screens/register_screen.dart"
+      ]
+    },
+    {
+      "order": 3,
+      "title": "核心功能：录音与转写",
+      "description": "了解录音流程和AI转写管道",
+      "nodeIds": [
+        "file:lib/features/recording/screens/recording_screen.dart",
+        "file:lib/features/recording/providers/recording_provider.dart",
+        "file:lib/core/services/recording_service.dart",
+        "file:lib/core/services/transcription_service.dart",
+        "concept:ai_transcription_pipeline"
+      ]
+    },
+    {
+      "order": 4,
+      "title": "记录管理",
+      "description": "了解记录列表和详情展示",
+      "nodeIds": [
+        "file:lib/features/home/screens/home_screen.dart",
+        "file:lib/features/records/screens/record_detail_screen.dart",
+        "file:lib/features/records/providers/record_provider.dart",
+        "file:lib/data/repositories/record_repository.dart"
+      ]
+    },
+    {
+      "order": 5,
+      "title": "AI分析服务",
+      "description": "了解AI摘要和角色分析",
+      "nodeIds": [
+        "file:lib/core/services/ai_summary_service.dart",
+        "file:lib/core/models/ai_role.dart",
+        "file:lib/core/models/prompt_template.dart"
+      ]
+    },
+    {
+      "order": 6,
+      "title": "数据持久化",
+      "description": "了解数据库和同步机制",
+      "nodeIds": [
+        "file:lib/data/database/app_database.dart",
+        "file:lib/core/services/webdav_sync_service.dart",
+        "file:lib/core/services/secure_storage_service.dart"
+      ]
+    },
+    {
+      "order": 7,
+      "title": "扩展功能",
+      "description": "了解OCR、速记、思维导图等扩展功能",
+      "nodeIds": [
+        "file:lib/features/ocr/screens/ocr_screen.dart",
+        "file:lib/features/quick_note/screens/quick_note_screen.dart",
+        "file:lib/features/mindmap/screens/mindmap_screen.dart",
+        "file:lib/features/workbench/screens/workbench_screen.dart"
+      ]
+    }
+  ]
+}

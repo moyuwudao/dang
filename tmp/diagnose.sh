@@ -1,0 +1,16 @@
+#!/bin/bash
+echo "=== PM2 Status ==="
+export PATH="$HOME/.nvm/versions/node/v20.20.2/bin:$PATH"
+pm2 list 2>/dev/null || echo "pm2 not available"
+echo ""
+echo "=== Node Processes ==="
+ps aux | grep node | grep -v grep
+echo ""
+echo "=== Port 3000 ==="
+ss -tlnp | grep 3000 || echo "port 3000 not listening"
+echo ""
+echo "=== API Service Directory ==="
+ls -la /opt/changji-cloud/dang/server/dist/ 2>/dev/null | head -10 || echo "no dist directory"
+echo ""
+echo "=== Recent PM2 Error Log ==="
+tail -10 /home/admin/.pm2/logs/changji-api-error.log 2>/dev/null || echo "no error log"

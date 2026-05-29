@@ -119,4 +119,68 @@ export class SubscriptionController {
     );
     return { code: 200, message: 'success', data: result };
   }
+
+  // 多模式计费：检查功能是否可用
+  @Post('check-feature')
+  @UseGuards(JwtAuthGuard)
+  async checkFeature(
+    @Req() req,
+    @Body() body: { featureType: string; amount: number },
+  ) {
+    const result = await this.subscriptionService.canUseFeature(
+      req.user.sub,
+      body.featureType,
+      body.amount,
+    );
+    return { code: 200, message: 'success', data: result };
+  }
+
+  // 多模式计费：消费功能
+  @Post('consume-feature')
+  @UseGuards(JwtAuthGuard)
+  async consumeFeature(
+    @Req() req,
+    @Body() body: { 
+      featureType: string; 
+      amount: number;
+      provider?: string;
+      model?: string;
+      tokens?: { prompt: number; completion: number };
+    },
+  ) {
+    const result = await this.subscriptionService.consumeFeature(
+      req.user.sub,
+      body.featureType,
+      body.amount,
+      {
+        provider: body.provider,
+        model: body.model,
+        promptTokens: body.tokens?.prompt,
+        completionTokens: body.tokens?.completion,
+      },
+    );
+    return { code: 200, message: 'success', data: result };
+  }
+
+  // 多模式计费：获取功能使用情况
+  @Get('feature-usage')
+  @UseGuards(JwtAuthGuard)
+  async getFeatureUsage(@Req() req) {
+    const result = await this.subscriptionService.getFeatureUsage(req.user.sub);
+    return { code: 200, message: 'success', data: result };
+  }
+
+  // 余额购买套餐/资源包
+  @Post('purchase-with-balance')
+  @UseGuards(JwtAuthGuard)
+  async purchaseWithBalance(
+    @Req() req,
+    @Body() body: { planId: string },
+  ) {
+    const result = await this.subscriptionService.purchaseWithBalance(
+      req.user.sub,
+      body.planId,
+    );
+    return { code: 200, message: 'success', data: result };
+  }
 }
