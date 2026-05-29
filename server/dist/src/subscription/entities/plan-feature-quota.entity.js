@@ -41,7 +41,7 @@ __decorate([
 ], PlanFeatureQuota.prototype, "multiplier", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => plan_entity_1.Plan, plan => plan.featureQuotas),
-    (0, typeorm_1.JoinColumn)({ name: 'planId' }),
+    (0, typeorm_1.JoinColumn)({ name: 'plan_id' }),
     __metadata("design:type", plan_entity_1.Plan)
 ], PlanFeatureQuota.prototype, "plan", void 0);
 exports.PlanFeatureQuota = PlanFeatureQuota = __decorate([

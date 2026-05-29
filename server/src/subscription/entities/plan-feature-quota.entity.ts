@@ -23,6 +23,6 @@ export class PlanFeatureQuota {
   multiplier: number;
 
   @ManyToOne(() => Plan, plan => plan.featureQuotas)
-  @JoinColumn({ name: 'planId' })
+  @JoinColumn({ name: 'plan_id' })
   plan: Plan;
 }

@@ -19,10 +19,8 @@ import {
   ModalFooter,
   useDisclosure,
   Chip,
-  Tabs,
-  Tab,
 } from '@nextui-org/react';
-import { Save, Plus, Trash2, AlertCircle, Coins } from 'lucide-react';
+import { Save, Plus, Trash2, AlertCircle, Coins, ArrowRightLeft } from 'lucide-react';
 
 interface TokenPricing {
   id: string;
@@ -38,6 +36,15 @@ interface TokenPricing {
   createdAt: string;
   updatedAt: string;
 }
+
+// 功能类型：统一转换为Token计算
+const FEATURE_TYPES = [
+  { key: 'text_analysis', label: '文本分析', unit: 'tokens', unitLabel: '1K tokens', desc: '文本摘要、关键词提取、分类等' },
+  { key: 'transcription', label: '语音转文本', unit: 'minutes', unitLabel: '分钟', tokenRatio: 150, desc: '1分钟语音 ≈ 150 tokens' },
+  { key: 'realtime_transcription', label: '实时语音转写', unit: 'minutes', unitLabel: '分钟', tokenRatio: 150, desc: '1分钟语音 ≈ 150 tokens' },
+  { key: 'image_recognition', label: '图像识别', unit: 'images', unitLabel: '张', tokenRatio: 1000, desc: '1张图片 ≈ 1000 tokens' },
+  { key: 'ocr', label: 'OCR识别', unit: 'images', unitLabel: '张', tokenRatio: 800, desc: '1张图片 ≈ 800 tokens' },
+];
 
 const PROVIDER_COLORS: Record<string, string> = {
   qwen: 'bg-orange-100 text-orange-700',
@@ -59,55 +66,15 @@ const PROVIDER_LABELS: Record<string, string> = {
   internal: '内部服务',
 };
 
-// 功能类型配置
-const FEATURE_TYPES = [
-  { key: 'ai_chat', label: 'AI对话', unit: 'tokens', unitLabel: '1K tokens', hasCompletionPrice: true },
-  { key: 'transcription', label: '语音转写', unit: 'minutes', unitLabel: '分钟', hasCompletionPrice: false },
-  { key: 'realtime_transcription', label: '实时转写', unit: 'minutes', unitLabel: '分钟', hasCompletionPrice: false },
-  { key: 'text_analysis', label: '文本分析', unit: 'thousand_chars', unitLabel: '千字符', hasCompletionPrice: false },
-  { key: 'image_recognition', label: '图像识别', unit: 'images', unitLabel: '张', hasCompletionPrice: false },
-  { key: 'ocr', label: 'OCR识别', unit: 'images', unitLabel: '张', hasCompletionPrice: false },
-  { key: 'tts', label: '语音合成', unit: 'thousand_chars', unitLabel: '千字符', hasCompletionPrice: false },
+// 模型参考价格（统一按Token计费）
+const MODEL_REFERENCES = [
+  { model: 'qwen-turbo', name: '通义千问 Turbo', provider: 'qwen', input: 0.0005, output: 0.0015 },
+  { model: 'qwen-plus', name: '通义千问 Plus', provider: 'qwen', input: 0.002, output: 0.006 },
+  { model: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'deepseek', input: 0.001, output: 0.002 },
+  { model: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai', input: 0.015, output: 0.06 },
+  { model: 'gpt-4o', name: 'GPT-4o', provider: 'openai', input: 0.05, output: 0.15 },
+  { model: 'claude-3-haiku', name: 'Claude 3 Haiku', provider: 'anthropic', input: 0.0125, output: 0.0625 },
 ];
-
-// 各功能类型的模型参考
-const FEATURE_MODELS: Record<string, Array<{ model: string; name: string; provider: string; input: number; output?: number }>> = {
-  ai_chat: [
-    { model: 'qwen-turbo', name: '通义千问 Turbo', provider: 'qwen', input: 0.0005, output: 0.0015 },
-    { model: 'qwen-plus', name: '通义千问 Plus', provider: 'qwen', input: 0.002, output: 0.006 },
-    { model: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'deepseek', input: 0.001, output: 0.002 },
-    { model: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai', input: 0.015, output: 0.06 },
-    { model: 'gpt-4o', name: 'GPT-4o', provider: 'openai', input: 0.05, output: 0.15 },
-    { model: 'claude-3-haiku', name: 'Claude 3 Haiku', provider: 'anthropic', input: 0.0125, output: 0.0625 },
-    { model: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', provider: 'gemini', input: 0.00125, output: 0.005 },
-  ],
-  transcription: [
-    { model: 'whisper-1', name: 'Whisper', provider: 'openai', input: 0.006 },
-    { model: 'paraformer-realtime', name: ' Paraformer 实时', provider: 'internal', input: 0.003 },
-    { model: 'qwen-audio', name: '通义语音', provider: 'qwen', input: 0.002 },
-  ],
-  realtime_transcription: [
-    { model: 'tingwu-realtime', name: '听悟实时', provider: 'internal', input: 0.005 },
-    { model: 'qwen-realtime', name: '通义实时', provider: 'qwen', input: 0.004 },
-  ],
-  text_analysis: [
-    { model: 'qwen-turbo', name: '通义千问 Turbo', provider: 'qwen', input: 0.0005 },
-    { model: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'deepseek', input: 0.001 },
-    { model: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai', input: 0.015 },
-  ],
-  image_recognition: [
-    { model: 'gpt-4o-vision', name: 'GPT-4o Vision', provider: 'openai', input: 0.005 },
-    { model: 'qwen-vl', name: '通义千问 VL', provider: 'qwen', input: 0.003 },
-  ],
-  ocr: [
-    { model: 'qwen-vl-ocr', name: '通义OCR', provider: 'qwen', input: 0.002 },
-    { model: 'paddleocr', name: 'PaddleOCR', provider: 'internal', input: 0.001 },
-  ],
-  tts: [
-    { model: 'qwen-tts', name: '通义语音合成', provider: 'qwen', input: 0.002 },
-    { model: 'edge-tts', name: 'Edge TTS', provider: 'internal', input: 0.0005 },
-  ],
-};
 
 export default function TokenPricingPage() {
   const [pricingList, setPricingList] = useState<TokenPricing[]>([]);
@@ -116,7 +83,7 @@ export default function TokenPricingPage() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [editingPricing, setEditingPricing] = useState<Partial<TokenPricing>>({});
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('ai_chat');
+  const [activeFeature, setActiveFeature] = useState('text_analysis');
 
   useEffect(() => {
     fetchPricingList();
@@ -126,7 +93,7 @@ export default function TokenPricingPage() {
     setLoading(true);
     try {
       const data = await adminAPI.getTokenPricing();
-      setPricingList(data);
+      setPricingList(data || []);
     } catch (err: any) {
       setError(err.response?.data?.message || '获取Token价格列表失败');
     } finally {
@@ -150,10 +117,10 @@ export default function TokenPricingPage() {
         modelName: editingPricing.modelName,
         modelPattern: editingPricing.modelPattern,
         provider: editingPricing.provider,
-        featureType: editingPricing.featureType || 'ai_chat',
+        featureType: editingPricing.featureType || 'text_analysis',
         billingUnit: editingPricing.billingUnit || featureConfig.unit,
         promptPricePer1k: editingPricing.promptPricePer1k,
-        completionPricePer1k: featureConfig.hasCompletionPrice ? (editingPricing.completionPricePer1k || 0) : 0,
+        completionPricePer1k: editingPricing.completionPricePer1k || 0,
         currency: editingPricing.currency || 'CNY',
         isActive: editingPricing.isActive !== false,
       };
@@ -168,16 +135,17 @@ export default function TokenPricingPage() {
       fetchPricingList();
       setEditingPricing({});
       setIsEditing(false);
+      setError(null);
     } catch (err: any) {
       setError(err.response?.data?.message || '保存失败');
     }
   };
 
-  const openAdd = (featureType: string = 'ai_chat') => {
-    const featureConfig = FEATURE_TYPES.find(f => f.key === featureType) || FEATURE_TYPES[0];
+  const openAdd = () => {
+    const featureConfig = FEATURE_TYPES.find(f => f.key === activeFeature) || FEATURE_TYPES[0];
     setEditingPricing({
       provider: 'qwen',
-      featureType: featureType,
+      featureType: activeFeature,
       billingUnit: featureConfig.unit,
       currency: 'CNY',
       promptPricePer1k: 0,
@@ -185,12 +153,14 @@ export default function TokenPricingPage() {
       isActive: true,
     });
     setIsEditing(false);
+    setError(null);
     onOpen();
   };
 
   const openEdit = (pricing: TokenPricing) => {
     setEditingPricing({ ...pricing });
     setIsEditing(true);
+    setError(null);
     onOpen();
   };
 
@@ -204,11 +174,16 @@ export default function TokenPricingPage() {
     }
   };
 
-  // 按功能类型过滤价格列表
-  const filteredPricingList = pricingList.filter(p => p.featureType === activeTab);
+  // 按功能类型过滤
+  const filteredPricingList = pricingList.filter(p => p.featureType === activeFeature);
+  const currentFeature = FEATURE_TYPES.find(f => f.key === activeFeature) || FEATURE_TYPES[0];
 
-  // 获取当前功能类型的配置
-  const currentFeature = FEATURE_TYPES.find(f => f.key === activeTab) || FEATURE_TYPES[0];
+  // 计算等效Token价格
+  const getEquivalentTokenPrice = (price: number, featureKey: string) => {
+    const feature = FEATURE_TYPES.find(f => f.key === featureKey);
+    if (!feature || !feature.tokenRatio) return null;
+    return (price * 1000 / feature.tokenRatio).toFixed(4);
+  };
 
   return (
     <Layout currentPage="token-pricing">
@@ -217,12 +192,12 @@ export default function TokenPricingPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Token 价格管理</h1>
-            <p className="text-gray-500 mt-1">配置各AI功能的价格，用于按量计费的成本核算</p>
+            <p className="text-gray-500 mt-1">统一Token计费方案：所有功能按等效Token数量计费</p>
           </div>
           <Button
             color="primary"
             className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => openAdd(activeTab)}
+            onClick={openAdd}
             startContent={<Plus className="w-4 h-4" />}
           >
             添加价格配置
@@ -236,26 +211,40 @@ export default function TokenPricingPage() {
           </div>
         )}
 
-        {/* 功能类型标签页 */}
-        <Tabs
-          selectedKey={activeTab}
-          onSelectionChange={(key) => setActiveTab(key as string)}
-          classNames={{
-            tabList: 'gap-2',
-            cursor: 'bg-blue-600',
-            tab: 'px-4 py-2',
-          }}
-        >
-          {FEATURE_TYPES.map((feature) => (
-            <Tab key={feature.key} title={feature.label} />
-          ))}
-        </Tabs>
+        {/* 功能类型选择 - 使用简单的按钮组替代Tabs */}
+        <Card className="shadow-sm">
+          <CardBody>
+            <div className="flex flex-wrap gap-2">
+              {FEATURE_TYPES.map((feature) => (
+                <Button
+                  key={feature.key}
+                  size="sm"
+                  variant={activeFeature === feature.key ? 'solid' : 'flat'}
+                  color={activeFeature === feature.key ? 'primary' : 'default'}
+                  className={activeFeature === feature.key ? 'bg-blue-600' : ''}
+                  onClick={() => setActiveFeature(feature.key)}
+                >
+                  {feature.label}
+                </Button>
+              ))}
+            </div>
+            <p className="text-sm text-gray-500 mt-3">
+              <ArrowRightLeft className="w-4 h-4 inline mr-1" />
+              {currentFeature.desc}
+              {currentFeature.tokenRatio && (
+                <span className="ml-2 text-blue-600 font-medium">
+                  转换比例: 1{currentFeature.unitLabel} = {currentFeature.tokenRatio} tokens
+                </span>
+              )}
+            </p>
+          </CardBody>
+        </Card>
 
         {/* Pricing Table */}
         <Card className="shadow-sm">
           <CardBody>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">{currentFeature.label}价格配置</h3>
+              <h3 className="text-lg font-semibold text-gray-800">{currentFeature.label} - Token价格配置</h3>
               <span className="text-sm text-gray-500">计费单位: {currentFeature.unitLabel}</span>
             </div>
 
@@ -265,7 +254,7 @@ export default function TokenPricingPage() {
                 <TableColumn>模型名称</TableColumn>
                 <TableColumn>模型标识</TableColumn>
                 <TableColumn>基础价格 ({currentFeature.unitLabel})</TableColumn>
-                {currentFeature.hasCompletionPrice && <TableColumn>输出价格</TableColumn>}
+                <TableColumn>等效Token价格 (1K tokens)</TableColumn>
                 <TableColumn>货币</TableColumn>
                 <TableColumn>状态</TableColumn>
                 <TableColumn>操作</TableColumn>
@@ -292,13 +281,15 @@ export default function TokenPricingPage() {
                         ¥{pricing.promptPricePer1k.toFixed(4)}
                       </span>
                     </TableCell>
-                    {currentFeature.hasCompletionPrice && (
-                      <TableCell>
-                        <span className="font-mono text-sm">
-                          ¥{(pricing.completionPricePer1k || 0).toFixed(4)}
+                    <TableCell>
+                      {getEquivalentTokenPrice(pricing.promptPricePer1k, pricing.featureType) ? (
+                        <span className="font-mono text-sm text-blue-600">
+                          ¥{getEquivalentTokenPrice(pricing.promptPricePer1k, pricing.featureType)}
                         </span>
-                      </TableCell>
-                    )}
+                      ) : (
+                        <span className="text-gray-400 text-sm">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>{pricing.currency}</TableCell>
                     <TableCell>
                       <Chip
@@ -345,24 +336,48 @@ export default function TokenPricingPage() {
           </CardBody>
         </Card>
 
-        {/* Reference Card */}
+        {/* 统一Token计费说明 */}
+        <Card className="shadow-sm bg-blue-50">
+          <CardBody>
+            <h3 className="text-lg font-bold text-blue-800 mb-3">统一Token计费方案说明</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
+              <div>
+                <p className="font-medium mb-2">转换规则：</p>
+                <ul className="space-y-1 list-disc list-inside">
+                  <li>文本分析：直接按Token计费</li>
+                  <li>语音转文本：1分钟 = 150 tokens</li>
+                  <li>实时语音转写：1分钟 = 150 tokens</li>
+                  <li>图像识别：1张 = 1000 tokens</li>
+                  <li>OCR识别：1张 = 800 tokens</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-medium mb-2">计费公式：</p>
+                <div className="bg-white p-3 rounded-lg font-mono text-xs">
+                  <p>费用 = 使用量 × 转换比例 × Token单价</p>
+                  <p className="mt-1 text-gray-500">例：10分钟语音 = 10 × 150 × ¥0.0005 = ¥0.75</p>
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* 模型参考价格 */}
         <Card className="shadow-sm">
           <CardBody>
-            <h3 className="text-lg font-bold text-gray-800 mb-4">{currentFeature.label} - 常见模型价格参考</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {(FEATURE_MODELS[activeTab] || []).map((item) => (
+            <h3 className="text-lg font-bold text-gray-800 mb-4">常见模型Token价格参考</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {MODEL_REFERENCES.map((item) => (
                 <div key={item.model} className="p-3 bg-gray-50 rounded-xl">
                   <p className="font-medium text-gray-800 text-sm">{item.name}</p>
-                  <p className="text-xs text-gray-500">{PROVIDER_LABELS[item.provider] || item.provider}</p>
+                  <p className="text-xs text-gray-500">{PROVIDER_LABELS[item.provider]}</p>
                   <div className="mt-2 space-y-1">
                     <p className="text-xs text-gray-600">
-                      基础: <span className="font-mono font-medium">¥{item.input.toFixed(4)}</span>/{currentFeature.unitLabel}
+                      输入: <span className="font-mono font-medium">¥{item.input.toFixed(4)}</span>/1K tokens
                     </p>
-                    {item.output && (
-                      <p className="text-xs text-gray-600">
-                        输出: <span className="font-mono font-medium">¥{item.output.toFixed(4)}</span>/{currentFeature.unitLabel}
-                      </p>
-                    )}
+                    <p className="text-xs text-gray-600">
+                      输出: <span className="font-mono font-medium">¥{item.output.toFixed(4)}</span>/1K tokens
+                    </p>
                   </div>
                 </div>
               ))}
@@ -416,7 +431,7 @@ export default function TokenPricingPage() {
                     功能类型
                   </label>
                   <select
-                    value={editingPricing.featureType || activeTab}
+                    value={editingPricing.featureType || activeFeature}
                     onChange={(e) => {
                       const featureType = e.target.value;
                       const featureConfig = FEATURE_TYPES.find(f => f.key === featureType);
@@ -447,25 +462,28 @@ export default function TokenPricingPage() {
                   isRequired
                   startContent={<span className="text-gray-400 text-sm">¥</span>}
                 />
-                {currentFeature.hasCompletionPrice ? (
-                  <Input
-                    label={`输出价格 (每${currentFeature.unitLabel})`}
-                    type="number"
-                    step="0.0001"
-                    placeholder="0.0015"
-                    value={String(editingPricing.completionPricePer1k || 0)}
-                    onChange={(e) => setEditingPricing({ ...editingPricing, completionPricePer1k: parseFloat(e.target.value) })}
-                    classNames={{ inputWrapper: 'rounded-xl' }}
-                    isRequired
-                    startContent={<span className="text-gray-400 text-sm">¥</span>}
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-50 rounded-xl">
-                    <p className="text-sm text-gray-600">{currentFeature.label}仅需要基础价格</p>
-                    <p className="text-xs text-gray-400 mt-1">不区分输入/输出价格</p>
-                  </div>
-                )}
+                <Input
+                  label="输出价格 (每1K tokens，可选)"
+                  type="number"
+                  step="0.0001"
+                  placeholder="0.0015"
+                  value={String(editingPricing.completionPricePer1k || 0)}
+                  onChange={(e) => setEditingPricing({ ...editingPricing, completionPricePer1k: parseFloat(e.target.value) })}
+                  classNames={{ inputWrapper: 'rounded-xl' }}
+                  startContent={<span className="text-gray-400 text-sm">¥</span>}
+                />
               </div>
+
+              {currentFeature.tokenRatio && (
+                <div className="p-3 bg-blue-50 rounded-xl">
+                  <p className="text-sm text-blue-700 font-medium">等效Token价格预览</p>
+                  <p className="text-xs text-blue-500 mt-1">
+                    基础价格 ¥{editingPricing.promptPricePer1k || 0} / {currentFeature.unitLabel} = 
+                    {' '}¥{getEquivalentTokenPrice(editingPricing.promptPricePer1k || 0, currentFeature.key) || '0'} / 1K tokens
+                    （按 {currentFeature.tokenRatio} tokens/{currentFeature.unitLabel} 转换）
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                 <input
@@ -478,16 +496,6 @@ export default function TokenPricingPage() {
                 <label htmlFor="isActive" className="text-sm text-gray-700">
                   启用该价格配置
                 </label>
-              </div>
-
-              <div className="p-3 bg-blue-50 rounded-xl">
-                <p className="text-sm text-blue-700 font-medium">计费说明</p>
-                <p className="text-xs text-blue-500 mt-1">
-                  {currentFeature.hasCompletionPrice
-                    ? `按量计费时，系统会根据实际使用的输入和输出${currentFeature.unitLabel}数量，分别乘以对应的价格进行扣费。`
-                    : `按量计费时，系统会根据实际使用的${currentFeature.unitLabel}数量乘以基础价格进行扣费。`
-                  }
-                </p>
               </div>
             </div>
           </ModalBody>
