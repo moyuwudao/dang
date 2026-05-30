@@ -421,8 +421,8 @@ export default function BillingConfigPage() {
                               {PROVIDERS.find(p => p.key === pricing.provider)?.label || pricing.provider}
                             </TableCell>
                             <TableCell>{pricing.modelPattern}</TableCell>
-                            <TableCell>¥{pricing.inputPricePer1M.toFixed(4)}</TableCell>
-                            <TableCell>¥{pricing.outputPricePer1M.toFixed(4)}</TableCell>
+                            <TableCell>¥{(pricing.inputPricePer1M ?? 0).toFixed(4)}</TableCell>
+                            <TableCell>¥{(pricing.outputPricePer1M ?? 0).toFixed(4)}</TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded text-xs ${
                                 pricing.isActive
@@ -512,7 +512,7 @@ export default function BillingConfigPage() {
                                 {policy.isAllowed ? '允许' : '禁止'}
                               </span>
                             </TableCell>
-                            <TableCell>{policy.coefficient.toFixed(2)}x</TableCell>
+                            <TableCell>{(policy.coefficient ?? 1.0).toFixed(2)}x</TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded text-xs ${
                                 policy.isActive
