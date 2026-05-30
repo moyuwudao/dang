@@ -1,12 +1,11 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Button, Card, Form, Input, InputNumber, Switch, Select, message, Space, Divider, Typography, Row, Col } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
-import Layout from '../components/Layout';
-import { api } from '../services/api';
-
-const { Title, Text } = Typography;
-const { Option } = Select;
+import { Card, CardBody, Button, Input, Switch, Select, SelectItem, Textarea, Spinner } from '@nextui-org/react';
+import { ArrowLeft, Save } from 'lucide-react';
+import Layout from '@/components/Layout';
+import { adminAPI } from '@/services/api';
 
 interface FeatureQuota {
   featureType: string;
@@ -22,13 +21,10 @@ interface DefaultConfig {
 }
 
 interface PlanFormData {
-  id?: string;
   name: string;
   description?: string;
   priceCents: number;
   durationDays: number;
-  quotaValue: number;
-  quotaUnit: string;
   isActive?: boolean;
   sortOrder?: number;
   featureQuotas?: FeatureQuota[];
@@ -55,45 +51,52 @@ const FUNCTION_TYPES = [
   { label: '语音合成', value: 'tts' },
 ];
 
-const COMMON_MODELS = [
-  'gpt-4o', 'gpt-4', 'gpt-3.5-turbo',
-  'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku',
-  'qwen-turbo', 'qwen-plus', 'qwen-max',
-  'deepseek-chat',
-  'whisper-1',
+const QUOTA_UNITS = [
+  { label: '分钟', value: 'minutes' },
+  { label: 'Token', value: 'tokens' },
+  { label: '千字符', value: 'thousand_chars' },
+  { label: '次', value: 'times' },
+  { label: '张', value: 'images' },
 ];
 
-export default function PlanEditor() {
+export default function PlanEditorPage() {
   const router = useRouter();
-  const [form] = Form.useForm<PlanFormData>();
+  const { id } = router.query;
+  const isEdit = id && id !== 'new';
+
   const [loading, setLoading] = useState(false);
-  const [planId, setPlanId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState<PlanFormData>({
+    name: '',
+    description: '',
+    priceCents: 0,
+    durationDays: 30,
+    isActive: true,
+    sortOrder: 0,
+    featureQuotas: [],
+    defaultConfigs: [],
+  });
+
   const [featureQuotas, setFeatureQuotas] = useState<FeatureQuota[]>([]);
   const [defaultConfigs, setDefaultConfigs] = useState<DefaultConfig[]>([]);
 
-  const isEdit = router.query.id && router.query.id !== 'new';
-
   useEffect(() => {
     if (isEdit) {
-      const id = router.query.id as string;
-      setPlanId(id);
-      loadPlan(id);
+      loadPlan(id as string);
     }
-  }, [router.query.id]);
+  }, [id, isEdit]);
 
-  async function loadPlan(id: string) {
+  const loadPlan = async (planId: string) => {
     try {
       setLoading(true);
-      const plan = await api.getPlan(id);
-      
-      form.setFieldsValue({
-        id: plan.id,
+      const plan = await adminAPI.getPlanById(planId);
+      setFormData({
         name: plan.name,
-        description: plan.description,
-        priceCents: plan.priceCents / 100,
+        description: plan.description || '',
+        priceCents: plan.priceCents,
         durationDays: plan.durationDays,
-        quotaValue: plan.quotaValue,
-        quotaUnit: plan.quotaUnit,
         isActive: plan.isActive,
         sortOrder: plan.sortOrder || 0,
       });
@@ -102,81 +105,83 @@ export default function PlanEditor() {
         setFeatureQuotas(plan.featureQuotas);
       }
 
-      const configs = await api.getPlanDefaultConfigs(id);
-      setDefaultConfigs(configs);
-    } catch (error) {
-      console.error('Failed to load plan:', error);
-      message.error('加载套餐失败');
+      if (plan.defaultConfigs) {
+        setDefaultConfigs(plan.defaultConfigs);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || '加载套餐失败');
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  function addFeatureQuota() {
-    setFeatureQuotas([
-      ...featureQuotas,
-      { featureType: 'ai_chat', quotaValue: 0, quotaUnit: 'tokens', multiplier: 1.0 },
-    ]);
-  }
-
-  function removeFeatureQuota(index: number) {
-    setFeatureQuotas(featureQuotas.filter((_, i) => i !== index));
-  }
-
-  function updateFeatureQuota(index: number, field: keyof FeatureQuota, value: any) {
-    const newQuotas = [...featureQuotas];
-    newQuotas[index] = { ...newQuotas[index], [field]: value };
-    setFeatureQuotas(newQuotas);
-  }
-
-  function addDefaultConfig() {
-    setDefaultConfigs([
-      ...defaultConfigs,
-      { functionType: 'ai_chat', modelPattern: '', isActive: true },
-    ]);
-  }
-
-  function removeDefaultConfig(index: number) {
-    setDefaultConfigs(defaultConfigs.filter((_, i) => i !== index));
-  }
-
-  function updateDefaultConfig(index: number, field: keyof DefaultConfig, value: any) {
-    const newConfigs = [...defaultConfigs];
-    newConfigs[index] = { ...newConfigs[index], [field]: value };
-    setDefaultConfigs(newConfigs);
-  }
-
-  async function handleSave(values: PlanFormData) {
+  const handleSave = async () => {
     try {
-      setLoading(true);
-      
+      setSaving(true);
       const data = {
-        ...values,
-        priceCents: Math.round((values.priceCents || 0) * 100),
+        ...formData,
         featureQuotas,
+        defaultConfigs,
       };
 
       if (isEdit) {
-        await api.updatePlan(planId!, data);
-        for (const config of defaultConfigs) {
-          await api.setPlanDefaultConfig(planId!, config);
-        }
-        message.success('套餐更新成功');
+        await adminAPI.updatePlan(id as string, data);
       } else {
-        const newPlan = await api.createPlan(data);
-        for (const config of defaultConfigs) {
-          await api.setPlanDefaultConfig(newPlan.id, config);
-        }
-        message.success('套餐创建成功');
+        await adminAPI.createPlan(data);
       }
 
       router.push('/subscriptions');
-    } catch (error) {
-      console.error('Failed to save plan:', error);
-      message.error('保存套餐失败');
-    } finally {
-      setLoading(false);
+    } catch (err: any) {
+      setError(err.response?.data?.message || '保存失败');
+      setSaving(false);
     }
+  };
+
+  const handleAddFeatureQuota = () => {
+    setFeatureQuotas([...featureQuotas, {
+      featureType: 'ai_chat',
+      quotaValue: 10000,
+      quotaUnit: 'tokens',
+      multiplier: 1.0,
+    }]);
+  };
+
+  const handleRemoveFeatureQuota = (index: number) => {
+    setFeatureQuotas(featureQuotas.filter((_, i) => i !== index));
+  };
+
+  const handleFeatureQuotaChange = (index: number, field: keyof FeatureQuota, value: any) => {
+    const updated = [...featureQuotas];
+    updated[index] = { ...updated[index], [field]: value };
+    setFeatureQuotas(updated);
+  };
+
+  const handleAddDefaultConfig = () => {
+    setDefaultConfigs([...defaultConfigs, {
+      functionType: 'ai_chat',
+      modelPattern: '',
+      isActive: true,
+    }]);
+  };
+
+  const handleRemoveDefaultConfig = (index: number) => {
+    setDefaultConfigs(defaultConfigs.filter((_, i) => i !== index));
+  };
+
+  const handleDefaultConfigChange = (index: number, field: keyof DefaultConfig, value: any) => {
+    const updated = [...defaultConfigs];
+    updated[index] = { ...updated[index], [field]: value };
+    setDefaultConfigs(updated);
+  };
+
+  if (loading) {
+    return (
+      <Layout currentPage="subscriptions">
+        <div className="flex justify-center items-center h-screen">
+          <Spinner size="lg" />
+        </div>
+      </Layout>
+    );
   }
 
   return (
@@ -184,247 +189,213 @@ export default function PlanEditor() {
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Button
-            icon={<ArrowLeftOutlined />}
+            variant="light"
+            startContent={<ArrowLeft className="w-4 h-4" />}
             onClick={() => router.push('/subscriptions')}
           >
             返回
           </Button>
           <div>
-            <Title level={2} className="m-0">{isEdit ? '编辑套餐' : '创建套餐'}</Title>
-            <Text type="secondary">{isEdit ? '修改套餐配置信息' : '创建新的套餐'}</Text>
+            <h1 className="text-2xl font-bold">{isEdit ? '编辑套餐' : '创建套餐'}</h1>
+            <p className="text-gray-500">{isEdit ? '修改套餐配置信息' : '创建新的套餐'}</p>
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
         <Card>
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSave}
-            initialValues={{
-              isActive: true,
-              sortOrder: 0,
-              durationDays: 30,
-              quotaUnit: 'minutes',
-            }}
-          >
-            <Row gutter={24}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="name"
-                  label="套餐名称"
-                  rules={[{ required: true, message: '请输入套餐名称' }]}
-                >
-                  <Input placeholder="如：基础版、专业版" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="priceCents"
-                  label="价格（元）"
-                  rules={[{ required: true, message: '请输入价格' }]}
-                >
-                  <InputNumber
-                    min={0}
-                    precision={2}
-                    style={{ width: '100%' }}
-                    placeholder="套餐价格"
+          <CardBody>
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold mb-4">基本信息</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="套餐名称"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    isRequired
                   />
-                </Form.Item>
-              </Col>
-            </Row>
 
-            <Form.Item name="description" label="套餐描述">
-              <Input.TextArea rows={3} placeholder="描述套餐包含的内容" />
-            </Form.Item>
+                  <Input
+                    label="价格(分)"
+                    type="number"
+                    value={formData.priceCents.toString()}
+                    onChange={(e) => setFormData({ ...formData, priceCents: parseInt(e.target.value) || 0 })}
+                    isRequired
+                  />
 
-            <Row gutter={24}>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="durationDays"
-                  label="有效期（天）"
-                  rules={[{ required: true, message: '请输入有效期' }]}
-                >
-                  <InputNumber min={1} style={{ width: '100%' }} placeholder="30" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="quotaValue"
-                  label="基础配额"
-                  rules={[{ required: true, message: '请输入配额' }]}
-                >
-                  <InputNumber min={0} style={{ width: '100%' }} placeholder="配额数值" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="quotaUnit"
-                  label="配额单位"
-                  rules={[{ required: true, message: '请选择单位' }]}
-                >
-                  <Select placeholder="选择单位">
-                    <Option value="minutes">分钟</Option>
-                    <Option value="tokens">Tokens</Option>
-                    <Option value="thousand_chars">千字符</Option>
-                    <Option value="images">张</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
+                  <Input
+                    label="时长(天)"
+                    type="number"
+                    value={formData.durationDays.toString()}
+                    onChange={(e) => setFormData({ ...formData, durationDays: parseInt(e.target.value) || 0 })}
+                    isRequired
+                  />
 
-            <Row gutter={24}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="sortOrder"
-                  label="排序值"
-                  help="数值越小越靠前"
-                >
-                  <InputNumber min={0} style={{ width: '100%' }} placeholder="0" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="isActive"
-                  label="启用状态"
-                  valuePropName="checked"
-                >
-                  <Switch />
-                </Form.Item>
-              </Col>
-            </Row>
+                  <Input
+                    label="排序"
+                    type="number"
+                    value={formData.sortOrder?.toString() || '0'}
+                    onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
 
-            <Divider />
+                <Textarea
+                  label="描述"
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="mt-4"
+                />
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Title level={4} className="m-0">功能配额</Title>
-                <Button type="dashed" onClick={addFeatureQuota}>+ 添加功能配额</Button>
+                <div className="flex items-center gap-2 mt-4">
+                  <Switch
+                    isSelected={formData.isActive ?? true}
+                    onValueChange={(isSelected) => setFormData({ ...formData, isActive: isSelected })}
+                  />
+                  <span>启用</span>
+                </div>
               </div>
 
-              {featureQuotas.map((quota, index) => (
-                <Card key={index} size="small">
-                  <Row gutter={16} align="middle">
-                    <Col xs={24} sm={5}>
-                      <Select
-                        value={quota.featureType}
-                        onChange={(value) => {
-                          updateFeatureQuota(index, 'featureType', value);
-                          const type = FEATURE_TYPES.find(t => t.value === value);
-                          if (type) {
-                            updateFeatureQuota(index, 'quotaUnit', type.unit);
-                          }
-                        }}
-                        style={{ width: '100%' }}
-                        placeholder="选择功能"
-                      >
-                        {FEATURE_TYPES.map(type => (
-                          <Option key={type.value} value={type.value}>{type.label}</Option>
-                        ))}
-                      </Select>
-                    </Col>
-                    <Col xs={24} sm={5}>
-                      <InputNumber
-                        value={quota.quotaValue}
-                        onChange={(value) => updateFeatureQuota(index, 'quotaValue', value)}
-                        min={0}
-                        style={{ width: '100%' }}
-                        placeholder="配额值"
-                      />
-                    </Col>
-                    <Col xs={24} sm={5}>
-                      <Select
-                        value={quota.quotaUnit}
-                        onChange={(value) => updateFeatureQuota(index, 'quotaUnit', value)}
-                        style={{ width: '100%' }}
-                        placeholder="单位"
-                      >
-                        <Option value="minutes">分钟</Option>
-                        <Option value="tokens">Tokens</Option>
-                        <Option value="thousand_chars">千字符</Option>
-                        <Option value="images">张</Option>
-                      </Select>
-                    </Col>
-                    <Col xs={24} sm={5}>
-                      <InputNumber
-                        value={quota.multiplier}
-                        onChange={(value) => updateFeatureQuota(index, 'multiplier', value)}
-                        min={0.1}
-                        max={10}
-                        step={0.1}
-                        style={{ width: '100%' }}
-                        placeholder="系数"
-                      />
-                    </Col>
-                    <Col xs={24} sm={4} className="text-right">
-                      <Button danger onClick={() => removeFeatureQuota(index)}>删除</Button>
-                    </Col>
-                  </Row>
-                </Card>
-              ))}
-            </div>
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold">功能配额</h2>
+                  <Button
+                    size="sm"
+                    color="primary"
+                    onClick={handleAddFeatureQuota}
+                  >
+                    添加配额
+                  </Button>
+                </div>
 
-            <Divider />
+                {featureQuotas.length === 0 ? (
+                  <p className="text-gray-500 text-sm">暂无功能配额配置</p>
+                ) : (
+                  <div className="space-y-4">
+                    {featureQuotas.map((quota, index) => (
+                      <Card key={index} className="p-4">
+                        <div className="grid grid-cols-4 gap-4 items-end">
+                          <Select
+                            label="功能类型"
+                            selectedKeys={[quota.featureType]}
+                            onChange={(e) => handleFeatureQuotaChange(index, 'featureType', e.target.value)}
+                          >
+                            {FEATURE_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </Select>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Title level={4} className="m-0">场景默认模型</Title>
-                <Button type="dashed" onClick={addDefaultConfig}>+ 添加场景配置</Button>
+                          <Input
+                            label="配额值"
+                            type="number"
+                            value={quota.quotaValue.toString()}
+                            onChange={(e) => handleFeatureQuotaChange(index, 'quotaValue', parseInt(e.target.value) || 0)}
+                          />
+
+                          <Select
+                            label="单位"
+                            selectedKeys={[quota.quotaUnit]}
+                            onChange={(e) => handleFeatureQuotaChange(index, 'quotaUnit', e.target.value)}
+                          >
+                            {QUOTA_UNITS.map((unit) => (
+                              <SelectItem key={unit.value} value={unit.value}>
+                                {unit.label}
+                              </SelectItem>
+                            ))}
+                          </Select>
+
+                          <Button
+                            color="danger"
+                            variant="light"
+                            size="sm"
+                            onClick={() => handleRemoveFeatureQuota(index)}
+                          >
+                            删除
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {defaultConfigs.map((config, index) => (
-                <Card key={index} size="small">
-                  <Row gutter={16} align="middle">
-                    <Col xs={24} sm={7}>
-                      <Select
-                        value={config.functionType}
-                        onChange={(value) => updateDefaultConfig(index, 'functionType', value)}
-                        style={{ width: '100%' }}
-                        placeholder="选择场景"
-                      >
-                        {FUNCTION_TYPES.map(type => (
-                          <Option key={type.value} value={type.value}>{type.label}</Option>
-                        ))}
-                      </Select>
-                    </Col>
-                    <Col xs={24} sm={12}>
-                      <Select
-                        value={config.modelPattern}
-                        onChange={(value) => updateDefaultConfig(index, 'modelPattern', value)}
-                        style={{ width: '100%' }}
-                        placeholder="选择模型"
-                        showSearch
-                        allowClear
-                      >
-                        {COMMON_MODELS.map(model => (
-                          <Option key={model} value={model}>{model}</Option>
-                        ))}
-                      </Select>
-                    </Col>
-                    <Col xs={24} sm={3}>
-                      <Switch
-                        checked={config.isActive}
-                        onChange={(checked) => updateDefaultConfig(index, 'isActive', checked)}
-                      />
-                    </Col>
-                    <Col xs={24} sm={2} className="text-right">
-                      <Button danger onClick={() => removeDefaultConfig(index)}>删除</Button>
-                    </Col>
-                  </Row>
-                </Card>
-              ))}
-            </div>
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold">场景默认模型</h2>
+                  <Button
+                    size="sm"
+                    color="primary"
+                    onClick={handleAddDefaultConfig}
+                  >
+                    添加配置
+                  </Button>
+                </div>
 
-            <Divider />
+                {defaultConfigs.length === 0 ? (
+                  <p className="text-gray-500 text-sm">暂无场景默认模型配置</p>
+                ) : (
+                  <div className="space-y-4">
+                    {defaultConfigs.map((config, index) => (
+                      <Card key={index} className="p-4">
+                        <div className="grid grid-cols-3 gap-4 items-end">
+                          <Select
+                            label="功能类型"
+                            selectedKeys={[config.functionType]}
+                            onChange={(e) => handleDefaultConfigChange(index, 'functionType', e.target.value)}
+                          >
+                            {FUNCTION_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </Select>
 
-            <div className="flex justify-end">
-              <Space>
-                <Button onClick={() => router.push('/subscriptions')}>取消</Button>
-                <Button type="primary" icon={<SaveOutlined />} htmlType="submit" loading={loading}>
-                  {isEdit ? '保存修改' : '创建套餐'}
+                          <Input
+                            label="模型"
+                            value={config.modelPattern}
+                            onChange={(e) => handleDefaultConfigChange(index, 'modelPattern', e.target.value)}
+                            placeholder="如: gpt-4"
+                          />
+
+                          <Button
+                            color="danger"
+                            variant="light"
+                            size="sm"
+                            onClick={() => handleRemoveDefaultConfig(index)}
+                          >
+                            删除
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  variant="light"
+                  onClick={() => router.push('/subscriptions')}
+                >
+                  取消
                 </Button>
-              </Space>
+                <Button
+                  color="primary"
+                  startContent={<Save className="w-4 h-4" />}
+                  onClick={handleSave}
+                  isLoading={saving}
+                >
+                  保存
+                </Button>
+              </div>
             </div>
-          </Form>
+          </CardBody>
         </Card>
       </div>
     </Layout>
