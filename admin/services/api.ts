@@ -355,6 +355,11 @@ export const adminAPI = {
     return response.data.data;
   },
 
+  getPlanById: async (id: string): Promise<any> => {
+    const response = await axiosInstance.get<ApiResponse<any>>(`/admin/plans/${id}`);
+    return response.data.data;
+  },
+
   createPlan: async (plan: any): Promise<any> => {
     const response = await axiosInstance.post<ApiResponse<any>>('/admin/plans', plan);
     return response.data.data;
