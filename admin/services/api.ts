@@ -511,6 +511,26 @@ export const adminAPI = {
   deleteBillingStandard: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/admin/billing-standards/${id}`);
   },
+
+  // API系数配置
+  getApiPolicies: async (): Promise<any[]> => {
+    const response = await axiosInstance.get<ApiResponse<any[]>>('/admin/api-policies');
+    return response.data.data;
+  },
+
+  createApiPolicy: async (data: any): Promise<any> => {
+    const response = await axiosInstance.post<ApiResponse<any>>('/admin/api-policies', data);
+    return response.data.data;
+  },
+
+  updateApiPolicy: async (id: string, data: any): Promise<any> => {
+    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/api-policies/${id}`, data);
+    return response.data.data;
+  },
+
+  deleteApiPolicy: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`/admin/api-policies/${id}`);
+  },
 };
 
 export default axiosInstance;
