@@ -1,16 +1,15 @@
-'use client';
-
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardBody, Button, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Pagination, Spinner } from '@nextui-org/react';
-import { Plus, Search, Edit, Package, Clock, Zap, Crown, Sparkles, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/router';
+import { Card, CardBody, Button, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Pagination, Spinner } from '@nextui-org/react';
+import { Plus, Search, Edit, Package, Clock, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { adminAPI } from '@/services/api';
-import type { Plan, Subscription, PlanFeatureQuota } from '@/types';
+import type { Plan, Subscription } from '@/types';
 
 const getPlanIcon = (planId: string) => {
   switch (planId) {
-    case 'enterprise': return Crown;
-    case 'pro': return Sparkles;
+    case 'enterprise': return Package;
+    case 'pro': return Package;
     default: return Package;
   }
 };
@@ -33,34 +32,6 @@ const getPlanTypeColor = (type?: string) => {
   }
 };
 
-const emptyPlan: Omit<Plan, 'id'> = {
-  name: '',
-  description: '',
-  priceCents: 0,
-  durationDays: 30,
-  quotaType: 'minutes',
-  quotaValue: 100,
-  isActive: true,
-  type: 'subscription',
-  allowedModels: [],
-  featureQuotas: [],
-  actualCostCents: 0,
-  standardCostCents: 0,
-  profitMargin: 0,
-  userSavings: 0,
-};
-
-// 可用模型列表
-const AVAILABLE_MODELS = [
-  { provider: 'qwen', label: '通义千问', models: ['qwen3.6-flash', 'qwen3.6-plus', 'qwen3.6-max-preview'] },
-  { provider: 'deepseek', label: 'DeepSeek', models: ['deepseek-v4-flash', 'deepseek-v4-pro'] },
-  { provider: 'openai', label: 'OpenAI', models: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4o', 'gpt-4o-mini'] },
-  { provider: 'anthropic', label: 'Anthropic', models: ['claude-3-haiku', 'claude-3-sonnet', 'claude-3-opus'] },
-  { provider: 'gemini', label: 'Gemini', models: ['gemini-pro', 'gemini-ultra'] },
-  { provider: 'grok', label: 'Grok', models: ['grok-1', 'grok-2'] },
-];
-
-// 功能类型列表
 const FEATURE_TYPES = [
   { key: 'transcription', label: '语音转写', unit: 'minutes', unitLabel: '分钟' },
   { key: 'realtime_transcription', label: '实时转写', unit: 'minutes', unitLabel: '分钟' },
@@ -71,16 +42,8 @@ const FEATURE_TYPES = [
   { key: 'tts', label: '语音合成', unit: 'thousand_chars', unitLabel: '千字符' },
 ];
 
-// 功能场景列表
-const FUNCTION_TYPES = [
-  { key: 'text_analysis', label: '文本分析', description: 'AI文本分析、摘要、翻译等' },
-  { key: 'voice_transcription', label: '语音转写', description: '音频文件转文字' },
-  { key: 'realtime_transcription', label: '实时转写', description: '实时语音转文字' },
-  { key: 'offline_transcription', label: '离线转写', description: '本地离线语音转写' },
-  { key: 'image_recognition', label: '图像识别', description: '图片文字识别、物体识别等' },
-];
-
 export default function SubscriptionsPage() {
+  const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
@@ -93,25 +56,12 @@ export default function SubscriptionsPage() {
   const [subTotal, setSubTotal] = useState(0);
   const subsPerPage = 10;
 
-  const [showPlanModal, setShowPlanModal] = useState(false);
-  const [planModalMode, setPlanModalMode] = useState<'create' | 'edit'>('create');
-  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
-  const [planForm, setPlanForm] = useState<Omit<Plan, 'id'>>({ ...emptyPlan });
-
   const [showDeletePlanModal, setShowDeletePlanModal] = useState(false);
   const [planToDelete, setPlanToDelete] = useState<string | null>(null);
 
   const [showEditSubModal, setShowEditSubModal] = useState(false);
   const [editingSub, setEditingSub] = useState<Subscription | null>(null);
   const [subStatusForm, setSubStatusForm] = useState('');
-
-  // 场景默认模型配置
-  const [planDefaultConfigs, setPlanDefaultConfigs] = useState<any[]>([]);
-  const [defaultConfigsLoading, setDefaultConfigsLoading] = useState(false);
-
-  // 功能配额配置
-  const [planFeatureQuotas, setPlanFeatureQuotas] = useState<PlanFeatureQuota[]>([]);
-  const [featureQuotasLoading, setFeatureQuotasLoading] = useState(false);
 
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true);
@@ -139,7 +89,7 @@ export default function SubscriptionsPage() {
     } finally {
       setSubsLoading(false);
     }
-  }, [subPage, statusFilter]);
+  }, [subPage]);
 
   useEffect(() => {
     fetchPlans();
@@ -148,32 +98,6 @@ export default function SubscriptionsPage() {
   useEffect(() => {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
-
-  const handleCreatePlan = async () => {
-    try {
-      await adminAPI.createPlan(planForm);
-      setShowPlanModal(false);
-      setPlanForm({ ...emptyPlan });
-      fetchPlans();
-    } catch (err: any) {
-      setError(err.response?.data?.message || '创建套餐失败');
-    }
-  };
-
-  const handleUpdatePlan = async () => {
-    if (!editingPlan) return;
-    try {
-      // 只提交套餐基本信息，allowedModels 由 API 策略自动管理
-      const { allowedModels, ...planData } = planForm;
-      await adminAPI.updatePlan(editingPlan.id, planData);
-      setShowPlanModal(false);
-      setEditingPlan(null);
-      setPlanForm({ ...emptyPlan });
-      fetchPlans();
-    } catch (err: any) {
-      setError(err.response?.data?.message || '更新套餐失败');
-    }
-  };
 
   const handleDeletePlan = async () => {
     if (!planToDelete) return;
@@ -200,103 +124,11 @@ export default function SubscriptionsPage() {
   };
 
   const openCreatePlan = () => {
-    setPlanModalMode('create');
-    setEditingPlan(null);
-    setPlanForm({ ...emptyPlan });
-    setPlanFeatureQuotas([]);
-    setShowPlanModal(true);
+    router.push('/plan-editor?id=new');
   };
 
-  const openEditPlan = async (plan: Plan) => {
-    setPlanModalMode('edit');
-    setEditingPlan(plan);
-    setPlanForm({
-      name: plan.name,
-      description: plan.description || '',
-      priceCents: plan.priceCents,
-      durationDays: plan.durationDays,
-      quotaType: plan.quotaType,
-      quotaValue: plan.quotaValue || 0,
-      isActive: plan.isActive,
-      type: plan.type,
-      allowedModels: plan.allowedModels || [],
-      featureQuotas: plan.featureQuotas || [],
-      actualCostCents: plan.actualCostCents || 0,
-      standardCostCents: plan.standardCostCents || 0,
-      profitMargin: plan.profitMargin || 0,
-      userSavings: plan.userSavings || 0,
-    });
-    // 加载功能配额
-    await loadPlanFeatureQuotas(plan.id);
-    // 加载场景默认配置
-    await loadPlanDefaultConfigs(plan.id);
-    setShowPlanModal(true);
-  };
-
-  const loadPlanFeatureQuotas = async (planId: string) => {
-    setFeatureQuotasLoading(true);
-    try {
-      const quotas = await adminAPI.getPlanFeatureQuotas(planId);
-      setPlanFeatureQuotas(quotas);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '加载功能配额失败');
-    } finally {
-      setFeatureQuotasLoading(false);
-    }
-  };
-
-  const loadPlanDefaultConfigs = async (planId: string) => {
-    setDefaultConfigsLoading(true);
-    try {
-      const configs = await adminAPI.getPlanDefaultConfigs(planId);
-      setPlanDefaultConfigs(configs);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '加载场景默认配置失败');
-    } finally {
-      setDefaultConfigsLoading(false);
-    }
-  };
-
-  const handleSaveFeatureQuota = async (featureType: string, quotaValue: number, quotaUnit: string) => {
-    if (!editingPlan) return;
-    try {
-      await adminAPI.setPlanFeatureQuota(editingPlan.id, { featureType, quotaValue, quotaUnit });
-      await loadPlanFeatureQuotas(editingPlan.id);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '保存功能配额失败');
-    }
-  };
-
-  const handleDeleteFeatureQuota = async (quotaId: string) => {
-    try {
-      await adminAPI.deletePlanFeatureQuota(quotaId);
-      if (editingPlan) {
-        await loadPlanFeatureQuotas(editingPlan.id);
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || '删除功能配额失败');
-    }
-  };
-
-  const handleSaveDefaultConfig = async (functionType: string, modelPattern: string) => {
-    if (!editingPlan) return;
-    try {
-      await adminAPI.setPlanDefaultConfig(editingPlan.id, { functionType, modelPattern });
-      await loadPlanDefaultConfigs(editingPlan.id);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '保存场景默认配置失败');
-    }
-  };
-
-  const handleDeleteDefaultConfig = async (configId: string) => {
-    try {
-      await adminAPI.deletePlanDefaultConfig(configId);
-      if (editingPlan) {
-        await loadPlanDefaultConfigs(editingPlan.id);
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || '删除场景默认配置失败');
-    }
+  const openEditPlan = (plan: Plan) => {
+    router.push(`/plan-editor?id=${plan.id}`);
   };
 
   const openDeletePlan = (id: string) => {
@@ -411,39 +243,12 @@ export default function SubscriptionsPage() {
                               </span>
                               <span className="text-xs text-gray-400">ID: {plan.id.slice(0, 8)}</span>
                             </div>
-                            {/* 成本核算信息 */}
-                            {(plan.actualCostCents !== undefined || plan.standardCostCents !== undefined) && (
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 p-1.5 bg-green-50 rounded border border-green-100">
-                                <span className="text-xs text-gray-500">成本:</span>
-                                {plan.actualCostCents !== undefined && (
-                                  <span className="text-xs text-red-600">实际¥{(plan.actualCostCents / 100).toFixed(2)}</span>
-                                )}
-                                {plan.standardCostCents !== undefined && (
-                                  <span className="text-xs text-blue-600">标准¥{(plan.standardCostCents / 100).toFixed(2)}</span>
-                                )}
-                                {plan.profitMargin !== undefined && (
-                                  <span className="text-xs text-green-600 font-medium">毛利{plan.profitMargin.toFixed(1)}%</span>
-                                )}
-                                {plan.userSavings !== undefined && (
-                                  <span className="text-xs text-orange-600">省{plan.userSavings.toFixed(0)}%</span>
-                                )}
-                              </div>
-                            )}
                             {plan.featureQuotas && plan.featureQuotas.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 <span className="text-xs text-gray-400 mr-1">功能配额:</span>
                                 {plan.featureQuotas.map((quota) => (
                                   <span key={quota.featureType} className="px-1.5 py-0.5 text-xs bg-purple-50 text-purple-600 rounded border border-purple-100">
                                     {FEATURE_TYPES.find(f => f.key === quota.featureType)?.label || quota.featureType}: {quota.quotaValue}{FEATURE_TYPES.find(f => f.key === quota.featureType)?.unitLabel || quota.quotaUnit}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {plan.features && plan.features.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                {plan.features.map((feature, idx) => (
-                                  <span key={idx} className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                                    {feature}
                                   </span>
                                 ))}
                               </div>
@@ -574,12 +379,6 @@ export default function SubscriptionsPage() {
                                 </div>
                               </div>
                             )}
-                            {sub.totalQuota === 0 && (
-                              <div className="mt-2 flex items-center gap-1.5">
-                                <Zap className="w-4 h-4 text-amber-500" />
-                                <span className="text-xs text-amber-600 font-medium">无限配额</span>
-                              </div>
-                            )}
                           </div>
                           <div className="text-right ml-4">
                             <p className="text-xs text-gray-500">开始</p>
@@ -622,333 +421,6 @@ export default function SubscriptionsPage() {
             </CardBody>
           </Card>
         </div>
-
-        {/* Plan Modal (Create / Edit) */}
-        <Modal isOpen={showPlanModal} onClose={() => setShowPlanModal(false)} classNames={{
-          base: 'rounded-xl',
-          header: 'border-b border-gray-100',
-          footer: 'border-t border-gray-100',
-        }}>
-          <ModalContent>
-          <ModalHeader className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-              <Plus className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-lg font-bold text-gray-800">{planModalMode === 'create' ? '添加新套餐' : '编辑套餐'}</p>
-              <p className="text-sm text-gray-500">{planModalMode === 'create' ? '创建新的订阅套餐' : '修改套餐信息'}</p>
-            </div>
-          </ModalHeader>
-          <ModalBody>
-            <div className="space-y-4">
-              <Input
-                label="套餐名称"
-                value={planForm.name}
-                onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
-                classNames={{ inputWrapper: 'rounded-xl' }}
-              />
-              <Input
-                label="套餐描述"
-                value={planForm.description}
-                onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
-                classNames={{ inputWrapper: 'rounded-xl' }}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="套餐定价（分）"
-                  type="number"
-                  value={String(planForm.priceCents)}
-                  onChange={(e) => setPlanForm({ ...planForm, priceCents: parseInt(e.target.value) || 0 })}
-                  classNames={{ inputWrapper: 'rounded-xl' }}
-                />
-                <Input
-                  label="有效期（天）"
-                  type="number"
-                  value={String(planForm.durationDays)}
-                  onChange={(e) => setPlanForm({ ...planForm, durationDays: parseInt(e.target.value) || 30 })}
-                  classNames={{ inputWrapper: 'rounded-xl' }}
-                />
-              </div>
-
-              {/* 成本核算 */}
-              <div className="p-3 bg-blue-50 rounded-xl">
-                <p className="text-sm font-medium text-blue-800 mb-2">成本核算</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="实际成本（分）- 支付给厂商"
-                    type="number"
-                    value={String(planForm.actualCostCents || 0)}
-                    onChange={(e) => setPlanForm({ ...planForm, actualCostCents: parseInt(e.target.value) || 0 })}
-                    classNames={{ inputWrapper: 'rounded-xl' }}
-                  />
-                  <Input
-                    label="标准成本（分）- 按量计费价格"
-                    type="number"
-                    value={String(planForm.standardCostCents || 0)}
-                    onChange={(e) => setPlanForm({ ...planForm, standardCostCents: parseInt(e.target.value) || 0 })}
-                    classNames={{ inputWrapper: 'rounded-xl' }}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <Input
-                    label="利润率（%）"
-                    type="number"
-                    value={String(planForm.profitMargin || 0)}
-                    onChange={(e) => setPlanForm({ ...planForm, profitMargin: parseFloat(e.target.value) || 0 })}
-                    classNames={{ inputWrapper: 'rounded-xl' }}
-                  />
-                  <Input
-                    label="用户节省比例（%）"
-                    type="number"
-                    value={String(planForm.userSavings || 0)}
-                    onChange={(e) => setPlanForm({ ...planForm, userSavings: parseFloat(e.target.value) || 0 })}
-                    classNames={{ inputWrapper: 'rounded-xl' }}
-                  />
-                </div>
-                {(planForm.priceCents > 0 && planForm.actualCostCents > 0) && (
-                  <div className="mt-2 p-2 bg-white rounded-lg text-xs text-blue-600">
-                    <p>
-                      售价¥{(planForm.priceCents / 100).toFixed(2)} - 成本¥{(planForm.actualCostCents / 100).toFixed(2)} = 
-                      毛利¥{((planForm.priceCents - planForm.actualCostCents) / 100).toFixed(2)} 
-                      ({((planForm.priceCents - planForm.actualCostCents) / planForm.priceCents * 100).toFixed(1)}%)
-                    </p>
-                    {planForm.standardCostCents > 0 && (
-                      <p className="mt-1">
-                        用户按量付费需¥{(planForm.standardCostCents / 100).toFixed(2)}，套餐仅需¥{(planForm.priceCents / 100).toFixed(2)}，
-                        节省{((1 - planForm.priceCents / planForm.standardCostCents) * 100).toFixed(0)}%
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              {/* 套餐类型选择 */}
-              <Select
-                label="套餐类型"
-                selectedKeys={[planForm.type || 'subscription']}
-                onChange={(e) => {
-                  const newType = e.target.value;
-                  // 根据套餐类型自动设置默认配额类型
-                  let newQuotaType = planForm.quotaType;
-                  if (newType === 'subscription') {
-                    newQuotaType = 'minutes';
-                  } else if (newType === 'package') {
-                    newQuotaType = 'minutes';
-                  } else if (newType === 'recharge') {
-                    newQuotaType = 'balance';
-                  }
-                  setPlanForm({ ...planForm, type: newType, quotaType: newQuotaType });
-                }}
-                classNames={{ trigger: 'rounded-xl' }}
-              >
-                <SelectItem key="subscription" value="subscription">订阅制（月度/年度）</SelectItem>
-                <SelectItem key="package" value="package">资源包（一次性）</SelectItem>
-                <SelectItem key="recharge" value="recharge">充值（按量付费）</SelectItem>
-              </Select>
-
-              {/* 配额类型 - 根据套餐类型动态变化 */}
-              {planForm.type === 'subscription' && (
-                <Select
-                  label="配额类型"
-                  selectedKeys={[planForm.quotaType]}
-                  onChange={(e) => setPlanForm({ ...planForm, quotaType: e.target.value })}
-                  classNames={{ trigger: 'rounded-xl' }}
-                >
-                  <SelectItem key="minutes" value="minutes">语音转写分钟数</SelectItem>
-                  <SelectItem key="unlimited" value="unlimited">无限配额</SelectItem>
-                </Select>
-              )}
-              {planForm.type === 'package' && (
-                <Select
-                  label="资源包类型"
-                  selectedKeys={[planForm.quotaType]}
-                  onChange={(e) => setPlanForm({ ...planForm, quotaType: e.target.value })}
-                  classNames={{ trigger: 'rounded-xl' }}
-                >
-                  <SelectItem key="minutes" value="minutes">语音转写（分钟）</SelectItem>
-                  <SelectItem key="text_analysis" value="text_analysis">文本分析（千字符）</SelectItem>
-                  <SelectItem key="image_recognition" value="image_recognition">图像识别（张）</SelectItem>
-                  <SelectItem key="ocr" value="ocr">OCR识别（张）</SelectItem>
-                  <SelectItem key="ai_chat" value="ai_chat">AI对话（tokens）</SelectItem>
-                  <SelectItem key="tts" value="tts">语音合成（千字符）</SelectItem>
-                  <SelectItem key="combo" value="combo">组合包（多种功能）</SelectItem>
-                </Select>
-              )}
-              {planForm.type === 'recharge' && (
-                <div className="p-3 bg-green-50 rounded-xl">
-                  <p className="text-sm text-green-700 font-medium">按量付费模式</p>
-                  <p className="text-xs text-green-500 mt-1">用户充值金额，按实际使用扣费，无需设置配额类型</p>
-                </div>
-              )}
-              {planForm.quotaType !== 'unlimited' && (
-                <Input
-                  label="配额值"
-                  type="number"
-                  value={String(planForm.quotaValue || 0)}
-                  onChange={(e) => setPlanForm({ ...planForm, quotaValue: parseInt(e.target.value) || 0 })}
-                  classNames={{ inputWrapper: 'rounded-xl' }}
-                />
-              )}
-              <Select
-                label="状态"
-                selectedKeys={[planForm.isActive ? 'true' : 'false']}
-                onChange={(e) => setPlanForm({ ...planForm, isActive: e.target.value === 'true' })}
-                classNames={{ trigger: 'rounded-xl' }}
-              >
-                <SelectItem key="true" value="true">启用</SelectItem>
-                <SelectItem key="false" value="false">禁用</SelectItem>
-              </Select>
-
-              {/* 功能配额配置（仅编辑模式） */}
-              {planModalMode === 'edit' && editingPlan && (
-                <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-800">功能配额配置</p>
-                    <span className="text-xs text-gray-400">为各功能设置配额</span>
-                  </div>
-                  
-                  {featureQuotasLoading ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Spinner size="sm" color="primary" />
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {FEATURE_TYPES.map((feature) => {
-                        const existingQuota = planFeatureQuotas.find(q => q.featureType === feature.key);
-                        return (
-                          <div key={feature.key} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-700">{feature.label}</p>
-                              <p className="text-xs text-gray-400">单位: {feature.unitLabel}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {existingQuota ? (
-                                <>
-                                  <span className="px-2 py-1 text-xs bg-purple-50 text-purple-600 rounded border border-purple-100">
-                                    {existingQuota.quotaValue} {feature.unitLabel}
-                                  </span>
-                                  <Button
-                                    size="sm"
-                                    variant="light"
-                                    color="danger"
-                                    className="min-w-0 px-2"
-                                    onClick={() => handleDeleteFeatureQuota(existingQuota.id)}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    type="number"
-                                    size="sm"
-                                    className="w-20"
-                                    placeholder="配额"
-                                    classNames={{ inputWrapper: 'rounded-lg bg-white' }}
-                                    onChange={(e) => {
-                                      const value = parseInt(e.target.value) || 0;
-                                      if (value > 0) {
-                                        handleSaveFeatureQuota(feature.key, value, feature.unit);
-                                      }
-                                    }}
-                                  />
-                                  <span className="text-xs text-gray-400">{feature.unitLabel}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 提示：可用模型在API系数配置中设置 */}
-              <div className="p-3 bg-blue-50 rounded-xl">
-                <p className="text-sm text-blue-700 font-medium">可用模型配置</p>
-                <p className="text-xs text-blue-500 mt-1">
-                  套餐可用模型在「API系数配置」页面中设置，选择已测试通过的模型并配置消耗倍数。
-                </p>
-              </div>
-
-              {/* 场景默认模型配置（仅编辑模式） */}
-              {planModalMode === 'edit' && editingPlan && (
-                <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-800">场景默认模型配置</p>
-                    <span className="text-xs text-gray-400">为各AI功能场景设置默认使用的模型</span>
-                  </div>
-                  
-                  {defaultConfigsLoading ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Spinner size="sm" color="primary" />
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {FUNCTION_TYPES.map((func) => {
-                        const existingConfig = planDefaultConfigs.find(c => c.functionType === func.key);
-                        return (
-                          <div key={func.key} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-700">{func.label}</p>
-                              <p className="text-xs text-gray-400">{func.description}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {existingConfig ? (
-                                <>
-                                  <span className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded border border-blue-100">
-                                    {existingConfig.modelPattern}
-                                  </span>
-                                  <Button
-                                    size="sm"
-                                    variant="light"
-                                    color="danger"
-                                    className="min-w-0 px-2"
-                                    onClick={() => handleDeleteDefaultConfig(existingConfig.id)}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </>
-                              ) : (
-                                <Select
-                                  size="sm"
-                                  className="w-48"
-                                  placeholder="选择默认模型"
-                                  classNames={{ trigger: 'rounded-lg bg-white' }}
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      handleSaveDefaultConfig(func.key, e.target.value);
-                                    }
-                                  }}
-                                >
-                                  {AVAILABLE_MODELS.flatMap((provider) =>
-                                    provider.models.map((model) => (
-                                      <SelectItem key={`${provider.provider}:${model}`} value={`${provider.provider}:${model}`}>
-                                        {provider.label} {model}
-                                      </SelectItem>
-                                    ))
-                                  )}
-                                </Select>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onClick={() => setShowPlanModal(false)} className="hover:bg-gray-100 rounded-xl">取消</Button>
-            <Button color="primary" className="bg-blue-600 hover:bg-blue-700 rounded-xl" onClick={planModalMode === 'create' ? handleCreatePlan : handleUpdatePlan}>
-              {planModalMode === 'create' ? '创建套餐' : '保存修改'}
-            </Button>
-          </ModalFooter>
-          </ModalContent>
-        </Modal>
 
         {/* Delete Plan Modal */}
         <Modal isOpen={showDeletePlanModal} onClose={() => setShowDeletePlanModal(false)} classNames={{
