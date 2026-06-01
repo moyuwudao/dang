@@ -1,6 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 import { AppModule } from './app.module';
+
+// 手动加载 .env 文件（确保在 ConfigModule 之前加载）
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
