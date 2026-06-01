@@ -17,5 +17,6 @@ import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
   ],
   controllers: [MonitorController],
   providers: [MonitorService, MetricsService],
+  exports: [MonitorService, MetricsService],
 })
 export class MonitorModule {}

@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiKeyService } from '../api-key/api-key.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { RedisService } from '../redis/redis.service';
+import { TokenBillingService } from '../subscription/services/token-billing.service';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
 import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 
@@ -16,6 +17,7 @@ export class AiService {
     private readonly apiKeyService: ApiKeyService,
     private readonly subscriptionService: SubscriptionService,
     private readonly redisService: RedisService,
+    private readonly tokenBillingService: TokenBillingService,
     @InjectRepository(ApiUsageLog)
     private apiUsageLogRepository: Repository<ApiUsageLog>,
     @InjectRepository(PlanApiPolicy)
@@ -28,13 +30,7 @@ export class AiService {
     model?: string;
     stream?: boolean;
   }) {
-    // 1. 检查用户订阅和权限
-    const subscription = await this.subscriptionService.getSubscription(userId);
-    if (!subscription.data || subscription.data.status !== 'active') {
-      throw new HttpException('订阅已过期，请充值', 402);
-    }
-
-    // 2. 获取 API Key
+    // 1. 获取 API Key
     const apiKeyResult = await this.apiKeyService.getApiKey(userId);
     if (!apiKeyResult.data?.apiKey) {
       throw new HttpException('未分配 API Key', 500);
@@ -42,45 +38,39 @@ export class AiService {
 
     const apiKey = apiKeyResult.data;
 
-    // 3. 计算预估配额消耗（实际调用后更新）
-    const estimatedQuota = 1; // 基础消耗
-
-    // 4. 检查余额
-    const balance = subscription.data.remainingQuota || 0;
-    if (balance < estimatedQuota) {
-      throw new HttpException('配额不足，请充值', 402);
-    }
-
-    // 5. 调用 AI 服务
+    // 2. 调用 AI 服务
     try {
       const response = await this.callAiProvider(apiKey, params);
 
-      // 6. 计算实际消耗
+      // 3. 计算实际Token消耗
       const promptTokens = response.usage?.prompt_tokens || 0;
       const completionTokens = response.usage?.completion_tokens || 0;
       const totalTokens = promptTokens + completionTokens;
 
-      // 7. 计算配额消耗
-      const quotaConsumed = await this.calculateQuotaConsumed(
-        userId,
-        apiKey.provider,
-        params.model || 'default',
-        totalTokens,
-      );
+      // 4. 使用新的Token计费系统
+      const billingResult = await this.tokenBillingService.consumeToken(userId, {
+        provider: apiKey.provider,
+        model: params.model || response.model || 'unknown',
+        rawAmount: totalTokens,
+        promptTokens,
+        completionTokens,
+      });
 
-      // 8. 扣减配额（直接更新数据库）
-      await this.subscriptionService.updateQuotaUsage(userId, quotaConsumed);
+      if (!billingResult.success) {
+        // 计费失败，但AI调用已成功，记录异常
+        console.warn(`Token计费失败: ${billingResult.message}`, { userId, totalTokens });
+      }
 
-      // 9. 记录使用日志
-      await this.logApiUsage({
+      // 记录API使用日志
+      await this.apiUsageLogRepository.save({
         userId,
-        subscriptionId: subscription.data.planId,
-        apiKeyId: apiKey.provider, // 简化处理
         provider: apiKey.provider,
         model: params.model || response.model || 'unknown',
         promptTokens,
         completionTokens,
-        quotaConsumed,
+        quotaConsumed: billingResult.tokenConsumed || totalTokens,
+        costCents: Math.round((billingResult.costYuan || 0) * 100),
+        featureType: 'ai_chat',
       });
 
       return {
@@ -95,8 +85,10 @@ export class AiService {
           promptTokens,
           completionTokens,
           totalTokens,
-          quotaConsumed,
-          remainingQuota: balance - quotaConsumed,
+          tokenConsumed: billingResult.tokenConsumed,
+          costYuan: billingResult.costYuan,
+          balanceRemaining: billingResult.balanceRemaining,
+          freeTokensRemaining: billingResult.freeTokensRemaining,
         },
       };
     } catch (error) {

@@ -1,536 +1,116 @@
 import axios from 'axios';
-import type { 
-  User, 
-  Plan, 
-  Subscription, 
-  ApiKey, 
-  LoginResponse,
-  ApiResponse,
-  DashboardStats,
-  ChartDataPoint,
-  PaginatedResponse,
-  RechargeRecord,
-  SystemInfo,
-  ServiceStatus,
-} from '@/types';
 
-const API_URL = process.env.API_URL || 'http://101.133.238.249/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-const axiosInstance = axios.create({
-  baseURL: API_URL,
+const api = axios.create({
+  baseURL: API_BASE,
+  timeout: 10000,
 });
 
-// 请求拦截器：添加 Token
-axiosInstance.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
+// 请求拦截器 - 添加token
+api.interceptors.request.use(
+  (config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-  }
-  return config;
-});
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-// Token 刷新状态
-let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
-
-function subscribeTokenRefresh(callback: (token: string) => void) {
-  refreshSubscribers.push(callback);
-}
-
-function onTokenRefreshed(newToken: string) {
-  refreshSubscribers.forEach((callback) => callback(newToken));
-  refreshSubscribers = [];
-}
-
-// 跳转到登录页
-function redirectToLogin() {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    window.location.href = '/login';
-  }
-}
-
-// 响应拦截器：处理 401 和 Token 刷新
-axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // 如果不是 401，直接抛出错误
-    if (error.response?.status !== 401) {
-      return Promise.reject(error);
+// 响应拦截器 - 统一提取 data 字段
+api.interceptors.response.use(
+  (response) => {
+    if (response.data && response.data.code === 200 && 'data' in response.data) {
+      return { ...response, data: response.data.data };
     }
-
-    // 如果是登录/注册/刷新接口本身，直接抛出错误
-    const url = originalRequest?.url || '';
-    if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh')) {
-      return Promise.reject(error);
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('accessToken');
+      window.location.href = '/login';
     }
-
-    // 如果已经重试过，直接跳转登录
-    if (originalRequest._retry) {
-      redirectToLogin();
-      return Promise.reject(error);
-    }
-
-    // 如果正在刷新，等待刷新完成
-    if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        subscribeTokenRefresh((newToken: string) => {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          resolve(axiosInstance(originalRequest));
-        });
-        setTimeout(() => {
-          reject(new Error('Token refresh timeout'));
-        }, 10000);
-      });
-    }
-
-    originalRequest._retry = true;
-    isRefreshing = true;
-
-    try {
-      const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
-      if (!refreshToken) {
-        throw new Error('No refresh token');
-      }
-
-      // 使用独立的 axios 实例调用刷新接口（避免拦截器循环）
-      const response = await axios.post(`${API_URL}/auth/refresh`, {
-        refreshToken,
-      });
-
-      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-
-      // 更新存储
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', newRefreshToken);
-
-      // 通知其他等待的请求
-      onTokenRefreshed(accessToken);
-
-      // 重试原始请求
-      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-      return axiosInstance(originalRequest);
-    } catch (refreshError) {
-      redirectToLogin();
-      return Promise.reject(refreshError);
-    } finally {
-      isRefreshing = false;
-    }
+    return Promise.reject(error);
   }
 );
 
-export const authAPI = {
-  login: async (phone: string, password: string): Promise<LoginResponse> => {
-    const response = await axiosInstance.post<ApiResponse<LoginResponse>>(
-      '/auth/login',
-      { phone, password }
-    );
-    return response.data.data;
-  },
-  
-  register: async (phone: string, password: string, smsCode: string): Promise<LoginResponse> => {
-    const response = await axiosInstance.post<ApiResponse<LoginResponse>>(
-      '/auth/register',
-      { phone, password, smsCode }
-    );
-    return response.data.data;
-  },
-  
-  getProfile: async (): Promise<User> => {
-    const response = await axiosInstance.get<ApiResponse<User>>('/auth/me');
-    return response.data.data;
-  },
-};
+export const adminAPI = {
+  // 仪表板统计
+  getStats: () => api.get('/admin/stats').then(r => r.data),
 
-export const subscriptionAPI = {
-  getPlans: async (): Promise<Plan[]> => {
-    const response = await axiosInstance.get<ApiResponse<Plan[]>>('/subscription/plans');
-    return response.data.data;
-  },
-  
-  createPlan: async (plan: Omit<Plan, 'id'> & { id: string }): Promise<Plan> => {
-    const response = await axiosInstance.post<ApiResponse<Plan>>(
-      '/subscription/plans',
-      plan
-    );
-    return response.data.data;
-  },
-  
-  getSubscription: async (userId?: string): Promise<Subscription> => {
-    const response = await axiosInstance.get<ApiResponse<Subscription>>(
-      userId ? `/subscription/${userId}` : '/subscription'
-    );
-    return response.data.data;
-  },
-  
-  subscribe: async (planId: string, userId?: string): Promise<Subscription> => {
-    const response = await axiosInstance.post<ApiResponse<Subscription>>(
-      '/subscription/subscribe',
-      { planId, userId }
-    );
-    return response.data.data;
-  },
-  
-  unsubscribe: async (userId?: string): Promise<void> => {
-    await axiosInstance.post('/subscription/unsubscribe', { userId });
-  },
-  
-  recharge: async (amount: number, paymentMethod: string): Promise<void> => {
-    await axiosInstance.post('/subscription/recharge', {
-      amount,
-      paymentMethod,
-    });
-  },
-  
-  getRechargeRecords: async (page = 1, limit = 20): Promise<PaginatedResponse<RechargeRecord>> => {
-    const response = await axiosInstance.get<ApiResponse<PaginatedResponse<RechargeRecord>>>(
-      `/subscription/recharge-records?page=${page}&limit=${limit}`
-    );
-    return response.data.data;
-  },
-  
-  getBalance: async (): Promise<{ balanceCents: number }> => {
-    const response = await axiosInstance.get<ApiResponse<{ balanceCents: number }>>('/subscription/balance');
-    return response.data.data;
-  },
+  // 用户管理
+  getUsers: (page?: number, pageSize?: number, search?: string) => api.get('/admin/users', { params: { page, pageSize, search } }).then(r => r.data),
+  getUserById: (id: string) => api.get(`/admin/users/${id}`).then(r => r.data),
+  createUser: (data: any) => api.post('/admin/users', data).then(r => r.data),
+  updateUser: (id: string, data: any) => api.put(`/admin/users/${id}`, data).then(r => r.data),
+  deleteUser: (id: string) => api.delete(`/admin/users/${id}`).then(r => r.data),
+  assignPlanToUser: (userId: string, planId: string) => api.post(`/admin/users/${userId}/subscribe`, { planId }).then(r => r.data),
+  adjustUserQuota: (userId: string, data: any) => api.post(`/admin/users/${userId}/adjust-quota`, data).then(r => r.data),
 
-  getPlanApiPolicies: async (planId: string): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>(`/subscription/plans/${planId}/policies`);
-    return response.data.data;
-  },
+  // 套餐管理
+  getPlans: () => api.get('/admin/plans').then(r => r.data),
+  getPlanById: (id: string) => api.get(`/admin/plans/${id}`).then(r => r.data),
+  createPlan: (data: any) => api.post('/admin/plans', data).then(r => r.data),
+  updatePlan: (id: string, data: any) => api.put(`/admin/plans/${id}`, data).then(r => r.data),
+  deletePlan: (id: string) => api.delete(`/admin/plans/${id}`).then(r => r.data),
 
-  updatePlanApiPolicy: async (planId: string, model: string, data: any): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>(`/subscription/plans/${planId}/policies`, data);
-    return response.data.data;
-  },
+  // 订阅管理
+  getSubscriptions: (page?: number, pageSize?: number) => api.get('/admin/subscriptions', { params: { page, pageSize } }).then(r => r.data),
+  updateSubscription: (id: string, data: any) => api.put(`/admin/subscriptions/${id}`, data).then(r => r.data),
 
-  deletePlanApiPolicy: async (planId: string, policyId: string): Promise<void> => {
-    await axiosInstance.delete(`/subscription/plans/${planId}/policies/${policyId}`);
-  },
+  // 图表数据
+  getUserGrowth: (days?: number) => api.get('/admin/charts/user-growth', { params: { days } }).then(r => r.data),
+  getRevenueTrend: (days?: number) => api.get('/admin/charts/revenue-trend', { params: { days } }).then(r => r.data),
+
+  // 收入统计
+  getRevenueStats: (startDate?: string, endDate?: string) => api.get('/admin/revenue-stats', { params: { startDate, endDate } }).then(r => r.data),
+  getRechargeRecords: (page?: number, pageSize?: number) => api.get('/admin/recharge-records', { params: { page, pageSize } }).then(r => r.data),
+
+  // API使用日志
+  getApiUsageLogs: (params?: any) => api.get('/admin/api-usage-logs', { params }).then(r => r.data),
+
+  // 计费标准
+  getBillingStandards: () => api.get('/admin/billing-standards').then(r => r.data),
+  createBillingStandard: (data: any) => api.post('/admin/billing-standards', data).then(r => r.data),
+  updateBillingStandard: (id: string, data: any) => api.put(`/admin/billing-standards/${id}`, data).then(r => r.data),
+  deleteBillingStandard: (id: string) => api.delete(`/admin/billing-standards/${id}`).then(r => r.data),
+
+  // 模型价格
+  getTokenPricing: () => api.get('/admin/token-pricing').then(r => r.data),
+  createTokenPricing: (data: any) => api.post('/admin/token-pricing', data).then(r => r.data),
+  updateTokenPricing: (id: string, data: any) => api.put(`/admin/token-pricing/${id}`, data).then(r => r.data),
+  deleteTokenPricing: (id: string) => api.delete(`/admin/token-pricing/${id}`).then(r => r.data),
+
+  // API策略
+  getApiPolicies: () => api.get('/admin/api-policies').then(r => r.data),
+  createApiPolicy: (data: any) => api.post('/admin/api-policies', data).then(r => r.data),
+  updateApiPolicy: (id: string, data: any) => api.put(`/admin/api-policies/${id}`, data).then(r => r.data),
+  deleteApiPolicy: (id: string) => api.delete(`/admin/api-policies/${id}`).then(r => r.data),
 };
 
 export const apiKeyAPI = {
-  getApiKeys: async (): Promise<ApiKey[]> => {
-    const response = await axiosInstance.get<ApiResponse<ApiKey[]>>('/api-key/admin/list');
-    return response.data.data;
-  },
-  
-  getApiKeyStats: async (): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/api-key/admin/stats');
-    return response.data.data;
-  },
-  
-  createApiKey: async (data: Partial<ApiKey>): Promise<ApiKey> => {
-    const response = await axiosInstance.post<ApiResponse<ApiKey>>('/api-key/admin/create', data);
-    return response.data.data;
-  },
-  
-  updateApiKey: async (id: string, data: Partial<ApiKey>): Promise<ApiKey> => {
-    const response = await axiosInstance.put<ApiResponse<ApiKey>>(`/api-key/admin/${id}`, data);
-    return response.data.data;
-  },
-  
-  deleteApiKey: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/api-key/admin/${id}`);
-  },
-  
-  testApiKey: async (id: string): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>(`/api-key/admin/${id}/test`);
-    return response.data.data;
-  },
+  getApiKeys: () => api.get('/admin/api-keys').then(r => r.data),
+  getApiKeyStats: () => api.get('/admin/api-keys/stats').then(r => r.data),
+  createApiKey: (data: any) => api.post('/admin/api-keys', data).then(r => r.data),
+  batchCreateApiKeys: (keys: any[]) => api.post('/admin/api-keys/batch', { keys }).then(r => r.data),
+  testApiKey: (id: string) => api.post(`/admin/api-keys/${id}/test`).then(r => r.data),
+  updateApiKey: (id: string, data: any) => api.put(`/admin/api-keys/${id}`, data).then(r => r.data),
+  deleteApiKey: (id: string) => api.delete(`/admin/api-keys/${id}`).then(r => r.data),
+};
 
-  batchCreateApiKeys: async (keys: Partial<ApiKey>[]): Promise<any[]> => {
-    const response = await axiosInstance.post<ApiResponse<any[]>>(`/api-key/admin/batch`, keys);
-    return response.data.data;
-  },
-
-  getHealthyModels: async (): Promise<any[]> => {
-    const response = await axiosInstance.get<ApiResponse<any[]>>(`/api-key/admin/healthy-models`);
-    return response.data.data;
-  },
+export const authAPI = {
+  login: (phone: string, password: string) => api.post('/auth/login', { phone, password }).then(r => r.data),
 };
 
 export const monitorAPI = {
-  getSystemInfo: async (): Promise<SystemInfo> => {
-    const response = await axiosInstance.get<ApiResponse<SystemInfo>>('/monitor/system');
-    return response.data.data;
-  },
-  
-  getServices: async (): Promise<ServiceStatus[]> => {
-    const response = await axiosInstance.get<ApiResponse<ServiceStatus[]>>('/monitor/services');
-    return response.data.data;
-  },
-  
-  getLogs: async (service: string, lines = 100): Promise<string> => {
-    const response = await axiosInstance.post<ApiResponse<string>>('/monitor/logs', {
-      service,
-      lines,
-    });
-    return response.data.data;
-  },
-  
-  executeCommand: async (command: string, timeout = 30): Promise<{ output: string }> => {
-    const response = await axiosInstance.post<ApiResponse<{ output: string }>>('/monitor/execute', { command, timeout });
-    return response.data.data;
-  },
-
-  getRealtimeMetrics: async (): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/realtime');
-    return response.data;
-  },
-
-  getDailyMetrics: async (date?: string): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/daily', {
-      params: { date },
-    });
-    return response.data;
-  },
-
-  getTrendData: async (days = 7): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/monitor/metrics/trend', {
-      params: { days },
-    });
-    return response.data;
-  },
+  getRealtimeMetrics: () => api.get('/admin/monitor/realtime').then(r => r.data),
+  getTrendData: () => api.get('/admin/monitor/trend').then(r => r.data),
+  getSystemInfo: () => api.get('/admin/monitor/system-info').then(r => r.data),
+  getServices: () => api.get('/admin/monitor/services').then(r => r.data),
+  getLogs: (service: string, lines: number) => api.get('/admin/monitor/logs', { params: { service, lines } }).then(r => r.data),
+  executeCommand: (command: string, timeout?: number) => api.post('/admin/monitor/execute', { command, timeout }).then(r => r.data),
 };
 
-export const paymentAPI = {
-  createRechargeOrder: async (params: { amount: number; paymentMethod: string }): Promise<ApiResponse<any>> => {
-    const response = await axiosInstance.post<ApiResponse<any>>('/payment/recharge', params);
-    return response.data;
-  },
-
-  getOrderStatus: async (orderId: string): Promise<ApiResponse<any>> => {
-    const response = await axiosInstance.get<ApiResponse<any>>(`/payment/order/${orderId}`);
-    return response.data;
-  },
-
-  getRechargeRecords: async (page = 1, limit = 20): Promise<ApiResponse<any>> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/payment/records', {
-      params: { page, limit },
-    });
-    return response.data;
-  },
-};
-
-export const adminAPI = {
-  getStats: async (): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/admin/stats');
-    return response.data;
-  },
-
-  getUsers: async (page = 1, limit = 20, search?: string): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/admin/users', {
-      params: { page, limit, search },
-    });
-    return response.data.data;
-  },
-
-  getUserById: async (id: string): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>(`/admin/users/${id}`);
-    return response.data.data;
-  },
-
-  updateUser: async (id: string, data: any): Promise<any> => {
-    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/users/${id}`, data);
-    return response.data.data;
-  },
-
-  deleteUser: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/admin/users/${id}`);
-  },
-
-  createUser: async (data: any): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>('/admin/users', data);
-    return response.data.data;
-  },
-
-  getPlans: async (): Promise<Plan[]> => {
-    const response = await axiosInstance.get<ApiResponse<Plan[]>>('/admin/plans');
-    return response.data.data;
-  },
-
-  getPlanById: async (id: string): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>(`/admin/plans/${id}`);
-    return response.data.data;
-  },
-
-  createPlan: async (plan: any): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>('/admin/plans', plan);
-    return response.data.data;
-  },
-
-  updatePlan: async (id: string, plan: any): Promise<any> => {
-    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/plans/${id}`, plan);
-    return response.data.data;
-  },
-
-  deletePlan: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/admin/plans/${id}`);
-  },
-
-  getSubscriptions: async (page = 1, limit = 20): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/admin/subscriptions', {
-      params: { page, limit },
-    });
-    return response.data.data;
-  },
-
-  updateSubscription: async (id: string, data: any): Promise<any> => {
-    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/subscriptions/${id}`, data);
-    return response.data.data;
-  },
-
-  getRechargeRecords: async (page = 1, limit = 20): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/admin/recharge-records', {
-      params: { page, limit },
-    });
-    return response.data.data;
-  },
-
-  getRevenueTrend: async (days = 7): Promise<ChartDataPoint[]> => {
-    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/revenue-trend', {
-      params: { days },
-    });
-    return response.data.data;
-  },
-
-  getUserGrowth: async (days = 7): Promise<ChartDataPoint[]> => {
-    const response = await axiosInstance.get<ApiResponse<ChartDataPoint[]>>('/admin/charts/user-growth', {
-      params: { days },
-    });
-    return response.data.data;
-  },
-
-  getRevenueStats: async (startDate?: string, endDate?: string): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/admin/revenue-stats', {
-      params: { startDate, endDate },
-    });
-    return response.data.data;
-  },
-
-  getApiUsageLogs: async (page = 1, limit = 20, userId?: string, provider?: string): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>('/admin/api-usage-logs', {
-      params: { page, limit, userId, provider },
-    });
-    return response.data.data;
-  },
-
-  adjustUserQuota: async (userId: string, amount: number, reason?: string): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/adjust-quota`, {
-      amount,
-      reason,
-    });
-    return response.data.data;
-  },
-
-  assignPlanToUser: async (userId: string, planId: string): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/users/${userId}/subscribe`, {
-      planId,
-    });
-    return response.data.data;
-  },
-
-  // 套餐场景默认模型配置
-  getPlanDefaultConfigs: async (planId: string): Promise<any[]> => {
-    const response = await axiosInstance.get<ApiResponse<any[]>>(`/admin/plans/${planId}/default-configs`);
-    return response.data.data;
-  },
-
-  setPlanDefaultConfig: async (planId: string, data: { functionType: string; modelPattern: string; isActive?: boolean }): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/plans/${planId}/default-configs`, data);
-    return response.data.data;
-  },
-
-  deletePlanDefaultConfig: async (configId: string): Promise<void> => {
-    await axiosInstance.delete(`/admin/plans/default-configs/${configId}`);
-  },
-
-  // 多模式计费：套餐功能配额管理
-  getPlanFeatureQuotas: async (planId: string): Promise<any[]> => {
-    const response = await axiosInstance.get<ApiResponse<any[]>>(`/admin/plans/${planId}/feature-quotas`);
-    return response.data.data;
-  },
-
-  setPlanFeatureQuota: async (planId: string, data: { featureType: string; quotaValue: number; quotaUnit: string; multiplier?: number }): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>(`/admin/plans/${planId}/feature-quotas`, data);
-    return response.data.data;
-  },
-
-  deletePlanFeatureQuota: async (quotaId: string): Promise<void> => {
-    await axiosInstance.delete(`/admin/plans/feature-quotas/${quotaId}`);
-  },
-
-  // 多模式计费：Token价格管理
-  getTokenPricing: async (): Promise<any[]> => {
-    const response = await axiosInstance.get<ApiResponse<any[]>>('/admin/token-pricing');
-    return response.data.data;
-  },
-
-  createTokenPricing: async (data: any): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>('/admin/token-pricing', data);
-    return response.data.data;
-  },
-
-  updateTokenPricing: async (id: string, data: any): Promise<any> => {
-    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/token-pricing/${id}`, data);
-    return response.data.data;
-  },
-
-  deleteTokenPricing: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/admin/token-pricing/${id}`);
-  },
-
-  // 多模式计费：用户功能使用查询
-  getUserFeatureUsage: async (userId: string): Promise<any> => {
-    const response = await axiosInstance.get<ApiResponse<any>>(`/admin/users/${userId}/feature-usage`);
-    return response.data.data;
-  },
-
-  // 计费标准配置
-  getBillingStandards: async (): Promise<any[]> => {
-    const response = await axiosInstance.get<ApiResponse<any[]>>('/admin/billing-standards');
-    return response.data.data;
-  },
-
-  createBillingStandard: async (data: any): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>('/admin/billing-standards', data);
-    return response.data.data;
-  },
-
-  updateBillingStandard: async (id: string, data: any): Promise<any> => {
-    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/billing-standards/${id}`, data);
-    return response.data.data;
-  },
-
-  deleteBillingStandard: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/admin/billing-standards/${id}`);
-  },
-
-  // API系数配置
-  getApiPolicies: async (): Promise<any[]> => {
-    const response = await axiosInstance.get<ApiResponse<any[]>>('/admin/api-policies');
-    return response.data.data;
-  },
-
-  createApiPolicy: async (data: any): Promise<any> => {
-    const response = await axiosInstance.post<ApiResponse<any>>('/admin/api-policies', data);
-    return response.data.data;
-  },
-
-  updateApiPolicy: async (id: string, data: any): Promise<any> => {
-    const response = await axiosInstance.put<ApiResponse<any>>(`/admin/api-policies/${id}`, data);
-    return response.data.data;
-  },
-
-  deleteApiPolicy: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/admin/api-policies/${id}`);
-  },
-};
-
-export default axiosInstance;
+export default api;

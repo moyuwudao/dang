@@ -6,15 +6,11 @@ import { User } from '../auth/entities/user.entity';
 import { Plan } from '../subscription/entities/plan.entity';
 import { Subscription } from '../subscription/entities/subscription.entity';
 import { ApiKey } from '../api-key/entities/api-key.entity';
-import { UserBalance } from '../subscription/entities/user-balance.entity';
 import { RechargeRecord } from '../subscription/entities/recharge-record.entity';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
-import { PlanDefaultConfig } from '../subscription/entities/plan-default-config.entity';
-import { PlanFeatureQuota } from '../subscription/entities/plan-feature-quota.entity';
 import { TokenPricing } from '../subscription/entities/token-pricing.entity';
-import { BillingStandard } from '../subscription/entities/billing-standard.entity';
-import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
-import { UserFeatureUsage } from '../subscription/entities/user-feature-usage.entity';
+import { ApiConfig } from '../subscription/entities/api-config.entity';
+import { UserTokenBalance } from '../subscription/entities/user-token-balance.entity';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { PlanService } from '../plan/plan.service';
 
@@ -27,24 +23,16 @@ export class AdminService {
     private subscriptionRepo: Repository<Subscription>,
     @InjectRepository(ApiKey)
     private apiKeyRepo: Repository<ApiKey>,
-    @InjectRepository(UserBalance)
-    private balanceRepo: Repository<UserBalance>,
     @InjectRepository(RechargeRecord)
     private rechargeRepo: Repository<RechargeRecord>,
     @InjectRepository(ApiUsageLog)
     private apiUsageLogRepo: Repository<ApiUsageLog>,
-    @InjectRepository(PlanDefaultConfig)
-    private planDefaultConfigRepo: Repository<PlanDefaultConfig>,
-    @InjectRepository(PlanFeatureQuota)
-    private planFeatureQuotaRepo: Repository<PlanFeatureQuota>,
     @InjectRepository(TokenPricing)
     private tokenPricingRepo: Repository<TokenPricing>,
-    @InjectRepository(BillingStandard)
-    private billingStandardRepo: Repository<BillingStandard>,
-    @InjectRepository(PlanApiPolicy)
-    private planApiPolicyRepo: Repository<PlanApiPolicy>,
-    @InjectRepository(UserFeatureUsage)
-    private userFeatureUsageRepo: Repository<UserFeatureUsage>,
+    @InjectRepository(ApiConfig)
+    private apiConfigRepo: Repository<ApiConfig>,
+    @InjectRepository(UserTokenBalance)
+    private userTokenBalanceRepo: Repository<UserTokenBalance>,
     private subscriptionService: SubscriptionService,
     private planService: PlanService,
   ) {}
@@ -81,7 +69,7 @@ export class AdminService {
   async getUsers(page = 1, limit = 20, search?: string) {
     const qb = this.userRepo.createQueryBuilder('u')
       .leftJoinAndSelect('u.subscriptions', 's')
-      .leftJoinAndSelect('u.balance', 'b')
+      .leftJoinAndSelect(UserTokenBalance, 'tb', 'tb.user_id = u.id')
       .orderBy('u.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -104,7 +92,7 @@ export class AdminService {
         role: u.role,
         createdAt: u.createdAt,
         subscriptionCount: u.subscriptions?.length || 0,
-        balance: u.balance?.balanceCents || 0,
+        balanceTokens: 0,
       })),
       total,
       page,
@@ -120,7 +108,6 @@ export class AdminService {
     role?: string;
     status?: string;
   }) {
-    // 检查手机号是否已存在
     const existingUser = await this.userRepo.findOne({
       where: { phone: data.phone },
     });
@@ -129,10 +116,8 @@ export class AdminService {
       throw new BadRequestException('手机号已存在');
     }
 
-    // 加密密码
     const passwordHash = await bcrypt.hash(data.password, 12);
 
-    // 创建用户
     const user = this.userRepo.create({
       phone: data.phone,
       passwordHash,
@@ -143,13 +128,20 @@ export class AdminService {
 
     await this.userRepo.save(user);
 
-    // 初始化用户余额
-    await this.subscriptionService.initUserBalance(user.id);
+    // 初始化用户Token余额
+    const balance = this.userTokenBalanceRepo.create({
+      userId: user.id,
+      totalTokens: 0,
+      usedTokens: 0,
+      balanceTokens: 0,
+      freeTokensRemaining: 500,
+    });
+    await this.userTokenBalanceRepo.save(balance);
 
-    // 创建新手体验订阅（100分钟，7天有效期）
+    // 创建新手体验订阅
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    
+
     await this.subscriptionService.createTrialSubscription(user.id, {
       planId: 'trial',
       planName: '新手体验包',
@@ -201,8 +193,6 @@ export class AdminService {
   // 订阅列表
   async getSubscriptions(page = 1, limit = 20, status?: string) {
     const qb = this.subscriptionRepo.createQueryBuilder('s')
-      .leftJoinAndSelect('s.user', 'u')
-      .leftJoinAndSelect('s.plan', 'p')
       .orderBy('s.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -217,15 +207,13 @@ export class AdminService {
       items: subscriptions.map(s => ({
         id: s.id,
         userId: s.userId,
-        userPhone: s.user?.phone,
-        userNickname: s.user?.nickname,
         planId: s.planId,
-        planName: s.plan?.name,
         status: s.status,
         startedAt: s.startedAt,
         expiresAt: s.expiresAt,
-        totalQuota: s.totalQuota,
-        usedQuota: s.usedQuota,
+        tokenQuota: s.tokenQuota,
+        usedTokens: s.usedTokens,
+        balanceTokens: s.balanceTokens,
         createdAt: s.createdAt,
       })),
       total,
@@ -237,7 +225,7 @@ export class AdminService {
   // 更新订阅
   async updateSubscription(subId: string, data: Partial<Subscription>) {
     await this.subscriptionRepo.update(subId, data);
-    return this.subscriptionRepo.findOne({ where: { id: subId }, relations: ['user', 'plan'] });
+    return this.subscriptionRepo.findOne({ where: { id: subId } });
   }
 
   // 充值记录
@@ -246,14 +234,12 @@ export class AdminService {
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
-      relations: ['user'],
     });
 
     return {
       items: records.map(r => ({
         id: r.id,
         userId: r.userId,
-        userPhone: r.user?.phone,
         amountCents: r.amountCents,
         type: r.type,
         paymentMethod: r.paymentMethod,
@@ -329,8 +315,10 @@ export class AdminService {
       status: 'active',
       startedAt: now,
       expiresAt,
-      totalQuota: plan.quotaValue || 0,
-      usedQuota: 0,
+      tokenQuota: plan.tokenQuota || 0,
+      usedTokens: 0,
+      balanceTokens: plan.tokenQuota || 0,
+      type: plan.type || 'monthly',
     });
 
     await this.subscriptionRepo.save(subscription);
@@ -345,8 +333,8 @@ export class AdminService {
       status: 'active',
       startedAt: now,
       expiresAt,
-      totalQuota: plan.quotaValue || 0,
-      usedQuota: 0,
+      tokenQuota: plan.tokenQuota || 0,
+      usedTokens: 0,
     };
   }
 
@@ -394,7 +382,6 @@ export class AdminService {
     provider?: string,
   ) {
     const qb = this.apiUsageLogRepo.createQueryBuilder('log')
-      .leftJoinAndSelect('log.user', 'u')
       .orderBy('log.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -413,12 +400,13 @@ export class AdminService {
       items: logs.map(log => ({
         id: log.id,
         userId: log.userId,
-        userPhone: log.user?.phone,
         provider: log.provider,
         model: log.model,
         promptTokens: log.promptTokens,
         completionTokens: log.completionTokens,
-        quotaConsumed: log.quotaConsumed,
+        tokenConsumed: log.tokenConsumed,
+        apiCoefficient: log.apiCoefficient,
+        costYuan: log.costYuan,
         createdAt: log.createdAt,
       })),
       total,
@@ -427,25 +415,28 @@ export class AdminService {
     };
   }
 
-  // 手动调整用户配额
-  async adjustUserQuota(userId: string, amount: number, reason?: string) {
+  // 手动调整用户Token余额
+  async adjustUserTokens(userId: string, amount: number, reason?: string) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new BadRequestException('用户不存在');
     }
 
-    // 获取用户当前订阅
-    const subscription = await this.subscriptionRepo.findOne({
-      where: { userId, status: 'active' },
-    });
-
-    if (!subscription) {
-      throw new BadRequestException('用户无有效订阅');
+    let balance = await this.userTokenBalanceRepo.findOne({ where: { userId } });
+    if (!balance) {
+      balance = this.userTokenBalanceRepo.create({
+        userId,
+        totalTokens: amount,
+        usedTokens: 0,
+        balanceTokens: amount,
+        freeTokensRemaining: 500,
+      });
+    } else {
+      balance.balanceTokens += amount;
+      balance.totalTokens += amount;
     }
 
-    // 调整配额
-    subscription.totalQuota += amount;
-    await this.subscriptionRepo.save(subscription);
+    await this.userTokenBalanceRepo.save(balance);
 
     // 记录调整日志
     const record = this.rechargeRepo.create({
@@ -453,15 +444,14 @@ export class AdminService {
       amountCents: 0,
       type: 'adjustment',
       status: 'completed',
-      remark: reason || `手动调整配额: ${amount > 0 ? '+' : ''}${amount}`,
+      remark: reason || `手动调整Token: ${amount > 0 ? '+' : ''}${amount}`,
     });
     await this.rechargeRepo.save(record);
 
     return {
       userId,
       amount,
-      newTotalQuota: subscription.totalQuota,
-      newRemainingQuota: subscription.totalQuota - subscription.usedQuota,
+      newBalanceTokens: balance.balanceTokens,
     };
   }
 
@@ -522,48 +512,7 @@ export class AdminService {
     };
   }
 
-  // 套餐场景默认模型配置
-  async getPlanDefaultConfigs(planId: string) {
-    const configs = await this.planDefaultConfigRepo.find({
-      where: { planId },
-      order: { functionType: 'ASC' },
-    });
-    return configs;
-  }
-
-  async setPlanDefaultConfig(planId: string, data: {
-    functionType: string;
-    modelPattern: string;
-    isActive?: boolean;
-  }) {
-    // 查找是否已存在该场景的配置
-    let config = await this.planDefaultConfigRepo.findOne({
-      where: { planId, functionType: data.functionType },
-    });
-
-    if (config) {
-      // 更新现有配置
-      config.modelPattern = data.modelPattern;
-      config.isActive = data.isActive ?? true;
-    } else {
-      // 创建新配置
-      config = this.planDefaultConfigRepo.create({
-        planId,
-        functionType: data.functionType,
-        modelPattern: data.modelPattern,
-        isActive: data.isActive ?? true,
-      });
-    }
-
-    return this.planDefaultConfigRepo.save(config);
-  }
-
-  async deletePlanDefaultConfig(configId: string) {
-    await this.planDefaultConfigRepo.delete(configId);
-    return { success: true };
-  }
-
-  // 多模式计费：Token价格管理
+  // Token单价管理
   async getTokenPricing() {
     return this.tokenPricingRepo.find({
       order: { provider: 'ASC', modelPattern: 'ASC' },
@@ -588,88 +537,28 @@ export class AdminService {
     return { success: true };
   }
 
-  // 计费标准管理
-  async getBillingStandards() {
-    return this.billingStandardRepo.find({
-      order: { functionType: 'ASC', tier: 'ASC' },
-    });
-  }
-
-  async createBillingStandard(data: Partial<BillingStandard>) {
-    const standard = this.billingStandardRepo.create({
-      ...data,
-      isActive: data.isActive ?? true,
-    });
-    return this.billingStandardRepo.save(standard);
-  }
-
-  async updateBillingStandard(id: string, data: Partial<BillingStandard>) {
-    await this.billingStandardRepo.update(id, data);
-    return this.billingStandardRepo.findOne({ where: { id } });
-  }
-
-  async deleteBillingStandard(id: string) {
-    await this.billingStandardRepo.delete(id);
-    return { success: true };
-  }
-
-  // API系数配置管理
-  async getApiPolicies(planId?: string) {
-    const where = planId ? { planId } : {};
-    return this.planApiPolicyRepo.find({
-      where,
+  // API配置管理（含基础系数）
+  async getApiConfigs() {
+    return this.apiConfigRepo.find({
       order: { provider: 'ASC', modelPattern: 'ASC' },
     });
   }
 
-  async createApiPolicy(data: Partial<PlanApiPolicy>) {
-    const policy = this.planApiPolicyRepo.create({
+  async createApiConfig(data: Partial<ApiConfig>) {
+    const config = this.apiConfigRepo.create({
       ...data,
-      isAllowed: data.isAllowed ?? true,
+      isActive: data.isActive ?? true,
     });
-    return this.planApiPolicyRepo.save(policy);
+    return this.apiConfigRepo.save(config);
   }
 
-  async updateApiPolicy(id: string, data: Partial<PlanApiPolicy>) {
-    await this.planApiPolicyRepo.update(id, data);
-    return this.planApiPolicyRepo.findOne({ where: { id } });
+  async updateApiConfig(id: string, data: Partial<ApiConfig>) {
+    await this.apiConfigRepo.update(id, data);
+    return this.apiConfigRepo.findOne({ where: { id } });
   }
 
-  async deleteApiPolicy(id: string) {
-    await this.planApiPolicyRepo.delete(id);
+  async deleteApiConfig(id: string) {
+    await this.apiConfigRepo.delete(id);
     return { success: true };
-  }
-
-  // 多模式计费：用户功能使用查询
-  async getUserFeatureUsage(userId: string) {
-    const usage = await this.userFeatureUsageRepo.find({
-      where: { userId },
-      order: { featureType: 'ASC' },
-    });
-
-    // 获取用户订阅信息
-    const subscriptions = await this.subscriptionRepo.find({
-      where: { userId },
-      relations: ['plan'],
-    });
-
-    return {
-      userId,
-      subscriptions: subscriptions.map(s => ({
-        id: s.id,
-        planId: s.planId,
-        planName: s.plan?.name,
-        type: s.type,
-        status: s.status,
-        expiresAt: s.expiresAt,
-      })),
-      featureUsage: usage.map(u => ({
-        featureType: u.featureType,
-        usedAmount: u.usedAmount,
-        totalAmount: u.totalAmount,
-        remaining: u.totalAmount - u.usedAmount,
-        unit: u.unit,
-      })),
-    };
   }
 }

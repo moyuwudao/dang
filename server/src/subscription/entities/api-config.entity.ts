@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('token_pricing')
-export class TokenPricing {
+@Entity('api_configs')
+export class ApiConfig {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -11,8 +11,11 @@ export class TokenPricing {
   @Column({ name: 'model_pattern' })
   modelPattern: string;
 
-  @Column({ name: 'price_per_token', type: 'decimal', precision: 10, scale: 6, default: 0.002 })
-  pricePerToken: number;
+  @Column({ name: 'model_name', nullable: true })
+  modelName: string;
+
+  @Column({ name: 'base_coefficient', type: 'decimal', precision: 10, scale: 4, default: 1.0 })
+  baseCoefficient: number;
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;

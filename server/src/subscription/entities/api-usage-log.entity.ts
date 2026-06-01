@@ -1,7 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { Subscription } from './subscription.entity';
-import { ApiKey } from '../../api-key/entities/api-key.entity';
-import { User } from '../../auth/entities/user.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity('api_usage_logs')
 export class ApiUsageLog {
@@ -10,12 +7,6 @@ export class ApiUsageLog {
 
   @Column({ name: 'user_id' })
   userId: string;
-
-  @Column({ name: 'subscription_id', nullable: true })
-  subscriptionId: string;
-
-  @Column({ name: 'api_key_id', nullable: true })
-  apiKeyId: string;
 
   @Column()
   provider: string;
@@ -29,32 +20,14 @@ export class ApiUsageLog {
   @Column({ name: 'completion_tokens', default: 0 })
   completionTokens: number;
 
-  @Column({ name: 'quota_consumed' })
-  quotaConsumed: number;
+  @Column({ name: 'token_consumed', default: 0 })
+  tokenConsumed: number;
 
-  @Column({ name: 'cost_cents', nullable: true })
-  costCents: number;
+  @Column({ name: 'api_coefficient', type: 'decimal', precision: 10, scale: 4, default: 1.0 })
+  apiCoefficient: number;
 
-  @Column({ name: 'feature_type', nullable: true })
-  featureType: string;
-
-  @Column({ name: 'resource_consumed', nullable: true })
-  resourceConsumed: number;
-
-  @Column({ name: 'unit', nullable: true })
-  unit: string;
-
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'user_id' })
-  user: User;
-
-  @ManyToOne(() => Subscription)
-  @JoinColumn({ name: 'subscription_id' })
-  subscription: Subscription;
-
-  @ManyToOne(() => ApiKey)
-  @JoinColumn({ name: 'api_key_id' })
-  apiKey: ApiKey;
+  @Column({ name: 'cost_yuan', type: 'decimal', precision: 10, scale: 4, nullable: true })
+  costYuan: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

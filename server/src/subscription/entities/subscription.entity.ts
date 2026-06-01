@@ -1,50 +1,40 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from '../../auth/entities/user.entity';
-import { Plan } from './plan.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('subscriptions')
 export class Subscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'userId' })
+  @Column({ name: 'user_id' })
   userId: string;
 
-  @Column({ name: 'planId' })
+  @Column({ name: 'plan_id' })
   planId: string;
 
   @Column({ default: 'active' })
   status: string;
 
-  @Column({ name: 'startedAt', type: 'timestamp' })
+  @Column({ name: 'started_at', type: 'timestamp' })
   startedAt: Date;
 
-  @Column({ name: 'expiresAt', type: 'timestamp' })
+  @Column({ name: 'expires_at', type: 'timestamp' })
   expiresAt: Date;
 
-  @Column({ name: 'totalQuota', default: 0 })
-  totalQuota: number;
+  @Column({ name: 'token_quota', default: 0 })
+  tokenQuota: number;
 
-  @Column({ name: 'usedQuota', default: 0 })
-  usedQuota: number;
+  @Column({ name: 'used_tokens', default: 0 })
+  usedTokens: number;
 
-  @Column({ name: 'balance_quota', default: 0 })
-  balanceQuota: number;
+  @Column({ name: 'balance_tokens', default: 0 })
+  balanceTokens: number;
 
-  @Column({ default: 'subscription' })
-  type: string; // subscription | package
+  @Column({ default: 'monthly' })
+  type: string; // monthly | recharge
 
-  @ManyToOne(() => User, user => user.subscriptions)
-  @JoinColumn({ name: 'userId' })
-  user: User;
-
-  @ManyToOne(() => Plan)
-  @JoinColumn({ name: 'planId' })
-  plan: Plan;
-
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

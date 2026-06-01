@@ -8,14 +8,12 @@ import Layout from '@/components/Layout';
 import { adminAPI } from '@/services/api';
 
 interface FeatureQuota {
-  featureType: string;
   quotaValue: number;
   quotaUnit: string;
   multiplier?: number;
 }
 
 interface DefaultConfig {
-  functionType: string;
   modelPattern: string;
   isActive?: boolean;
 }
@@ -30,26 +28,6 @@ interface PlanFormData {
   featureQuotas?: FeatureQuota[];
   defaultConfigs?: DefaultConfig[];
 }
-
-const FEATURE_TYPES = [
-  { label: 'AI对话', value: 'ai_chat', unit: 'tokens' },
-  { label: '语音转写', value: 'transcription', unit: 'minutes' },
-  { label: '实时转写', value: 'realtime_transcription', unit: 'minutes' },
-  { label: '文本分析', value: 'text_analysis', unit: 'thousand_chars' },
-  { label: '图像识别', value: 'image_recognition', unit: 'images' },
-  { label: 'OCR识别', value: 'ocr', unit: 'images' },
-  { label: '语音合成', value: 'tts', unit: 'thousand_chars' },
-];
-
-const FUNCTION_TYPES = [
-  { label: 'AI对话', value: 'ai_chat' },
-  { label: '语音转写', value: 'transcription' },
-  { label: '实时转写', value: 'realtime_transcription' },
-  { label: '文本分析', value: 'text_analysis' },
-  { label: '图像识别', value: 'image_recognition' },
-  { label: 'OCR识别', value: 'ocr' },
-  { label: '语音合成', value: 'tts' },
-];
 
 const QUOTA_UNITS = [
   { label: '分钟', value: 'minutes' },
@@ -139,7 +117,6 @@ export default function PlanEditorPage() {
 
   const handleAddFeatureQuota = () => {
     setFeatureQuotas([...featureQuotas, {
-      featureType: 'ai_chat',
       quotaValue: 10000,
       quotaUnit: 'tokens',
       multiplier: 1.0,
@@ -158,7 +135,6 @@ export default function PlanEditorPage() {
 
   const handleAddDefaultConfig = () => {
     setDefaultConfigs([...defaultConfigs, {
-      functionType: 'ai_chat',
       modelPattern: '',
       isActive: true,
     }]);
@@ -278,19 +254,7 @@ export default function PlanEditorPage() {
                   <div className="space-y-4">
                     {featureQuotas.map((quota, index) => (
                       <Card key={index} className="p-4">
-                        <div className="grid grid-cols-4 gap-4 items-end">
-                          <Select
-                            label="功能类型"
-                            selectedKeys={[quota.featureType]}
-                            onChange={(e) => handleFeatureQuotaChange(index, 'featureType', e.target.value)}
-                          >
-                            {FEATURE_TYPES.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label}
-                              </SelectItem>
-                            ))}
-                          </Select>
-
+                        <div className="grid grid-cols-3 gap-4 items-end">
                           <Input
                             label="配额值"
                             type="number"
@@ -343,19 +307,7 @@ export default function PlanEditorPage() {
                   <div className="space-y-4">
                     {defaultConfigs.map((config, index) => (
                       <Card key={index} className="p-4">
-                        <div className="grid grid-cols-3 gap-4 items-end">
-                          <Select
-                            label="功能类型"
-                            selectedKeys={[config.functionType]}
-                            onChange={(e) => handleDefaultConfigChange(index, 'functionType', e.target.value)}
-                          >
-                            {FUNCTION_TYPES.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label}
-                              </SelectItem>
-                            ))}
-                          </Select>
-
+                        <div className="grid grid-cols-2 gap-4 items-end">
                           <Input
                             label="模型"
                             value={config.modelPattern}

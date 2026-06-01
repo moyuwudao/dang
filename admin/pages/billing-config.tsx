@@ -7,15 +7,16 @@ import { adminAPI } from '@/services/api';
 interface BillingStandard {
   id: string;
   planId?: string;
-  functionType: string;
   tier?: string;
-  basePriceCents?: number;
+  basePriceYuan?: number;
+  outputPriceYuan?: number;
   unit?: string;
   provider?: string;
   modelPattern?: string;
-  pricingModel?: string;
   isActive: boolean;
   notes?: string;
+  modelPromptPrice?: number;
+  modelCompletionPrice?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -26,6 +27,7 @@ interface TokenPricing {
   modelPattern: string;
   inputPricePer1M: number;
   outputPricePer1M: number;
+  conversionRate: number;
   isActive: boolean;
   notes?: string;
   createdAt?: string;
@@ -45,16 +47,6 @@ interface ApiPolicy {
   updatedAt?: string;
 }
 
-const FUNCTION_TYPES = [
-  { key: 'ai_chat', label: 'AI对话' },
-  { key: 'transcription', label: '语音转写' },
-  { key: 'realtime_transcription', label: '实时转写' },
-  { key: 'text_analysis', label: '文本分析' },
-  { key: 'image_recognition', label: '图像识别' },
-  { key: 'ocr', label: 'OCR识别' },
-  { key: 'tts', label: '语音合成' },
-];
-
 const TIERS = [
   { key: 'free', label: '免费版' },
   { key: 'basic', label: '基础版' },
@@ -70,13 +62,6 @@ const PROVIDERS = [
   { key: 'anthropic', label: 'Anthropic' },
   { key: 'gemini', label: 'Gemini' },
   { key: 'grok', label: 'Grok' },
-];
-
-const PRICING_MODELS = [
-  { key: 'per_minute', label: '按分钟计费' },
-  { key: 'per_token', label: '按Token计费' },
-  { key: 'per_call', label: '按次计费' },
-  { key: 'per_thousand_chars', label: '按千字符计费' },
 ];
 
 export default function BillingConfigPage() {
@@ -314,70 +299,85 @@ export default function BillingConfigPage() {
                   <CardBody>
                     <Table aria-label="计费标准列表">
                       <TableHeader>
-                        <TableColumn>功能类型</TableColumn>
-                        <TableColumn>层级</TableColumn>
-                        <TableColumn>基础价格(分)</TableColumn>
-                        <TableColumn>单位</TableColumn>
+                        <TableColumn>套餐</TableColumn>
                         <TableColumn>供应商</TableColumn>
                         <TableColumn>模型</TableColumn>
-                        <TableColumn>计费模式</TableColumn>
+                        <TableColumn>用户输入价(元)</TableColumn>
+                        <TableColumn>用户输出价(元)</TableColumn>
+                        <TableColumn>模型输入成本(元)</TableColumn>
+                        <TableColumn>模型输出成本(元)</TableColumn>
+                        <TableColumn>倍率</TableColumn>
                         <TableColumn>状态</TableColumn>
                         <TableColumn>操作</TableColumn>
                       </TableHeader>
                       <TableBody emptyContent="暂无计费标准">
-                        {billingStandards.map((standard) => (
-                          <TableRow key={standard.id}>
-                            <TableCell>
-                              {FUNCTION_TYPES.find(f => f.key === standard.functionType)?.label || standard.functionType}
-                            </TableCell>
-                            <TableCell>
-                              {TIERS.find(t => t.key === standard.tier)?.label || standard.tier || '-'}
-                            </TableCell>
-                            <TableCell>{standard.basePriceCents || '-'}</TableCell>
-                            <TableCell>{standard.unit || '-'}</TableCell>
-                            <TableCell>
-                              {PROVIDERS.find(p => p.key === standard.provider)?.label || standard.provider || '-'}
-                            </TableCell>
-                            <TableCell>{standard.modelPattern || '-'}</TableCell>
-                            <TableCell>
-                              {PRICING_MODELS.find(m => m.key === standard.pricingModel)?.label || standard.pricingModel || '-'}
-                            </TableCell>
-                            <TableCell>
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                standard.isActive
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {standard.isActive ? '启用' : '禁用'}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="light"
-                                  isIconOnly
-                                  onClick={() => {
-                                    setEditingStandard(standard);
-                                    setStandardForm(standard);
-                                    onStandardOpen();
-                                  }}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="light"
-                                  color="danger"
-                                  isIconOnly
-                                  onClick={() => handleDeleteStandard(standard.id)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {billingStandards.map((standard) => {
+                          const multiplier = standard.modelPromptPrice && standard.basePriceYuan
+                            ? (standard.basePriceYuan / standard.modelPromptPrice).toFixed(2)
+                            : '-';
+                          return (
+                            <TableRow key={standard.id}>
+                              <TableCell>
+                                {TIERS.find(t => t.key === standard.planId)?.label || standard.planId || '-'}
+                              </TableCell>
+                              <TableCell>
+                                {PROVIDERS.find(p => p.key === standard.provider)?.label || standard.provider || '-'}
+                              </TableCell>
+                              <TableCell>{standard.modelPattern || '-'}</TableCell>
+                              <TableCell className="font-medium text-blue-600">
+                                ¥{standard.basePriceYuan ? standard.basePriceYuan.toFixed(4) : '-'}
+                              </TableCell>
+                              <TableCell className="font-medium text-blue-600">
+                                ¥{standard.outputPriceYuan ? standard.outputPriceYuan.toFixed(4) : '-'}
+                              </TableCell>
+                              <TableCell className="text-gray-500">
+                                ¥{standard.modelPromptPrice ? standard.modelPromptPrice.toFixed(4) : '-'}
+                              </TableCell>
+                              <TableCell className="text-gray-500">
+                                ¥{standard.modelCompletionPrice ? standard.modelCompletionPrice.toFixed(4) : '-'}
+                              </TableCell>
+                              <TableCell>
+                                <span className="px-2 py-1 rounded text-xs bg-purple-100 text-purple-700">
+                                  {multiplier}x
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded text-xs ${
+                                  standard.isActive
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {standard.isActive ? '启用' : '禁用'}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="light"
+                                    isIconOnly
+                                    onClick={() => {
+                                      setEditingStandard(standard);
+                                      setStandardForm(standard);
+                                      onStandardOpen();
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="light"
+                                    color="danger"
+                                    isIconOnly
+                                    onClick={() => handleDeleteStandard(standard.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </CardBody>
@@ -410,6 +410,7 @@ export default function BillingConfigPage() {
                         <TableColumn>模型</TableColumn>
                         <TableColumn>输入价格(元/百万Token)</TableColumn>
                         <TableColumn>输出价格(元/百万Token)</TableColumn>
+                        <TableColumn>TOKEN换算比例</TableColumn>
                         <TableColumn>状态</TableColumn>
                         <TableColumn>备注</TableColumn>
                         <TableColumn>操作</TableColumn>
@@ -423,6 +424,11 @@ export default function BillingConfigPage() {
                             <TableCell>{pricing.modelPattern}</TableCell>
                             <TableCell>¥{(pricing.inputPricePer1M ?? 0).toFixed(4)}</TableCell>
                             <TableCell>¥{(pricing.outputPricePer1M ?? 0).toFixed(4)}</TableCell>
+                            <TableCell>
+                              <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
+                                1:{pricing.conversionRate ?? 1}
+                              </span>
+                            </TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded text-xs ${
                                 pricing.isActive
@@ -566,20 +572,6 @@ export default function BillingConfigPage() {
             <ModalBody>
               <div className="space-y-4 py-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">功能类型 *</label>
-                  <select
-                    className="w-full border rounded px-3 py-2"
-                    value={standardForm.functionType || ''}
-                    onChange={(e) => setStandardForm({ ...standardForm, functionType: e.target.value })}
-                  >
-                    <option value="">请选择功能类型</option>
-                    {FUNCTION_TYPES.map((type) => (
-                      <option key={type.key} value={type.key}>{type.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
                   <label className="block text-sm font-medium mb-1">层级</label>
                   <select
                     className="w-full border rounded px-3 py-2"
@@ -595,25 +587,37 @@ export default function BillingConfigPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">基础价格(分)</label>
+                    <label className="block text-sm font-medium mb-1">输入价格(元)</label>
                     <input
                       type="number"
+                      step="0.0001"
                       className="w-full border rounded px-3 py-2"
-                      value={standardForm.basePriceCents || ''}
-                      onChange={(e) => setStandardForm({ ...standardForm, basePriceCents: parseInt(e.target.value) })}
+                      value={standardForm.basePriceYuan || ''}
+                      onChange={(e) => setStandardForm({ ...standardForm, basePriceYuan: parseFloat(e.target.value) })}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1">单位</label>
+                    <label className="block text-sm font-medium mb-1">输出价格(元)</label>
                     <input
-                      type="text"
+                      type="number"
+                      step="0.0001"
                       className="w-full border rounded px-3 py-2"
-                      value={standardForm.unit || ''}
-                      onChange={(e) => setStandardForm({ ...standardForm, unit: e.target.value })}
-                      placeholder="如: minutes, tokens"
+                      value={standardForm.outputPriceYuan || ''}
+                      onChange={(e) => setStandardForm({ ...standardForm, outputPriceYuan: parseFloat(e.target.value) })}
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">单位</label>
+                  <input
+                    type="text"
+                    className="w-full border rounded px-3 py-2"
+                    value={standardForm.unit || ''}
+                    onChange={(e) => setStandardForm({ ...standardForm, unit: e.target.value })}
+                    placeholder="如: 百万Token"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -641,20 +645,6 @@ export default function BillingConfigPage() {
                       placeholder="如: gpt-4"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">计费模式</label>
-                  <select
-                    className="w-full border rounded px-3 py-2"
-                    value={standardForm.pricingModel || ''}
-                    onChange={(e) => setStandardForm({ ...standardForm, pricingModel: e.target.value })}
-                  >
-                    <option value="">请选择计费模式</option>
-                    {PRICING_MODELS.map((model) => (
-                      <option key={model.key} value={model.key}>{model.label}</option>
-                    ))}
-                  </select>
                 </div>
 
                 <div>
@@ -744,6 +734,19 @@ export default function BillingConfigPage() {
                       onChange={(e) => setPricingForm({ ...pricingForm, outputPricePer1M: parseFloat(e.target.value) })}
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">TOKEN换算比例</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full border rounded px-3 py-2"
+                    value={pricingForm.conversionRate || ''}
+                    onChange={(e) => setPricingForm({ ...pricingForm, conversionRate: parseFloat(e.target.value) })}
+                    placeholder="如: 1个功能单位兑换多少Token，默认1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">1个功能单位可兑换的Token数量（如：1分钟语音=100Token则填100）</p>
                 </div>
 
                 <div>

@@ -32,16 +32,6 @@ const getPlanTypeColor = (type?: string) => {
   }
 };
 
-const FEATURE_TYPES = [
-  { key: 'transcription', label: '语音转写', unit: 'minutes', unitLabel: '分钟' },
-  { key: 'realtime_transcription', label: '实时转写', unit: 'minutes', unitLabel: '分钟' },
-  { key: 'text_analysis', label: '文本分析', unit: 'thousand_chars', unitLabel: '千字符' },
-  { key: 'image_recognition', label: '图像识别', unit: 'images', unitLabel: '张' },
-  { key: 'ocr', label: 'OCR识别', unit: 'images', unitLabel: '张' },
-  { key: 'ai_chat', label: 'AI对话', unit: 'tokens', unitLabel: 'tokens' },
-  { key: 'tts', label: '语音合成', unit: 'thousand_chars', unitLabel: '千字符' },
-];
-
 export default function SubscriptionsPage() {
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -246,9 +236,9 @@ export default function SubscriptionsPage() {
                             {plan.featureQuotas && plan.featureQuotas.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 <span className="text-xs text-gray-400 mr-1">功能配额:</span>
-                                {plan.featureQuotas.map((quota) => (
-                                  <span key={quota.featureType} className="px-1.5 py-0.5 text-xs bg-purple-50 text-purple-600 rounded border border-purple-100">
-                                    {FEATURE_TYPES.find(f => f.key === quota.featureType)?.label || quota.featureType}: {quota.quotaValue}{FEATURE_TYPES.find(f => f.key === quota.featureType)?.unitLabel || quota.quotaUnit}
+                                {plan.featureQuotas.map((quota, index) => (
+                                  <span key={index} className="px-1.5 py-0.5 text-xs bg-purple-50 text-purple-600 rounded border border-purple-100">
+                                    {quota.quotaValue}{quota.quotaUnit}
                                   </span>
                                 ))}
                               </div>

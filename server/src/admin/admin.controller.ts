@@ -1,8 +1,12 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Optional, HttpException, HttpStatus } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { PlanService } from '../plan/plan.service';
+import { ApiKeyService } from '../api-key/api-key.service';
+import { MonitorService } from '../monitor/monitor.service';
+import { MetricsService } from '../monitor/metrics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { CreateApiKeyDto } from '../api-key/dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -10,6 +14,9 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly planService: PlanService,
+    private readonly apiKeyService: ApiKeyService,
+    @Optional() private readonly monitorService?: MonitorService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   @Get('stats')
@@ -59,6 +66,12 @@ export class AdminController {
   @Get('plans')
   async getPlans() {
     const data = await this.adminService.getPlans();
+    return { code: 200, message: 'success', data };
+  }
+
+  @Get('plans/:id')
+  async getPlanById(@Param('id') id: string) {
+    const data = await this.planService.getPlanById(id);
     return { code: 200, message: 'success', data };
   }
 
@@ -147,13 +160,13 @@ export class AdminController {
     return { code: 200, message: 'success', data };
   }
 
-  // 手动调整用户配额
-  @Post('users/:id/adjust-quota')
-  async adjustUserQuota(
+  // 手动调整用户Token余额
+  @Post('users/:id/adjust-tokens')
+  async adjustUserTokens(
     @Param('id') userId: string,
     @Body() data: { amount: number; reason?: string },
   ) {
-    const result = await this.adminService.adjustUserQuota(userId, data.amount, data.reason);
+    const result = await this.adminService.adjustUserTokens(userId, data.amount, data.reason);
     return { code: 200, message: 'success', data: result };
   }
 
@@ -167,51 +180,7 @@ export class AdminController {
     return { code: 200, message: 'success', data };
   }
 
-  // 套餐场景默认模型配置
-  @Get('plans/:id/default-configs')
-  async getPlanDefaultConfigs(@Param('id') planId: string) {
-    const data = await this.adminService.getPlanDefaultConfigs(planId);
-    return { code: 200, message: 'success', data };
-  }
-
-  @Post('plans/:id/default-configs')
-  async setPlanDefaultConfig(
-    @Param('id') planId: string,
-    @Body() data: { functionType: string; modelPattern: string; isActive?: boolean },
-  ) {
-    const result = await this.adminService.setPlanDefaultConfig(planId, data);
-    return { code: 200, message: 'success', data: result };
-  }
-
-  @Delete('plans/default-configs/:configId')
-  async deletePlanDefaultConfig(@Param('configId') configId: string) {
-    await this.adminService.deletePlanDefaultConfig(configId);
-    return { code: 200, message: 'success', data: null };
-  }
-
-  // 多模式计费：套餐功能配额管理
-  @Get('plans/:id/feature-quotas')
-  async getPlanFeatureQuotas(@Param('id') planId: string) {
-    const data = await this.planService.getPlanFeatureQuotas(planId);
-    return { code: 200, message: 'success', data };
-  }
-
-  @Post('plans/:id/feature-quotas')
-  async setPlanFeatureQuota(
-    @Param('id') planId: string,
-    @Body() data: { featureType: string; quotaValue: number; quotaUnit: string; multiplier?: number },
-  ) {
-    const result = await this.planService.setPlanFeatureQuota(planId, data);
-    return { code: 200, message: 'success', data: result };
-  }
-
-  @Delete('plans/feature-quotas/:quotaId')
-  async deletePlanFeatureQuota(@Param('quotaId') quotaId: string) {
-    await this.planService.deletePlanFeatureQuota(quotaId);
-    return { code: 200, message: 'success', data: null };
-  }
-
-  // 多模式计费：Token价格管理
+  // Token单价管理
   @Get('token-pricing')
   async getTokenPricing() {
     const data = await this.adminService.getTokenPricing();
@@ -236,60 +205,138 @@ export class AdminController {
     return { code: 200, message: 'success', data: null };
   }
 
-  // 计费标准管理
-  @Get('billing-standards')
-  async getBillingStandards() {
-    const data = await this.adminService.getBillingStandards();
+  // API配置管理（含基础系数）
+  @Get('api-configs')
+  async getApiConfigs() {
+    const data = await this.adminService.getApiConfigs();
     return { code: 200, message: 'success', data };
   }
 
-  @Post('billing-standards')
-  async createBillingStandard(@Body() data: any) {
-    const result = await this.adminService.createBillingStandard(data);
+  @Post('api-configs')
+  async createApiConfig(@Body() data: any) {
+    const result = await this.adminService.createApiConfig(data);
     return { code: 200, message: 'success', data: result };
   }
 
-  @Put('billing-standards/:id')
-  async updateBillingStandard(@Param('id') id: string, @Body() data: any) {
-    const result = await this.adminService.updateBillingStandard(id, data);
+  @Put('api-configs/:id')
+  async updateApiConfig(@Param('id') id: string, @Body() data: any) {
+    const result = await this.adminService.updateApiConfig(id, data);
     return { code: 200, message: 'success', data: result };
   }
 
-  @Delete('billing-standards/:id')
-  async deleteBillingStandard(@Param('id') id: string) {
-    await this.adminService.deleteBillingStandard(id);
+  @Delete('api-configs/:id')
+  async deleteApiConfig(@Param('id') id: string) {
+    await this.adminService.deleteApiConfig(id);
     return { code: 200, message: 'success', data: null };
   }
 
-  // API系数配置管理
-  @Get('api-policies')
-  async getApiPolicies(@Query('planId') planId?: string) {
-    const data = await this.adminService.getApiPolicies(planId);
+  // API Key 管理
+  @Get('api-keys')
+  async getApiKeys() {
+    const result = await this.apiKeyService.getApiKeys();
+    return result;
+  }
+
+  @Get('api-keys/stats')
+  async getApiKeyStats() {
+    const result = await this.apiKeyService.getApiKeyStats();
+    return result;
+  }
+
+  @Post('api-keys')
+  async createApiKey(@Body() dto: CreateApiKeyDto) {
+    const result = await this.apiKeyService.createApiKey(dto);
+    return result;
+  }
+
+  @Post('api-keys/batch')
+  async batchCreateApiKeys(@Body() body: { keys: CreateApiKeyDto[] }) {
+    const results = [];
+    for (const dto of body.keys) {
+      try {
+        const result = await this.apiKeyService.createApiKey(dto);
+        results.push({ success: true, data: result.data });
+      } catch (error) {
+        results.push({ success: false, error: error.message, name: dto.name });
+      }
+    }
+    return {
+      code: 200,
+      message: '批量创建完成',
+      data: results,
+    };
+  }
+
+  @Post('api-keys/:id/test')
+  async testApiKey(@Param('id') id: string) {
+    const result = await this.apiKeyService.testApiKey(id);
+    return result;
+  }
+
+  @Put('api-keys/:id')
+  async updateApiKey(@Param('id') id: string, @Body() dto: Partial<CreateApiKeyDto>) {
+    const result = await this.apiKeyService.updateApiKey(id, dto);
+    return result;
+  }
+
+  @Delete('api-keys/:id')
+  async deleteApiKey(@Param('id') id: string) {
+    const result = await this.apiKeyService.deleteApiKey(id);
+    return result;
+  }
+
+  // 监控接口
+  @Get('monitor/realtime')
+  async getRealtimeMetrics() {
+    if (!this.metricsService) {
+      throw new HttpException('Metrics service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    const data = await this.metricsService.getRealtimeMetrics();
     return { code: 200, message: 'success', data };
   }
 
-  @Post('api-policies')
-  async createApiPolicy(@Body() data: any) {
-    const result = await this.adminService.createApiPolicy(data);
-    return { code: 200, message: 'success', data: result };
+  @Get('monitor/trend')
+  async getTrendData(@Query('days') days?: string) {
+    if (!this.metricsService) {
+      throw new HttpException('Metrics service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    const data = await this.metricsService.getTrendData(parseInt(days || '7', 10));
+    return { code: 200, message: 'success', data };
   }
 
-  @Put('api-policies/:id')
-  async updateApiPolicy(@Param('id') id: string, @Body() data: any) {
-    const result = await this.adminService.updateApiPolicy(id, data);
-    return { code: 200, message: 'success', data: result };
+  @Get('monitor/system-info')
+  async getSystemInfo() {
+    if (!this.monitorService) {
+      throw new HttpException('Monitor service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    const data = await this.monitorService.getSystemInfo();
+    return { code: 200, message: 'success', data };
   }
 
-  @Delete('api-policies/:id')
-  async deleteApiPolicy(@Param('id') id: string) {
-    await this.adminService.deleteApiPolicy(id);
-    return { code: 200, message: 'success', data: null };
+  @Get('monitor/services')
+  async getServices() {
+    if (!this.monitorService) {
+      throw new HttpException('Monitor service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    const data = await this.monitorService.getServices();
+    return { code: 200, message: 'success', data };
   }
 
-  // 多模式计费：用户功能使用查询
-  @Get('users/:id/feature-usage')
-  async getUserFeatureUsage(@Param('id') userId: string) {
-    const data = await this.adminService.getUserFeatureUsage(userId);
+  @Get('monitor/logs')
+  async getMonitorLogs(@Query('service') service: string, @Query('lines') lines?: string) {
+    if (!this.monitorService) {
+      throw new HttpException('Monitor service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    const data = await this.monitorService.getLogs(service, parseInt(lines || '100', 10));
+    return { code: 200, message: 'success', data };
+  }
+
+  @Post('monitor/execute')
+  async executeCommand(@Body() body: { command: string; timeout?: number }) {
+    if (!this.monitorService) {
+      throw new HttpException('Monitor service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    const data = await this.monitorService.executeCommand(body.command, body.timeout || 30);
     return { code: 200, message: 'success', data };
   }
 }
