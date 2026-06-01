@@ -51,6 +51,7 @@ description: 规则索引 - 所有规则的目录和快速定位
 | [SERVER_OPS.md](SERVER_OPS.md) | 服务器运维 | 编辑 admin/、server/ |
 | [SERVER_SECURITY.md](SERVER_SECURITY.md) | 服务器安全 | 编辑 admin/、server/ |
 | [SERVER_API.md](SERVER_API.md) | 畅记云 API | 编辑 admin/、server/、lib/**/api/ |
+| [DEBUG_CASES.md](DEBUG_CASES.md) | 错误案例集锦 | 排查 bug 时 |
 
 ### 2.4 其他
 

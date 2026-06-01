@@ -9,7 +9,6 @@ import { ApiKeyModule } from '../api-key/api-key.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { RedisModule } from '../redis/redis.module';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
-import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 import { ApiKey } from '../api-key/entities/api-key.entity';
 
 @Module({
@@ -22,7 +21,7 @@ import { ApiKey } from '../api-key/entities/api-key.entity';
     ApiKeyModule,
     SubscriptionModule,
     RedisModule,
-    TypeOrmModule.forFeature([ApiUsageLog, PlanApiPolicy, ApiKey]),
+    TypeOrmModule.forFeature([ApiUsageLog, ApiKey]),
   ],
   controllers: [AiController],
   providers: [AiService, AiRouterService],

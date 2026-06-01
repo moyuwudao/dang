@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Delete, UseGuards, Req, Body, Query, Param } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CreateSubscriptionDto, CreatePlanDto, RechargeDto, RefundDto } from './dto';
+import { CreateSubscriptionDto, CreatePlanDto, RechargeDto } from './dto';
 
 @Controller('subscription')
 export class SubscriptionController {
@@ -19,39 +19,6 @@ export class SubscriptionController {
     return this.subscriptionService.createSubscription(req.user.sub, dto.planId);
   }
 
-  // API策略管理（管理员接口）- 必须放在 /plans 前面
-  @Get('plans/:id/policies')
-  @UseGuards(JwtAuthGuard)
-  async getPlanApiPolicies(@Param('id') planId: string) {
-    const policies = await this.subscriptionService.getPlanApiPolicies(planId);
-    return { code: 200, message: 'success', data: policies };
-  }
-
-  @Post('plans/:id/policies')
-  @UseGuards(JwtAuthGuard)
-  async setPlanApiPolicy(
-    @Param('id') planId: string,
-    @Body() body: { provider: string; multiplier: number; modelPattern?: string },
-  ) {
-    const policy = await this.subscriptionService.setPlanApiPolicy(
-      planId,
-      body.provider,
-      body.multiplier,
-      body.modelPattern,
-    );
-    return { code: 200, message: 'success', data: policy };
-  }
-
-  @Delete('plans/:planId/policies/:policyId')
-  @UseGuards(JwtAuthGuard)
-  async deletePlanApiPolicy(
-    @Param('planId') planId: string,
-    @Param('policyId') policyId: string,
-  ) {
-    await this.subscriptionService.deletePlanApiPolicy(policyId);
-    return { code: 200, message: 'success' };
-  }
-
   @Get('plans')
   async getPlans(@Query('type') type?: string) {
     return this.subscriptionService.getPlans(type);
@@ -63,12 +30,6 @@ export class SubscriptionController {
     return this.subscriptionService.createPlan(dto);
   }
 
-  @Post('quota/use')
-  @UseGuards(JwtAuthGuard)
-  async useQuota(@Req() req, @Body() body: { amount: number }) {
-    return this.subscriptionService.useQuota(req.user.sub, body.amount);
-  }
-
   @Get('balance')
   @UseGuards(JwtAuthGuard)
   async getBalance(@Req() req) {
@@ -78,109 +39,12 @@ export class SubscriptionController {
   @Post('recharge')
   @UseGuards(JwtAuthGuard)
   async recharge(@Req() req, @Body() dto: RechargeDto) {
-    return this.subscriptionService.recharge(req.user.sub, dto);
-  }
-
-  @Post('refund')
-  @UseGuards(JwtAuthGuard)
-  async refund(@Req() req, @Body() dto: RefundDto) {
-    return this.subscriptionService.refund(req.user.sub, dto);
+    return this.subscriptionService.rechargeTokens(req.user.sub, dto);
   }
 
   @Get('records')
   @UseGuards(JwtAuthGuard)
   async getRechargeRecords(@Req() req) {
     return this.subscriptionService.getRechargeRecords(req.user.sub);
-  }
-
-  // API使用检查
-  @Post('check-api')
-  @UseGuards(JwtAuthGuard)
-  async checkApiPermission(
-    @Req() req,
-    @Body() body: { provider: string; model: string },
-  ) {
-    const result = await this.subscriptionService.canUseApi(req.user.sub, body.provider, body.model);
-    return { code: 200, message: 'success', data: result };
-  }
-
-  // 使用配额（带API差异化）
-  @Post('quota/consume')
-  @UseGuards(JwtAuthGuard)
-  async consumeQuotaWithApi(
-    @Req() req,
-    @Body() body: { provider: string; model: string; tokens?: { prompt: number; completion: number } },
-  ) {
-    const result = await this.subscriptionService.consumeQuotaWithApi(
-      req.user.sub,
-      body.provider,
-      body.model,
-      body.tokens,
-    );
-    return { code: 200, message: 'success', data: result };
-  }
-
-  // 多模式计费：检查功能是否可用
-  @Post('check-feature')
-  @UseGuards(JwtAuthGuard)
-  async checkFeature(
-    @Req() req,
-    @Body() body: { featureType: string; amount: number },
-  ) {
-    const result = await this.subscriptionService.canUseFeature(
-      req.user.sub,
-      body.featureType,
-      body.amount,
-    );
-    return { code: 200, message: 'success', data: result };
-  }
-
-  // 多模式计费：消费功能
-  @Post('consume-feature')
-  @UseGuards(JwtAuthGuard)
-  async consumeFeature(
-    @Req() req,
-    @Body() body: { 
-      featureType: string; 
-      amount: number;
-      provider?: string;
-      model?: string;
-      tokens?: { prompt: number; completion: number };
-    },
-  ) {
-    const result = await this.subscriptionService.consumeFeature(
-      req.user.sub,
-      body.featureType,
-      body.amount,
-      {
-        provider: body.provider,
-        model: body.model,
-        promptTokens: body.tokens?.prompt,
-        completionTokens: body.tokens?.completion,
-      },
-    );
-    return { code: 200, message: 'success', data: result };
-  }
-
-  // 多模式计费：获取功能使用情况
-  @Get('feature-usage')
-  @UseGuards(JwtAuthGuard)
-  async getFeatureUsage(@Req() req) {
-    const result = await this.subscriptionService.getFeatureUsage(req.user.sub);
-    return { code: 200, message: 'success', data: result };
-  }
-
-  // 余额购买套餐/资源包
-  @Post('purchase-with-balance')
-  @UseGuards(JwtAuthGuard)
-  async purchaseWithBalance(
-    @Req() req,
-    @Body() body: { planId: string },
-  ) {
-    const result = await this.subscriptionService.purchaseWithBalance(
-      req.user.sub,
-      body.planId,
-    );
-    return { code: 200, message: 'success', data: result };
   }
 }

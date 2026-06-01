@@ -44,11 +44,10 @@ export class AuthService {
     });
 
     await this.userRepository.save(user);
-    await this.subscriptionService.initUserBalance(user.id);
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    
+
     await this.subscriptionService.createTrialSubscription(user.id, {
       planId: 'trial',
       planName: '新手体验包',
@@ -143,11 +142,10 @@ export class AuthService {
         passwordHash: '',
       });
       await this.userRepository.save(user);
-      await this.subscriptionService.initUserBalance(user.id);
 
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      
+
       await this.subscriptionService.createTrialSubscription(user.id, {
         planId: 'trial',
         planName: '新手体验包',

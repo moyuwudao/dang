@@ -18,6 +18,7 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 > **MCP 连接** → 详见 `aliyun-servers` MCP（mcp-server-ssh）
 > **安全红线** → 详见 [RED_LINES.md](RED_LINES.md)
 > **构建规则** → 详见 [BUILD.md](BUILD.md)
+> **服务器目录结构** → 详见 [docs/SERVER_DIRECTORY.md](../docs/SERVER_DIRECTORY.md)（避免反复搜索）
 
 ---
 
@@ -297,6 +298,60 @@ curl -sI http://127.0.0.1/_next/static/css/8297752048ca8b96.css | head -3
 - 但浏览器仍显示旧版本页面
 - 清除浏览器缓存、使用无痕模式、换电脑/手机均无效
 
+### 问题7：编译后代码路径与 PM2 配置不匹配（MODULE_NOT_FOUND）
+**现象**：
+- 后端代码修改后编译部署，服务无法启动
+- PM2 状态显示 `errored`，重启次数不断增加
+- 浏览器访问 API 返回 `Internal server error`
+- 错误日志：`Cannot find module '/opt/changji-cloud/api/dist/main.js'`
+
+**根本原因**：
+- NestJS 编译输出目录结构为 `dist/src/main.js`，但 PM2 配置指向 `dist/main.js`
+- 代码同步后没有验证编译输出路径与 PM2 配置路径是否一致
+
+**解决方案**：
+1. 创建符号链接：`ln -sf /opt/changji-cloud/api/dist/src/main.js /opt/changji-cloud/api/dist/main.js`
+2. 或修改 PM2 配置指向正确的路径：`pm2 start /opt/changji-cloud/api/dist/src/main.js --name changji-api`
+
+**预防措施**：
+```bash
+# 部署前检查清单
+echo "=== 部署前检查 ==="
+echo "1. 编译输出路径:"
+ls -la /home/admin/dang/server/dist/src/main.js 2>/dev/null || echo "❌ 编译输出不存在"
+echo "2. PM2 配置路径:"
+pm2 describe changji-api | grep "script path" || echo "❌ PM2 配置不存在"
+echo "3. 目标路径:"
+ls -la /opt/changji-cloud/api/dist/main.js 2>/dev/null || echo "❌ 目标路径不存在"
+```
+
+### 问题8：数据库表结构变更后实体类未同步（Unknown column）
+**现象**：
+- 修改数据库表结构后，后端服务报错
+- API 返回 `Internal server error`
+- 错误日志：`QueryFailedError: column "xxx" does not exist`
+
+**根本原因**：
+- 数据库表结构通过 SQL 脚本修改，但 TypeORM 实体类未同步更新
+- 实体类字段名与数据库列名不一致
+
+**解决方案**：
+1. 同步修改 TypeORM 实体类（`@Column({ name: 'xxx' })`）
+2. 同步修改前端接口定义
+3. 重新编译并部署
+
+**预防措施**：
+```bash
+# 数据库变更检查清单
+# 1. 修改 SQL 脚本
+# 2. 修改 TypeORM 实体类
+# 3. 修改前端接口
+# 4. 重新编译
+# 5. 验证数据库表结构与实体类一致
+echo "\d billing_standards" | sudo -u postgres psql -d appdb
+grep -n "base_price" /home/admin/dang/server/src/subscription/entities/billing-standard.entity.ts
+```
+
 **实际案例（2026-05-21）**
 优化后台 UI 后多次部署，服务器文件已确认是新版本（`grep bg-gradient` 返回 0），但用户多端均看到旧版。
 
@@ -405,6 +460,7 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 
 | 日期 | 版本 | 更新内容 |
 |-----|------|---------|
+| 2026-05-30 | v2.0 | 新增问题7：编译后代码路径与 PM2 配置不匹配（MODULE_NOT_FOUND）；新增问题8：数据库表结构变更后实体类未同步（Unknown column）；增加部署前检查清单 |
 | 2026-05-25 | v1.9 | 安全修复：交互式 SSH/psql/redis-cli 加"仅手动使用"标注并提供 AI 安全替代；curl 命令加 --connect-timeout/--max-time |
 | 2026-05-21 | v1.7 | 新增 CASE-005：Admin 后台 Tailwind CSS 样式不生效；新增 CASE-006：Nginx 缓存导致旧版本页面无法更新 |
 | 2026-05-21 | v1.6 | 拆分优化：部署流程→SERVER_DEPLOY_PROCEDURE.md，安全→SERVER_SECURITY.md，运维→SERVER_OPS.md，API→SERVER_API.md |

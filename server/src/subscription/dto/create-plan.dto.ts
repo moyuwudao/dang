@@ -53,9 +53,13 @@ export class CreatePlanDto {
   @IsOptional()
   isRecommended?: boolean;
 
+  @IsNumber()
+  @IsOptional()
+  tokenQuota?: number;
+
   @IsString()
-  @IsNotEmpty()
-  quotaType: string;
+  @IsOptional()
+  quotaType?: string;
 
   @IsNumber()
   @IsOptional()

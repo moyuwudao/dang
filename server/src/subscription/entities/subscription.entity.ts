@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne } from 'typeorm';
+import { User } from '../../auth/entities/user.entity';
 
 @Entity('subscriptions')
 export class Subscription {
@@ -7,6 +8,9 @@ export class Subscription {
 
   @Column({ name: 'user_id' })
   userId: string;
+
+  @ManyToOne(() => User, user => user.subscriptions)
+  user: User;
 
   @Column({ name: 'plan_id' })
   planId: string;

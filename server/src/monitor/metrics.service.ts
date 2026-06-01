@@ -42,7 +42,7 @@ export class MetricsService {
     const totalTokens = recentLogs.reduce((sum, log) => 
       sum + log.promptTokens + log.completionTokens, 0);
     const totalQuotaConsumed = recentLogs.reduce((sum, log) => 
-      sum + log.quotaConsumed, 0);
+      sum + log.tokenConsumed, 0);
 
     // 按 provider 分组
     const callsByProvider: Record<string, number> = {};
@@ -83,7 +83,7 @@ export class MetricsService {
     const totalTokens = logs.reduce((sum, log) => 
       sum + log.promptTokens + log.completionTokens, 0);
     const totalQuota = logs.reduce((sum, log) => 
-      sum + log.quotaConsumed, 0);
+      sum + log.tokenConsumed, 0);
 
     // 按 provider 统计
     const providerStats: Record<string, { calls: number; tokens: number; quota: number }> = {};
@@ -93,7 +93,7 @@ export class MetricsService {
       }
       providerStats[log.provider].calls++;
       providerStats[log.provider].tokens += log.promptTokens + log.completionTokens;
-      providerStats[log.provider].quota += log.quotaConsumed;
+      providerStats[log.provider].quota += log.tokenConsumed;
     });
 
     return {

@@ -7,7 +7,7 @@ const nextConfig = {
     unoptimized: true,
   },
   env: {
-    API_URL: 'http://101.133.238.249/api/v1',
+    NEXT_PUBLIC_API_URL: 'http://101.133.238.249/api/v1',
   },
 }
 

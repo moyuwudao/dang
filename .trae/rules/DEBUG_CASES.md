@@ -193,10 +193,193 @@ npx playwright test --timeout=60000
 
 ---
 
+## 案例 5：编译后代码路径与 PM2 配置不匹配（MODULE_NOT_FOUND）
+
+**问题描述**：
+- 后端代码修改后编译部署，服务无法启动
+- PM2 状态显示 `errored`，重启次数不断增加
+- 浏览器访问 API 返回 `Internal server error` 或无法连接
+
+**错误日志**：
+```
+Error: Cannot find module '/opt/changji-cloud/api/dist/main.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    code: 'MODULE_NOT_FOUND',
+```
+
+**排查过程**：
+1. ✅ 检查 PM2 状态 - 显示 `errored`，PID 为 0
+2. ✅ 查看 PM2 错误日志 - 发现 `MODULE_NOT_FOUND` 错误
+3. ✅ 检查 PM2 配置的 script path - `/opt/changji-cloud/api/dist/main.js`
+4. ❌ **发现问题**：实际编译后的文件在 `/home/admin/dang/server/dist/src/main.js`
+5. ❌ **根本原因**：NestJS 编译输出目录结构为 `dist/src/main.js`，但 PM2 配置指向 `dist/main.js`
+
+**根本原因**：
+- NestJS 的 `tsconfig.json` 中 `outDir` 为 `./dist`，但实际编译后入口文件位于 `dist/src/main.js`
+- PM2 启动配置中的 `script` 路径与实际编译输出路径不一致
+- 之前通过 `rsync` 同步代码时，没有创建正确的符号链接或调整 PM2 配置
+
+**解决方案**：
+
+**方案 A：创建符号链接（推荐，快速修复）**
+```bash
+# 创建符号链接，让 dist/main.js 指向实际的 dist/src/main.js
+ln -sf /opt/changji-cloud/api/dist/src/main.js /opt/changji-cloud/api/dist/main.js
+
+# 重启服务
+pm2 restart changji-api
+```
+
+**方案 B：修改 PM2 配置（长期解决）**
+```bash
+# 查看当前 PM2 配置
+pm2 describe changji-api | grep "script path"
+
+# 删除旧配置
+pm2 delete changji-api
+
+# 使用正确的路径重新启动
+pm2 start /opt/changji-cloud/api/dist/src/main.js --name changji-api
+pm2 save
+```
+
+**方案 C：修改 NestJS 配置（调整输出结构）**
+```json
+// tsconfig.json 中添加
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src"
+  }
+}
+// 或在 nest-cli.json 中配置入口
+```
+
+**验证方式**：
+```bash
+# 1. 确认文件存在
+ls -la /opt/changji-cloud/api/dist/main.js
+# 应输出：lrwxrwxrwx ... /opt/changji-cloud/api/dist/main.js -> /opt/changji-cloud/api/dist/src/main.js
+
+# 2. 确认服务状态
+pm2 status changji-api
+# 应显示：online，PID 不为 0，uptime 正常增长
+
+# 3. 测试 API
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/v1/admin/billing-standards
+# 应返回：401（需要认证，说明服务正常）
+
+# 4. 检查端口监听
+ss -tlnp | grep 3000
+# 应显示：LISTEN 0 511 0.0.0.0:3000 ... users:(("node",pid=xxx,fd=xx))
+```
+
+**经验教训**：
+- 部署前必须确认编译输出路径与 PM2 配置路径一致
+- 修改后端代码后，不仅要编译，还要验证编译输出结构
+- 使用 `pm2 describe` 查看实际配置的 script path
+- 建立部署检查清单：编译 → 验证输出 → 同步 → 重启 → 验证状态
+
+**预防措施**：
+```bash
+# 部署前检查清单
+echo "=== 部署前检查 ==="
+echo "1. 编译输出路径:"
+ls -la /home/admin/dang/server/dist/src/main.js 2>/dev/null || echo "❌ 编译输出不存在"
+echo "2. PM2 配置路径:"
+pm2 describe changji-api | grep "script path" || echo "❌ PM2 配置不存在"
+echo "3. 目标路径:"
+ls -la /opt/changji-cloud/api/dist/main.js 2>/dev/null || echo "❌ 目标路径不存在"
+```
+
+---
+
+## 案例 6：数据库表结构变更后实体类未同步（Unknown column）
+
+**问题描述**：
+- 修改数据库表结构（如添加/删除/重命名列）后，后端服务报错
+- API 返回 `Internal server error`
+- 错误日志显示 `Unknown column 'xxx' in 'field list'`
+
+**错误日志**：
+```
+QueryFailedError: column "base_price_cents" does not exist
+    at PostgresQueryRunner.query (...)
+```
+
+**排查过程**：
+1. ✅ 检查数据库表结构 - 发现列名已变更（如 `base_price_cents` → `base_price_yuan`）
+2. ✅ 检查 TypeORM 实体类 - 发现实体类字段名未同步更新
+3. ❌ **根本原因**：数据库表结构通过 SQL 脚本修改，但 TypeORM 实体类未同步更新
+
+**根本原因**：
+- 数据库表结构变更和实体类变更没有同步进行
+- TypeORM 尝试查询不存在的列名
+- 前后端数据模型不一致
+
+**解决方案**：
+
+**步骤 1：同步修改实体类**
+```typescript
+// billing-standard.entity.ts
+// 修改前
+@Column({ name: 'base_price_cents', type: 'int', nullable: true })
+basePriceCents: number;
+
+// 修改后
+@Column({ name: 'base_price_yuan', type: 'decimal', precision: 10, scale: 4, nullable: true })
+basePriceYuan: number;
+
+@Column({ name: 'output_price_yuan', type: 'decimal', precision: 10, scale: 4, nullable: true })
+outputPriceYuan: number;
+```
+
+**步骤 2：同步修改前端接口**
+```typescript
+// 前端接口定义
+interface BillingStandard {
+  // 修改前
+  basePriceCents?: number;
+  
+  // 修改后
+  basePriceYuan?: number;
+  outputPriceYuan?: number;
+}
+```
+
+**步骤 3：重新编译并部署**
+```bash
+cd /home/admin/dang/server
+npm run build
+rsync -avz --delete dist/ /opt/changji-cloud/api/dist/
+pm2 restart changji-api
+```
+
+**验证方式**：
+```bash
+# 1. 确认数据库表结构
+echo "\d billing_standards" | sudo -u postgres psql -d appdb
+
+# 2. 确认实体类字段名与数据库一致
+grep -n "base_price" /home/admin/dang/server/src/subscription/entities/billing-standard.entity.ts
+
+# 3. 测试 API
+curl -s http://localhost:3000/api/v1/admin/billing-standards -H "Authorization: Bearer xxx"
+```
+
+**经验教训**：
+- 数据库表结构变更必须同步修改 TypeORM 实体类
+- 实体类字段名必须与数据库列名一致（通过 `@Column({ name: 'xxx' })` 映射）
+- 修改实体类后必须重新编译后端代码
+- 建立数据库变更检查清单：SQL 脚本 → 实体类 → DTO → 前端接口
+
+---
+
 ## 更新记录
 
 | 日期 | 案例 | 更新内容 |
 |-----|------|---------|
+| 2026-05-30 | 案例 5-6 | 新增：PM2 路径不匹配问题、数据库表结构变更同步问题 |
 | 2026-05-25 | - | 安全修复：playwright 测试加 --timeout=60000；nginx reload 前加 nginx -t 验证 |
 | 2026-05-23 | 案例 1-4 | 初始版本 |
 

@@ -153,7 +153,7 @@ export class PaymentService {
     await this.rechargeRecordRepository.save(record);
 
     // 增加用户余额
-    await this.subscriptionService.recharge(record.userId, {
+    await this.subscriptionService.rechargeTokens(record.userId, {
       amountCents: record.amountCents,
       paymentMethod: record.paymentMethod,
     });

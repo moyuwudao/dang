@@ -8,7 +8,6 @@ import { SubscriptionService } from '../subscription/subscription.service';
 import { RedisService } from '../redis/redis.service';
 import { TokenBillingService } from '../subscription/services/token-billing.service';
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
-import { PlanApiPolicy } from '../subscription/entities/plan-api-policy.entity';
 
 @Injectable()
 export class AiService {
@@ -20,8 +19,6 @@ export class AiService {
     private readonly tokenBillingService: TokenBillingService,
     @InjectRepository(ApiUsageLog)
     private apiUsageLogRepository: Repository<ApiUsageLog>,
-    @InjectRepository(PlanApiPolicy)
-    private planApiPolicyRepository: Repository<PlanApiPolicy>,
   ) {}
 
   async chat(userId: string, params: {
@@ -68,9 +65,8 @@ export class AiService {
         model: params.model || response.model || 'unknown',
         promptTokens,
         completionTokens,
-        quotaConsumed: billingResult.tokenConsumed || totalTokens,
-        costCents: Math.round((billingResult.costYuan || 0) * 100),
-        featureType: 'ai_chat',
+        tokenConsumed: billingResult.tokenConsumed || totalTokens,
+        costYuan: billingResult.costYuan || 0,
       });
 
       return {
@@ -128,7 +124,7 @@ export class AiService {
 
     const totalCalls = logs.length;
     const totalTokens = logs.reduce((sum, log) => sum + log.promptTokens + log.completionTokens, 0);
-    const totalQuota = logs.reduce((sum, log) => sum + log.quotaConsumed, 0);
+    const totalQuota = logs.reduce((sum, log) => sum + log.tokenConsumed, 0);
 
     return {
       code: 200,
@@ -143,7 +139,7 @@ export class AiService {
           model: log.model,
           promptTokens: log.promptTokens,
           completionTokens: log.completionTokens,
-          quotaConsumed: log.quotaConsumed,
+          tokenConsumed: log.tokenConsumed,
           createdAt: log.createdAt,
         })),
       },
@@ -206,42 +202,15 @@ export class AiService {
     model: string,
     tokens: number,
   ): Promise<number> {
-    // 获取用户订阅和策略
-    const subscription = await this.subscriptionService.getSubscription(userId);
-    const planId = subscription.data?.planId;
-
-    if (!planId) return 1;
-
-    // 获取套餐API策略
-    const policies = await this.planApiPolicyRepository.find({
-      where: { planId },
+    // 使用Token计费服务计算消耗
+    const result = await this.tokenBillingService.consumeToken(userId, {
+      provider,
+      model,
+      rawAmount: tokens,
+      promptTokens: 0,
+      completionTokens: tokens,
     });
-
-    // 查找匹配的策略
-    const policy = policies.find((p: any) => {
-      if (p.provider !== provider && p.provider !== 'all') return false;
-      if (!p.modelPattern) return true;
-      const pattern = p.modelPattern.replace('*', '.*');
-      return new RegExp(`^${pattern}$`).test(model);
-    });
-
-    const multiplier = policy ? policy.multiplier : 1;
-
-    // 计算消耗（基础1单位 × 倍数）
-    return Math.ceil(1 * multiplier);
+    return result.tokenConsumed || tokens;
   }
 
-  private async logApiUsage(params: {
-    userId: string;
-    subscriptionId: string;
-    apiKeyId: string;
-    provider: string;
-    model: string;
-    promptTokens: number;
-    completionTokens: number;
-    quotaConsumed: number;
-  }) {
-    const log = this.apiUsageLogRepository.create(params);
-    await this.apiUsageLogRepository.save(log);
-  }
 }
