@@ -18,7 +18,8 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 > **MCP 连接** → 详见 `aliyun-servers` MCP（mcp-server-ssh）
 > **安全红线** → 详见 [RED_LINES.md](RED_LINES.md)
 > **构建规则** → 详见 [BUILD.md](BUILD.md)
-> **服务器目录结构** → 详见 [docs/SERVER_DIRECTORY.md](../docs/SERVER_DIRECTORY.md)（避免反复搜索）
+> **服务器目录结构** → 详见 [docs/SERVER_DIRECTORY.md](../docs/SERVER_DIRECTORY.md)（最新后端架构、部署路径、PM2状态）
+> **后端管理系统完整架构** → 详见 [docs/BACKEND_ARCHITECTURE.md](../docs/BACKEND_ARCHITECTURE.md)（NestJS模块、数据库实体、AI路由策略）
 
 ---
 
@@ -450,6 +451,7 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 | [SERVER_OPS.md](SERVER_OPS.md) | 日常检查、日志管理、应急响应 |
 | [SERVER_API.md](SERVER_API.md) | 畅记云 API 接口说明 |
 | [../docs/SERVER_STATUS.md](../docs/SERVER_STATUS.md) | 当前服务器部署状态报告 |
+| [../docs/BACKEND_ARCHITECTURE.md](../docs/BACKEND_ARCHITECTURE.md) | 后端管理系统完整架构（NestJS模块、数据库实体、AI路由策略） |
 | [RED_LINES.md](RED_LINES.md) | 通用安全红线 |
 | [BUILD.md](BUILD.md) | APK构建规则 |
 | [API_DESIGN.md](API_DESIGN.md) | API设计规范 |

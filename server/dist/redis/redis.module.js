@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RedisModule = void 0;
 const common_1 = require("@nestjs/common");
 const ioredis_1 = require("@nestjs-modules/ioredis");
+const config_1 = require("@nestjs/config");
 const redis_service_1 = require("./redis.service");
 let RedisModule = class RedisModule {
 };
@@ -16,9 +17,18 @@ exports.RedisModule = RedisModule;
 exports.RedisModule = RedisModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            ioredis_1.RedisModule.forRoot({
-                type: 'single',
-                url: `redis://:${process.env.REDIS_PASSWORD || process.env.REDIS_PASS || 'Redis123456'}@${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`,
+            ioredis_1.RedisModule.forRootAsync({
+                imports: [config_1.ConfigModule],
+                useFactory: (configService) => {
+                    const password = configService.get('REDIS_PASSWORD') || configService.get('REDIS_PASS') || 'Redis123456';
+                    const host = configService.get('REDIS_HOST') || 'localhost';
+                    const port = configService.get('REDIS_PORT') || 6379;
+                    return {
+                        type: 'single',
+                        url: `redis://:${password}@${host}:${port}`,
+                    };
+                },
+                inject: [config_1.ConfigService],
             }),
         ],
         providers: [redis_service_1.RedisService],

@@ -143,8 +143,19 @@ description: 安全红线规则 - 绝对不能碰的区域和操作
 
 | 命令类型 | 默认超时 | 示例 |
 |---------|---------|------|
-| SSH 远程命令 | **30 秒** | `ssh -o ConnectTimeout=10 changji "cmd"` |
+| SSH 远程命令 | **30 秒** | `ssh -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 changji "cmd"` |
 | 日志查看（`pm2 logs --nostream`） | **10 秒** | 快速完成，几乎不需要超时 |
+
+**SSH 超时参数强制要求（兜底方案）**：
+任何通过 `ssh changji` 执行的命令，**必须**携带以下参数：
+- `-o ConnectTimeout=10` — 连接建立最多等 10 秒，防止网络不通时无限卡住
+- `-o ServerAliveInterval=5` — 每 5 秒发送心跳，保持连接活性
+- `-o ServerAliveCountMax=2` — 丢失 2 次心跳（10 秒）即断开，防止假死连接
+
+```
+❌ ssh changji "pm2 status"
+✅ ssh -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 changji "pm2 status"
+```
 | 数据库只读查询 | **30 秒** | `PGOPTIONS="-c statement_timeout=30000" psql -c "SELECT..."` |
 | 数据库 DDL（ALTER TABLE 等） | **60 秒** | `PGOPTIONS="-c statement_timeout=60000" psql -c "ALTER TABLE..."` |
 | API 调用（curl） | **10 秒** | `curl --connect-timeout 5 --max-time 10 http://...` |
@@ -370,6 +381,7 @@ description: 安全红线规则 - 绝对不能碰的区域和操作
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-05-28 | 5.2 节 SSH 超时参数强制要求：新增兜底方案，要求所有 `ssh changji` 命令必须携带 `-o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2` |
 | 2026-05-25 | 重大更新：第5节全面改写，新增5.1禁止无限等待命令、5.2命令超时要求、5.3超时自动恢复（免确认）、5.4重试上限 |
 | 2026-05-21 | 拆分优化：高风险/警告操作→HIGH_RISK_OPS.md |
 | 2026-05-17 | 初始版本 |

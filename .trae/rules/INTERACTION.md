@@ -133,7 +133,7 @@ A / B / C / 有其他想法
   ├→ 需要理解代码？ → CodeGraph MCP（codegraph_context/search/files）
   ├→ 需要操作浏览器？ → Chrome DevTools MCP
   ├→ 需要 Git/GitHub 操作？ → GitHub MCP
-  ├→ 需要 SSH 到服务器？ → aliyun-servers MCP + server-* Skill
+  ├→ 需要 SSH 到服务器/校验后端？ → aliyun-servers MCP + server-* Skill（优先！绝不先用 SSH 命令行）
   └→ 不匹配 → 继续
   ↓
 第3步：这个任务需要专业 Agent 吗？
@@ -267,6 +267,8 @@ python3 /tmp/fix.py"'
 **不需要等确认的场景**（自动处理）：
 | 场景 | 自动操作 | 原因 |
 |------|---------|------|
+| **SSH 连接卡住** | StopCommand → 改用 aliyun-servers MCP 重试 | SSH 命令行不稳定，MCP 更可靠 |
+| **后端状态校验** | 优先 MCP → `pm2 status` 或 `curl health` | 状态秒级返回，不看日志 |
 | `pm2 logs` 卡住 | StopCommand → 加 `--nostream` 重试 | 纯粹日志查看，只读 |
 | `systemctl status` 卡住 | StopCommand → 加 `--no-pager` 重试 | 纯粹状态查询，只读 |
 | 数据库 SELECT 超时 | StopCommand → 加 `statement_timeout` 重试 | 只读查询 |
@@ -353,6 +355,7 @@ python3 /tmp/fix.py"'
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-05-28 | 后端校验场景强化：工具选择决策中 aliyun-servers MCP 标注"优先！绝不先用 SSH 命令行"；命令超时自动处理新增"SSH 连接卡住"和"后端状态校验"两个场景 |
 | 2026-05-28 | 新增"工具选择决策"章节：决策流程（4步决策树）、违规自检清单（RunCommand 前必自问 4 项） |
 | 2026-05-25 | 新增"命令超时自动处理"章节；"直接执行"增加只读操作超时场景 |
 | 2026-05-25 | 合并 COMMUNICATION.md 内容，精简沟通规范 |
