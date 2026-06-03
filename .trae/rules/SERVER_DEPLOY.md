@@ -73,7 +73,7 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 |-----|------|
 | 连接地址 | 101.133.238.249 |
 | 连接端口 | 22 |
-| 管理用户 | admin |
+| 管理用户 | admin（SSH Host 为 changji，实际登录用户是 admin） |
 | 连接协议 | SSH |
 
 ### 2.2 连接方式
@@ -91,7 +91,7 @@ ssh -o ConnectTimeout=10 admin@101.133.238.249 "具体命令"
 ```powershell
 # ⚠️ 仅手动使用（交互式登录，AI 执行会永久阻塞）
 ssh -i $env:USERPROFILE\.ssh\id_ed25519 admin@101.133.238.249
-ssh changji
+ssh changji  # 注意：SSH Config 中 User 是 admin
 
 # ✅ AI/脚本使用（远程执行命令）
 ssh -o ConnectTimeout=10 changji "具体命令"
@@ -101,12 +101,14 @@ SSH Config（`C:\Users\Mayn\.ssh\config`）：
 ```bash
 Host changji
     HostName 101.133.238.249
-    User admin
+    User admin              # 实际用户是 admin
     Port 22
     IdentityFile ~/.ssh/id_ed25519
     StrictHostKeyChecking accept-new
     ConnectTimeout 30
 ```
+
+> **重要纠正（2026-06-01）**：SSH Host 名为 `changji`，实际登录用户是 `admin`。之前文档曾被错误地写成了 `mayn`，已通过 SSH 确认纠正。
 
 ### 2.3 服务连接方式
 
@@ -165,6 +167,8 @@ curl --connect-timeout 5 --max-time 10 http://101.133.238.249/api/v1/health
 ```
 ❌ 禁止将项目代码放置在 /root/ 目录下
 ❌ 禁止将构建产物、日志、配置文件放在 root 用户目录
+❌ 禁止假设路径是 /home/mayn/（实际用户是 admin）
+❌ 禁止假设路径是 /opt/changji-cloud/（该目录不存在）
 ✅ 所有项目代码必须存放在 /home/admin/ 目录下
 ✅ 文件权限必须设置为 admin:admin
 ```
@@ -173,41 +177,57 @@ curl --connect-timeout 5 --max-time 10 http://101.133.238.249/api/v1/health
 - root 目录下的代码在系统更新或安全审计时可能被清除
 - 不利于团队协作和权限管理
 - 违反最小权限原则
+- 错误的路径假设会导致部署失败
 
 **正确示例**：
 ```bash
 # ✅ 正确：代码在 admin 用户目录
-cd /home/admin/dang
+cd /home/admin/dang/server
 git pull origin master
 npm run build
-pm2 restart changji-api
+npx pm2 restart changji-api
 
-# ❌ 错误：代码在 root 目录
-cd /root/dang        # 禁止！
-sudo git pull        # 禁止！
+# ❌ 错误：代码在 mayn 目录（不存在）
+cd /home/mayn/dang        # 禁止！目录不存在
+
+# ❌ 错误：代码在 /opt/changji-cloud/（不存在）
+cd /opt/changji-cloud/api  # 禁止！目录不存在
 ```
 
-**迁移方法**（如已有代码在 /root/ 下）：
+**实际服务器路径**（2026-06-01 最终确认）：
 ```bash
-# 1. 复制代码到 admin 目录
-sudo cp -r /root/dang /home/admin/dang
-sudo chown -R admin:admin /home/admin/dang
+# NestJS 后端项目
+/home/admin/dang/server/
 
-# 2. 更新 PM2 配置
-pm2 delete changji-api
-pm2 start /home/admin/dang/server/dist/main.js --name changji-api
-pm2 save
+# 管理后台
+/home/admin/admin-sync/
 
-# 3. 更新部署脚本
-sed -i 's|/root/dang|/home/admin/dang|g' /home/admin/dang/deploy_backend.sh
+# PM2 配置
+/home/admin/.pm2/
 
-# 4. 删除 root 下的代码（确认迁移成功后）
-sudo rm -rf /root/dang
+# Nginx 静态文件
+/var/www/html/admin/
 ```
 
 ---
 
-## 三、已知问题与解决方案
+## 三、部署前必读（SERVER_STATUS.md）
+
+每次部署前，**必须**查阅 [docs/SERVER_STATUS.md](../docs/SERVER_STATUS.md)，确认以下内容：
+
+| 检查项 | 说明 |
+|--------|------|
+| 当前服务状态 | PM2 状态、PID、内存、重启次数 |
+| 上次部署记录 | 部署了哪些文件、构建是否成功 |
+| 已知问题 | 哪些已修复、哪些待验证 |
+| 架构变更 | API分配策略、缓存机制、计费逻辑等 |
+| 部署检查清单 | 标准部署命令序列 |
+
+> **规则**：部署前未查阅 SERVER_STATUS.md 导致的问题，视为部署流程违规。
+
+---
+
+## 四、已知问题与解决方案
 
 ### 问题1：NestJS模块依赖错误
 **现象**：`Nest can't resolve dependencies of the JwtAuthGuard`
@@ -319,11 +339,11 @@ curl -sI http://127.0.0.1/_next/static/css/8297752048ca8b96.css | head -3
 # 部署前检查清单
 echo "=== 部署前检查 ==="
 echo "1. 编译输出路径:"
-ls -la /home/admin/dang/server/dist/src/main.js 2>/dev/null || echo "❌ 编译输出不存在"
+ls -la /home/admin/dang/server/dist/main.js 2>/dev/null || echo "❌ 编译输出不存在"
 echo "2. PM2 配置路径:"
-pm2 describe changji-api | grep "script path" || echo "❌ PM2 配置不存在"
-echo "3. 目标路径:"
-ls -la /opt/changji-cloud/api/dist/main.js 2>/dev/null || echo "❌ 目标路径不存在"
+npx pm2 describe changji-api | grep "script path" || echo "❌ PM2 配置不存在"
+echo "3. 检查 tsconfig.json:"
+ls -la /home/admin/dang/server/tsconfig.json 2>/dev/null || echo "❌ tsconfig.json 不存在"
 ```
 
 ### 问题8：数据库表结构变更后实体类未同步（Unknown column）
@@ -395,9 +415,8 @@ server {
 
 **快速诊断方法**：
 ```bash
-# 对比服务器本地和外部访问的内容是否一致
 # 服务器本地（应为新版本）
-ssh admin@101.133.238.249 "curl -s http://127.0.0.1/subscriptions | grep -o bg-gradient | wc -l"
+ssh changji "curl -s http://127.0.0.1/subscriptions | grep -o bg-gradient | wc -l"
 
 # 外部访问（对比结果）
 curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
@@ -406,9 +425,9 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 
 ---
 
-## 四、部署后验证（使用 MCP 工具）
+## 五、部署后验证（使用 MCP 工具）
 
-### 4.1 Chrome DevTools MCP — 浏览器视觉验证
+### 5.1 Chrome DevTools MCP — 浏览器视觉验证
 
 部署完成后，使用 Chrome DevTools MCP 验证 admin 面板功能正常：
 
@@ -431,7 +450,7 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 
 > **详细 SOP** → 详见 [PLAYWRIGHT_E2E.md](PLAYWRIGHT_E2E.md)
 
-### 4.2 GitHub MCP — 代码与发布管理
+### 5.2 GitHub MCP — 代码与发布管理
 
 | 操作 | MCP 工具 | 说明 |
 |------|---------|------|
@@ -442,7 +461,7 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 
 ---
 
-## 五、相关文档
+## 六、相关文档
 
 | 文档 | 用途 |
 |-----|------|
@@ -450,7 +469,7 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 | [SERVER_SECURITY.md](SERVER_SECURITY.md) | 网络安全、API安全、安全审计 |
 | [SERVER_OPS.md](SERVER_OPS.md) | 日常检查、日志管理、应急响应 |
 | [SERVER_API.md](SERVER_API.md) | 畅记云 API 接口说明 |
-| [../docs/SERVER_STATUS.md](../docs/SERVER_STATUS.md) | 当前服务器部署状态报告 |
+| [../docs/SERVER_STATUS.md](../docs/SERVER_STATUS.md) | **服务器部署状态与架构记录**（部署前必读） |
 | [../docs/BACKEND_ARCHITECTURE.md](../docs/BACKEND_ARCHITECTURE.md) | 后端管理系统完整架构（NestJS模块、数据库实体、AI路由策略） |
 | [RED_LINES.md](RED_LINES.md) | 通用安全红线 |
 | [BUILD.md](BUILD.md) | APK构建规则 |
@@ -462,6 +481,9 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 
 | 日期 | 版本 | 更新内容 |
 |-----|------|---------|
+| 2026-06-02 | v3.1 | 新增"部署前必读"章节：强制要求部署前查阅 SERVER_STATUS.md；更新相关文档引用 |
+| 2026-06-01 | v3.0 | **最终纠正**：实际用户是 admin（不是 mayn）；实际路径是 /home/admin/；编译输出路径是 dist/main.js（不是 dist/src/main.js）；更新所有路径引用 |
+| 2026-06-01 | v2.1 | 纠正：实际用户是 mayn 不是 admin（后被证明错误） |
 | 2026-05-30 | v2.0 | 新增问题7：编译后代码路径与 PM2 配置不匹配（MODULE_NOT_FOUND）；新增问题8：数据库表结构变更后实体类未同步（Unknown column）；增加部署前检查清单 |
 | 2026-05-25 | v1.9 | 安全修复：交互式 SSH/psql/redis-cli 加"仅手动使用"标注并提供 AI 安全替代；curl 命令加 --connect-timeout/--max-time |
 | 2026-05-21 | v1.7 | 新增 CASE-005：Admin 后台 Tailwind CSS 样式不生效；新增 CASE-006：Nginx 缓存导致旧版本页面无法更新 |

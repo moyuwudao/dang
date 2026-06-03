@@ -46,12 +46,14 @@ description: 规则索引 - 所有规则的目录和快速定位
 
 | 文件 | 用途 | 触发条件 |
 |------|------|---------|
-| [SERVER_DEPLOY.md](SERVER_DEPLOY.md) | 阿里云 ECS 部署 | 编辑 admin/、server/ |
+| [SERVER_DEPLOY.md](SERVER_DEPLOY.md) | 阿里云 ECS 部署（**部署前必读 SERVER_STATUS.md**） | 编辑 admin/、server/ |
 | [SERVER_DEPLOY_PROCEDURE.md](SERVER_DEPLOY_PROCEDURE.md) | 部署流程 | 编辑 admin/、server/ |
 | [SERVER_OPS.md](SERVER_OPS.md) | 服务器运维 | 编辑 admin/、server/ |
 | [SERVER_SECURITY.md](SERVER_SECURITY.md) | 服务器安全 | 编辑 admin/、server/ |
 | [SERVER_API.md](SERVER_API.md) | 畅记云 API | 编辑 admin/、server/、lib/**/api/ |
 | [DEBUG_CASES.md](DEBUG_CASES.md) | 错误案例集锦 | 排查 bug 时 |
+| [../docs/SERVER_STATUS.md](../docs/SERVER_STATUS.md) | **服务器部署状态与架构记录**（部署前必读） | 每次部署前 |
+| [../docs/SERVER_DIRECTORY.md](../docs/SERVER_DIRECTORY.md) | 服务器目录结构存档 | 路径确认时 |
 
 ### 2.4 其他
 
@@ -283,6 +285,7 @@ description: 规则索引 - 所有规则的目录和快速定位
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-02 | 服务器相关规则更新：INDEX.md 新增 SERVER_STATUS.md 和 SERVER_DIRECTORY.md 引用；SERVER_DEPLOY.md 新增"部署前必读"章节 |
 | 2026-05-28 | 补充 Playwright MCP（34工具速查）、aliyun-servers MCP（13工具速查）、更新 MCP 服务器表为 5 个 |
 | 2026-05-28 | Skill 触发速查新增 P0+P1 共 9 条：codebase-onboarding/understand/search-first/cost-aware/deep-research/product-capability/ADR/postgres-patterns/market-research |
 | 2026-05-28 | 新增 CodeGraph MCP（10个工具+速查表）、完整 Skill 触发速查表（18条映射）、MCP 优先原则引用 |

@@ -48,7 +48,30 @@ export PATH=/home/mayn/flutter/bin:$PATH
 - **存储密码**: `123456`
 - **密钥密码**: `123456`
 
+### ⚠️ 关键事实：key.properties 仅存在于 WSL 端
+
+> `key.properties` **只在 WSL 端**（`/home/mayn/dang/android/key.properties`），**不会**出现在 Windows 端。
+>
+> **原因**：包含签名密钥密码，已在 `.gitignore` 中，**不进 Git 仓库**。
+>
+> **不要在 Windows 端创建**：`d:\trae_projects\dang\android\key.properties` 永远不应该被创建——即便创建也会被 `rsync --delete` 删除。
+>
+> 详见 [BUILD.md](BUILD.md) "代码同步安全规范"。
+
 ### key.properties 配置
+
+**创建位置（仅 WSL 端）**：
+```bash
+# 必须在 WSL 端创建，且必须在 rsync 同步代码之后写入
+wsl -d dang bash -c 'cat > /home/mayn/dang/android/key.properties << EOF
+storePassword=123456
+keyPassword=123456
+keyAlias=changji
+storeFile=/home/mayn/.android/signing/changji.jks
+EOF'
+```
+
+**配置内容**：
 ```properties
 storePassword=123456
 keyPassword=123456
@@ -123,5 +146,6 @@ adb shell pm list packages | findstr dang
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-02 | 签名配置章节强化：新增"key.properties 仅存在于 WSL 端"关键事实+创建位置说明（必须在 rsync 之后写入）+反模式警告 |
 | 2026-05-12 | 初始版本 |
 | 2026-05-19 | 方案C重构：改为引用模式，移除重复构建内容，保留环境配置和签名信息 |

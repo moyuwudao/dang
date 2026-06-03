@@ -196,6 +196,59 @@ wsl -d dang bash -c "cd /home/mayn/dang && git diff --stat"
 > 
 > **解决**：执行 `rsync` 同步 `lib/` 目录到 WSL 后重新构建，APK 正确显示4个选项。
 
+### ⚠️ 代码同步安全规范（`rsync --delete` 风险）
+
+**核心规则**：
+> **`rsync --delete` 是"双向对齐"工具**——目标端（WSL）任何不在源端（Windows）的文件都会被删除。
+
+**危险场景**：
+WSL 端有、Windows 端没有的文件（如签名配置、`.env`、本地缓存等），会被 `rsync --delete` 当作"多余文件"删除。
+
+**标准流程**：
+
+```powershell
+# ✅ 推荐：先 rsync 同步代码 → 再写 WSL 端独有的配置 → 再构建
+# 1. 同步代码（--delete 会清掉 WSL 端多余文件）
+wsl -d dang bash -c "rsync -av --delete /mnt/d/trae_projects/dang/lib/ /home/mayn/dang/lib/"
+
+# 2. 写入 WSL 端独有的敏感配置（在 rsync 之后！）
+wsl -d dang bash -c 'cat > /home/mayn/dang/android/key.properties << EOF
+storePassword=123456
+keyPassword=123456
+keyAlias=changji
+storeFile=/home/mayn/.android/signing/changji.jks
+EOF'
+
+# 3. 启动构建
+wsl -d dang bash -c "cd /home/mayn/dang && flutter build apk --release"
+```
+
+**rsync 安全选项**：
+
+```powershell
+# 方案 A：用 --exclude 保护 WSL 端独有文件
+wsl -d dang bash -c "rsync -av --delete \
+  --exclude=key.properties \
+  --exclude=.gradle \
+  --exclude=build \
+  /mnt/d/trae_projects/dang/android/ /home/mayn/dang/android/"
+
+# 方案 B：先 --delete 同步，再单独写配置（见上文"标准流程"）
+```
+
+**🚫 禁止**：
+- ❌ "先写 WSL 端配置 → 再 rsync --delete" → 配置必丢
+- ❌ 不加 `--exclude` 同步包含敏感配置的目录 → 必丢
+- ❌ 假设 WSL 端的本地文件会在同步后保留 → 错！
+
+**实际案例**：
+> 构建 APK 前在 WSL 创建了 `key.properties`，紧接着执行 `rsync --delete` 同步 `android/` 目录。
+> 同步后 `key.properties` 消失，APK 构建报 `Cannot read keyAlias from key.properties`。
+>
+> **原因**：Windows 端 `android/` 中没有 `key.properties`（在 `.gitignore` 中），`rsync --delete` 把 WSL 端的同名文件当作"多余文件"删了。
+>
+> **解决**：见上文"标准流程"——先 rsync 同步，再写 key.properties。
+
 ### 问题 2：依赖下载慢
 
 **解决方案**：
@@ -208,14 +261,31 @@ WSL 构建命令已内置国内镜像配置，无需额外设置。
 Cannot read keyAlias from key.properties
 ```
 
+**⚠️ 重要事实**：
+> `key.properties` **仅存在于 WSL 端**（`/home/mayn/dang/android/key.properties`），**不会**在 Windows 端。
+>
+> 原因：包含签名密钥密码，已在 `.gitignore` 中，**不进 Git 仓库**。
+>
+> 即使在 Windows 端手动创建也会被 `rsync --delete` 删除（见上文"代码同步安全规范"）。
+
 **解决方案**：
-创建 `android/key.properties` 文件：
-```properties
-storePassword=your_password
-keyPassword=your_password
+在 WSL 端单独创建（**不要**尝试在 Windows 端创建）：
+
+```powershell
+# 在 WSL 端创建 key.properties
+wsl -d dang bash -c 'cat > /home/mayn/dang/android/key.properties << EOF
+storePassword=123456
+keyPassword=123456
 keyAlias=changji
-storeFile=../changji.jks
+storeFile=/home/mayn/.android/signing/changji.jks
+EOF'
 ```
+
+**位置参考**：完整签名配置见 [dang-构建apk规则.md](dang-构建apk规则.md) "签名配置" 章节。
+
+**🚫 错误做法**：
+- ❌ 在 Windows 端 `d:\trae_projects\dang\android\key.properties` 创建文件 → `rsync --delete` 会删除它
+- ❌ 把 `key.properties` 加入 Git 仓库 → 密钥泄露风险（见 [RED_LINES.md](RED_LINES.md) 密钥红线）
 
 ### 问题 4：编译错误
 
@@ -505,5 +575,6 @@ Get-Item D:\trae_projects\dang\changji_app_*.apk | Select-Object Name, LastWrite
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-02 | 新增"代码同步安全规范"小节（rsync --delete 风险+标准流程+--exclude 方案）；问题 3 强化为"key.properties 仅 WSL 端" |
 | 2026-05-27 | 重大更新：强制流程改为分步执行（禁止合并命令）；新增3条绝对禁止（合并步骤、固定文件名、只同步lib/）；INTERACTION.md 增加构建阻断5条规则 |
 | 2026-05-25 | 安全修复：rsync 加 --timeout=60；flutter build 加 timeout 1200；flutter pub get 加 timeout 300 |

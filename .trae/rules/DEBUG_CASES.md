@@ -13,6 +13,12 @@ description: 错误案例集锦 - 记录项目中遇到的典型问题及解决�
 | 2 | 重定向次数过多 | 高 | ✅ 已解决 |
 | 3 | Nginx 配置错误 | 中 | ✅ 已解决 |
 | 4 | Playwright 安装失败 | 中 | ✅ 已解决 |
+| 5 | PM2 路径不匹配 | 高 | ✅ 已解决 |
+| 6 | 数据库表结构变更未同步 | 中 | ✅ 已解决 |
+| 7 | SSH 路径解析错误 | 中 | ✅ 已解决 |
+| 8 | API Key 分配不均问题 | 高 | ✅ 已解决 |
+| 9 | rsync --delete 误删 WSL 端签名配置 | 高 | ✅ 已解决 |
+| 10 | PowerShell 把 `$(date ...)` 误解析为 `$(Get-Date ...)` | 中 | ✅ 已解决 |
 
 ---
 
@@ -375,10 +381,282 @@ curl -s http://localhost:3000/api/v1/admin/billing-standards -H "Authorization: 
 
 ---
 
+## 案例 7：服务器路径反复错误（SSH 输出解析问题）
+
+**问题描述**：
+- 通过 SSH 执行 `ls -la /home/admin/dang/dang/server/` 时，输出被错误解析
+- 实际输出为 `dang`、`diagnose.sh`、`package-lock.json`（三个文件），但被误认为目录包含这些文件
+- 导致反复假设路径是 `/home/admin/dang/dang/server/`（嵌套 dang），实际正确路径是 `/home/admin/dang/server/`
+
+**错误日志**：
+```
+# SSH 实际输出
+dang
+diagnose.sh
+package-lock.json
+
+# 错误理解：认为 /home/admin/dang/dang/server/ 目录下有三个文件
+# 正确理解：/home/admin/dang/ 目录下有 dang/、diagnose.sh、package-lock.json
+```
+
+**排查过程**：
+1. ❌ 多次执行 `ls -la /home/admin/dang/dang/server/`，输出始终只有三个文件名，未意识到路径错误
+2. ❌ 反复尝试不同方式解析输出，陷入循环
+3. ✅ 用户直接登录服务器执行 `ls -la /home/admin/dang/dang/server/`，返回 `No such file or directory`
+4. ✅ 确认正确路径是 `/home/admin/dang/server/`
+
+**根本原因**：
+- SSH 命令 `ls -la /home/admin/dang/dang/server/` 实际执行的是 `ls -la /home/admin/dang/`（因为 `/dang/server` 不存在，shell 自动回退）
+- 或者：SSH 会话的当前目录是 `/home/admin/dang/server/`，执行 `ls` 时路径被忽略
+- 输出被误解析为目录内容，而非错误信息
+
+**解决方案**：
+```bash
+# 正确做法：用户直接在服务器上执行命令验证路径
+admin@server:~/dang/server$ ls -la /home/admin/dang/dang/server/
+ls: cannot access '/home/admin/dang/dang/server/': No such file or directory
+
+# 确认正确路径
+admin@server:~/dang/server$ ls -la /home/admin/dang/server/
+# 正常输出 src/、dist/、package.json 等
+```
+
+**经验教训**：
+- SSH 远程命令的输出可能被 shell 环境、当前工作目录影响
+- 当输出与预期不符时，优先让用户直接在服务器上执行命令验证
+- 避免在路径不确定时反复执行相同命令
+- 建立路径确认机制：先 `pwd` + `ls` 确认当前位置，再执行目标命令
+
+**预防措施**：
+```bash
+# 路径确认清单
+echo "当前目录: $(pwd)"
+echo "目标路径是否存在: $(ls -d /目标路径 2>/dev/null && echo '存在' || echo '不存在')"
+```
+
+---
+
+## 案例 8：API Key 分配不均导致访问受限
+
+**问题描述**：
+- 多用户访问时，所有用户被分配到同一个 API Key
+- 该 Key 的日配额快速耗尽，后续用户无法使用 AI 服务
+- 每次请求都查询数据库，无缓存机制
+
+**错误日志**：
+```typescript
+// 原代码问题
+private async assignNewKey(userId: string) {
+  const availableKey = await this.apiKeyRepository.findOne({
+    where: { status: ApiKeyStatus.ACTIVE },
+  });
+  // 所有用户都拿到同一个 Key（数据库第一个活跃 Key）
+}
+```
+
+**根本原因**：
+- `findOne` 默认按主键排序，总是返回第一个活跃 Key
+- 无负载均衡逻辑
+- 无 Redis 缓存，每次请求都查数据库
+
+**解决方案**：
+1. 实现加权轮询算法（使用率 40% + 健康度 30% + 响应时间 20% + 配额余量 10%）
+2. 添加 Redis 三层缓存（用户分配、活跃 Key 列表、实时使用量）
+3. 配额预检和并发负载控制
+
+**验证方式**：
+```bash
+# 1. 检查 Redis 缓存
+redis-cli -a Redis123456 --no-auth-warning KEYS "api:*"
+
+# 2. 查看多个用户的分配情况
+# 通过 admin 后台查看 API Key 使用统计
+```
+
+**经验教训**：
+- 多用户共享资源时必须实现负载均衡
+- 缓存可以显著减少数据库压力并提高响应速度
+- 配额预检可以避免将用户分配到已耗尽的 Key
+
+---
+
+## 案例 9：rsync --delete 误删 WSL 端签名配置
+
+**问题描述**：
+- 构建 APK 前已通过 `wsl bash` 在 `/home/mayn/dang/android/key.properties` 创建签名配置文件
+- 紧接着执行 `rsync -av --delete /mnt/d/trae_projects/dang/android/ /home/mayn/dang/android/` 同步代码
+- 同步后 key.properties 消失，APK 构建报 `Cannot read keyAlias from key.properties`
+
+**错误日志**：
+```
+FAILURE: Build failed with an exception.
+* What went wrong:
+Execution failed for task ':app:validateSigningConfigRelease'.
+> Cannot read keyAlias from key.properties
+```
+或：
+```
+> A failure occurred while executing com.android.build.gradle.tasks.PackageAndroidArtifact$IncrementalSplitterRunnable
+> Key file not set for signing config release
+```
+
+**根本原因**：
+- `key.properties` 包含签名密钥密码，**必须在 `.gitignore` 中**（不应进入 Git 仓库）
+- Windows 端 `d:\trae_projects\dang\android\` 中**没有** key.properties（git 忽略）
+- `rsync --delete` 的语义是"目标端与源端保持完全一致"——源端没有的文件，目标端有也会被删除
+- 因此 WSL 端刚刚写入的 key.properties 被 rsync 当作"多余文件"删除
+
+**排查过程**：
+1. ✅ 检查 `local.properties` 和 `build.gradle.kts` —— 配置逻辑正确
+2. ✅ 检查签名文件 `/home/mayn/.android/signing/changji.jks` —— 存在
+3. ❌ **发现问题**：`/home/mayn/dang/android/key.properties` 不存在（被 rsync 删除）
+4. ✅ 复现：写入 key.properties → rsync → 文件消失
+
+**解决方案**：
+**方案 A（推荐，最简单）**：rsync 同步完成后再写入 key.properties
+
+```bash
+# 1. 先 rsync 同步代码（会自动删除 WSL 端多余文件）
+wsl -d dang bash -c 'rsync -av --delete /mnt/d/trae_projects/dang/android/ /home/mayn/dang/android/ --exclude=".gradle" --exclude="build"'
+
+# 2. rsync 之后再写入签名配置
+wsl -d dang bash -c 'cat > /home/mayn/dang/android/key.properties << EOF
+storePassword=123456
+keyPassword=123456
+keyAlias=changji
+storeFile=/home/mayn/.android/signing/changji.jks
+EOF'
+```
+
+**方案 B**：rsync 加 `--exclude` 保护 WSL 端独有文件
+
+```bash
+rsync -av --delete --exclude="key.properties" --exclude=".gradle" --exclude="build" \
+  /mnt/d/trae_projects/dang/android/ /home/mayn/dang/android/
+```
+
+**方案 C**：把 key.properties 纳入 WSL 项目的 `.gitignore` 同步黑名单
+
+```bash
+# 在 WSL 端 android/.gitignore 末尾追加（已经存在）
+echo "key.properties" >> /home/mayn/dang/android/.gitignore
+```
+
+**验证方式**：
+```bash
+# 1. 确认 key.properties 存在
+wsl -d dang bash -c "ls -la /home/mayn/dang/android/key.properties"
+
+# 2. 确认内容正确
+wsl -d dang bash -c "cat /home/mayn/dang/android/key.properties"
+
+# 3. 构建成功
+wsl -d dang bash -c "cd /home/mayn/dang && flutter build apk --release"
+```
+
+**经验教训**：
+- `rsync --delete` 是"双向对齐"工具，目标端任何不在源端的文件都会被删除
+- **敏感/本地配置文件**（key.properties、.env、local.properties）必须放在 rsync 之后写入
+- 如果 WSL 端需要长期保留某些文件，rsync 时必须用 `--exclude` 保护
+- **危险组合**：用 `rsync --delete` 同步时，**先写敏感文件 → 再 rsync = 必丢**
+- 推荐流程：先 rsync 同步代码 → 再写 WSL 端独有的配置 → 再构建
+
+---
+
+## 案例 10：PowerShell 把 `$(date ...)` 误解析为 `$(Get-Date ...)`
+
+**问题描述**：
+- 在 PowerShell 终端执行：`wsl -d dang bash -c "TS=\$(date +%Y%m%d_%H%M); ..."`
+- 预期：WSL bash 展开 `$(date ...)` 为时间戳字符串
+- 实际：PowerShell 提前把 `$(date +%Y%m%d_%H%M)` 当作 PowerShell 表达式 `$(Get-Date +%Y%m%d_%H%M)` 执行
+- 结果：报 `Get-Date: 无法将值 "+%Y%m%d_%H%M" 转换为类型 "System.DateTime"`
+- 后续的 WSL bash 命令也被破坏（双引号未闭合）：`/bin/bash: -c: line 1: unexpected EOF`
+
+**错误日志**：
+```
+Get-Date : 无法绑定参数"Date"。无法将值"+%Y%m%d_%H%M"转换为类型"System.DateTime"。错误:"该字符串未被识别为有效的 DateTime。"
+所在位置 行:1 字符: 37
++ & { wsl -d dang bash -c "TS=\$(date +%Y%m%d_%H%M); TARGET=\"changji_app_\${TS}.apk\"; ...
++                                     ~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Get-Date], ParameterBindingException
+    + FullyQualifiedErrorId : CannotConvertArgumentNoMessage,Microsoft.PowerShell.Commands.GetDateCommand
+
+/bin/bash: -c: line 1: unexpected EOF while looking for matching `'"'
+```
+
+**根本原因**：
+- PowerShell 的 `$(...)` 是**子表达式运算符**，会在命令解析阶段先求值
+- 当用户期望 `$(...)` 透传给 WSL bash 时，PowerShell 已经把它当 PowerShell 表达式执行了
+- 嵌套的双引号在 PowerShell 中还会触发二次解析，进一步破坏命令字符串
+- 这次错误的连锁反应：PowerShell 解析 → 报错 → WSL 收到残缺命令 → 报 EOF 错误
+
+**排查过程**：
+1. ❌ 第一次尝试：双引号包裹 + 内嵌 `$(date ...)` → PowerShell 提前解析
+2. ❌ 第二次尝试：单引号包裹整个 wsl 命令 → trae-sandbox 仍可能解析 `$`
+3. ✅ **最终方案**：把逻辑写进 WSL 内的 `.sh` 脚本，再 `bash xxx.sh`
+
+**解决方案**：
+**方案 A（最稳，推荐）**：Write 工具写脚本到 Windows 端，WSL 读取并执行
+
+```powershell
+# 1. Write 写脚本到 Windows 端
+# 文件：d:\trae_projects\dang\tmp_copy_apk.sh
+# 内容：
+#   #!/bin/bash
+#   TS=$(date +%Y%m%d_%H%M)
+#   TARGET="changji_app_${TS}.apk"
+#   cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk "/mnt/d/trae_projects/dang/${TARGET}"
+
+# 2. WSL 执行脚本
+wsl -d dang bash -c 'bash /mnt/d/trae_projects/dang/tmp_copy_apk.sh'
+
+# 3. 用完删除临时脚本
+Remove-Item "d:\trae_projects\dang\tmp_copy_apk.sh"
+```
+
+**方案 B**：PowerShell 用反引号 ` ` ` 转义所有 `$`
+
+```powershell
+wsl -d dang bash -c "TS=`$(date +%Y%m%d_%H%M); TARGET=`"changji_app_`${TS}.apk`"; cp ... /mnt/d/.../`${TARGET}"
+# ❌ 极容易写错，不推荐
+```
+
+**方案 C**：用 `Invoke-Expression` 显式标记 PowerShell 边界
+
+```powershell
+$cmd = 'TS=$(date +%Y%m%d_%H%M); TARGET="changji_app_${TS}.apk"; cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk "/mnt/d/trae_projects/dang/${TARGET}"'
+wsl -d dang bash -c $cmd
+# ✅ 变量在 PowerShell 端不展开，但写起来繁琐
+```
+
+**验证方式**：
+```bash
+# 1. 确认 APK 复制成功，文件名带时间戳
+ls -la /mnt/d/trae_projects/dang/changji_app_*.apk | tail -3
+
+# 2. 确认 PowerShell 端可见
+Get-ChildItem "d:\trae_projects\dang\changji_app_*.apk" | Sort-Object LastWriteTime -Descending | Select-Object -First 3 Name, Length, LastWriteTime
+
+# 3. 确认时间戳与预期时间一致
+Get-Item "d:\trae_projects\dang\changji_app_20260602_2255.apk" | Select-Object Name, Length, LastWriteTime, CreationTime
+```
+
+**经验教训**：
+- **PowerShell 的 `$(...)` 不是字符串，它会先被解析**——绝不能期望它透传给 WSL
+- **任何含 `$`、`"`、`(`、`)` 的复杂命令**，优先用 Write+脚本方案
+- **trae-sandbox + PowerShell + wsl + bash -c** 组合是 4 层解析，**任何一层都可能在错误的位置解释元字符**
+- WSL bash 内的 `$(date ...)` 本身完全正常，问题 100% 出在 PowerShell 提前介入
+- **铁律**：跨 PowerShell → WSL bash 传命令，要么用方案 A（脚本文件），要么用方案 C（变量传递），绝不直接在命令行嵌套引号
+- 简单场景下可以试 `wsl -d dang bash -c '...'`（外层单引号），但只能处理无 `$` 嵌入的情况
+
+---
+
 ## 更新记录
 
 | 日期 | 案例 | 更新内容 |
 |-----|------|---------|
+| 2026-06-02 | 案例 9-10 | 新增：rsync --delete 误删 WSL 端签名配置（key.properties）、PowerShell 把 `$(date ...)` 误解析为 `$(Get-Date ...)` |
+| 2026-06-02 | 案例 7-8 | 新增：SSH 路径解析错误、API Key 分配不均问题 |
 | 2026-05-30 | 案例 5-6 | 新增：PM2 路径不匹配问题、数据库表结构变更同步问题 |
 | 2026-05-25 | - | 安全修复：playwright 测试加 --timeout=60000；nginx reload 前加 nginx -t 验证 |
 | 2026-05-23 | 案例 1-4 | 初始版本 |

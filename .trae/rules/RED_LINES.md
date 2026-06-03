@@ -264,6 +264,77 @@ description: 安全红线规则 - 绝对不能碰的区域和操作
 **一句话记忆**：
 > 任何需要引号、多行代码、heredoc 的 SSH 操作 → 统一用 `wsl bash -c 'ssh changji "..."'`（外层单引号 + 内层双引号）。不再讨论 PowerShell 引号问题。
 
+#### 5.5.1 PowerShell `$(...)` 子表达式陷阱（必须警惕）
+
+**陷阱描述**：
+PowerShell 的 `$(...)` 是**子表达式运算符**——会在命令解析阶段被 PowerShell 抢先求值，**不是**普通字符串。
+当用户期望 `$(...)` 透传给 WSL bash 时，PowerShell 已经把它当 PowerShell 表达式执行了。
+
+**典型错误**（时间戳场景）：
+```powershell
+# ❌ 用户期望：WSL bash 展开 $(date ...) 为时间戳
+# ❌ 实际：PowerShell 把它当 $(Get-Date ...) 提前执行
+wsl -d dang bash -c "TS=\$(date +%Y%m%d_%H%M); cp ... /mnt/d/.../\${TS}.apk"
+```
+
+**错误输出**：
+```
+Get-Date : 无法将值"+%Y%m%d_%H%M"转换为类型"System.DateTime"
++ CategoryInfo          : InvalidArgument: (:) [Get-Date], ParameterBindingException
+/bin/bash: -c: line 1: unexpected EOF while looking for matching `"'
+```
+
+**绝对不能做**：
+- ❌ 在 PowerShell 命令行直接用 `$(...)` 期望它"原样透传" → 必被 PowerShell 解析
+- ❌ 用反引号 ` ` ` 逐个转义 `$` → 写起来繁琐、容易遗漏、多引号场景必然出错
+- ❌ 在 trae-sandbox 中嵌套多层引号调试 → 4 层解析（trae-sandbox → PowerShell → wsl → bash），任何一层都可能在错误位置解释元字符
+
+**正确做法（按场景选）**：
+
+**场景 1：复杂命令（含 `$`、变量、heredoc、引号嵌套）→ 写脚本文件**
+
+```powershell
+# 1. Write 写脚本到 Windows 端
+# 文件：d:\trae_projects\dang\tmp_copy_apk.sh
+# 内容：
+#   #!/bin/bash
+#   TS=$(date +%Y%m%d_%H%M)
+#   TARGET="changji_app_${TS}.apk"
+#   cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk \
+#      "/mnt/d/trae_projects/dang/${TARGET}"
+
+# 2. WSL 执行脚本
+wsl -d dang bash -c 'bash /mnt/d/trae_projects/dang/tmp_copy_apk.sh'
+
+# 3. 用完清理
+Remove-Item "d:\trae_projects\dang\tmp_copy_apk.sh"
+```
+
+**场景 2：简单单行命令（不含 `$`、不含复杂引号）→ 单引号包裹**
+
+```powershell
+# ✅ 单引号包裹下，$ 不会被 PowerShell 解析，原样传给 WSL bash
+wsl -d dang bash -c 'ls -la /home/mayn/dang/build/app/outputs/flutter-apk/'
+wsl -d dang bash -c 'pm2 status --nostream'
+```
+
+**场景 3：必须用 PowerShell 变量时 → 显式赋值给 PowerShell 变量**
+
+```powershell
+# 把整个命令作为 PowerShell 单引号字符串变量传递
+$cmd = 'TS=$(date +%Y%m%d_%H%M); TARGET="changji_app_${TS}.apk"; cp ...'
+wsl -d dang bash -c $cmd
+# ✅ PowerShell 不会展开单引号里的内容
+```
+
+**铁律**：
+> 任何含 `$(...)`、`$var`、引号嵌套的命令 → **必须**用 Write 写脚本或 PowerShell 变量传递，**绝不**在命令行直接嵌套。
+
+**实际案例**：
+> 在构建后想给 APK 加时间戳复制到 Windows 端，命令是 `wsl bash -c "TS=$(date ...); cp ...; ..."`。
+> 第一次执行：PowerShell 报 `Get-Date` 错误；WSL 收到残缺命令报 EOF。
+> 第二次执行：改用 `wsl bash -c '...'` 单引号包裹，但 trae-sandbox 仍可能介入。
+> 最终方案：Write 写 `tmp_copy_apk.sh` → `wsl bash -c 'bash tmp_copy_apk.sh'` → 成功。
 
 #### 5.6 重试判断标准（完整版）
 
@@ -381,6 +452,7 @@ description: 安全红线规则 - 绝对不能碰的区域和操作
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-02 | 5.5.1 节新增：PowerShell `$(...)` 子表达式陷阱（典型错误+4 个反模式+3 个场景的正确方案+铁律+实际案例） |
 | 2026-05-28 | 5.2 节 SSH 超时参数强制要求：新增兜底方案，要求所有 `ssh changji` 命令必须携带 `-o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2` |
 | 2026-05-25 | 重大更新：第5节全面改写，新增5.1禁止无限等待命令、5.2命令超时要求、5.3超时自动恢复（免确认）、5.4重试上限 |
 | 2026-05-21 | 拆分优化：高风险/警告操作→HIGH_RISK_OPS.md |

@@ -141,8 +141,50 @@ A / B / C / 有其他想法
   └→ 简单任务 → 继续
   ↓
 第4步：使用基础工具
-  └→ RunCommand / Read / Write / SearchReplace / Grep
+  ├→ 单行/简单命令 → RunCommand
+  └→ 复杂命令（>1 变量 / 含 `$(...)` / heredoc / 引号嵌套）→ ⚠️ **优先 Write 写脚本**，再 WSL/aliyun-servers MCP 执行（见下方"复杂命令处理原则"）
 ```
+
+### 复杂命令处理原则（PowerShell + WSL 跨环境）
+
+**判定标准**：满足以下**任一**条件，即视为"复杂命令"：
+- 含 `$(...)` 子表达式或 `$var` 变量
+- 含 heredoc（`<< EOF`）或多行代码
+- 含 ≥2 层引号嵌套
+- 需要在 PowerShell 端和 WSL bash 端同时展开变量
+- 命令长度 > 5 个 `;` 或多语句
+
+**默认方案**：Write 工具写脚本到 Windows 端 → WSL bash 执行脚本。
+
+```powershell
+# 1. Write 写脚本
+# 文件路径：d:\trae_projects\dang\tmp\<script_name>.sh
+# 文件内容：标准 bash 脚本，所有 $、引号、heredoc 都不需要转义
+
+# 2. WSL 执行脚本（单引号包裹，避免 PowerShell 介入）
+wsl -d dang bash -c 'bash /mnt/d/trae_projects/dang/tmp/<script_name>.sh'
+
+# 3. 验证完成后清理
+Remove-Item "d:\trae_projects\dang\tmp\<script_name>.sh"
+```
+
+**为什么必须这样做**：
+- PowerShell 的 `$(...)` 是子表达式运算符，会被 PowerShell **提前求值**，不是普通字符串
+- PowerShell + wsl + bash 是 **4 层解析链路**（trae-sandbox → PowerShell → wsl → bash），任何一层都可能在错误位置解释元字符
+- 用 Write 写脚本后，`$`、`"`、`(`、`)` 全部交给 bash 处理，**零转义、零歧义**
+
+**例外（仍可单行 RunCommand）**：
+- ✅ `wsl -d dang bash -c 'ls -la /home/mayn/dang/build/'`（无 `$`、无引号嵌套）
+- ✅ `wsl -d dang bash -c 'pm2 status --nostream'`（纯只读命令）
+- ✅ `cd d:\xxx && flutter pub get`（纯 Windows 端命令）
+
+**反模式**（禁止）：
+- ❌ `wsl bash -c "TS=$(date +%Y%m%d_%H%M); ..."` → PowerShell 报 `Get-Date` 错误
+- ❌ `wsl bash -c "cat << EOF ... EOF"` → heredoc 必然断裂
+- ❌ `ssh changji "cat > /tmp/fix.py << 'EOF' ... EOF"` → 多层引号必然出错
+- ❌ 在命令里用反引号 ` ` ` 逐个转义 `$` → 写错率高，不推荐
+
+**详细规则** → [RED_LINES.md 5.5/5.5.1 节](RED_LINES.md)
 
 ### 违规自检清单
 
@@ -151,8 +193,10 @@ A / B / C / 有其他想法
 2. ☐ 有对应的 MCP 工具吗？（查 SOUL.md MCP 决策矩阵）
 3. ☐ 能用 Agent 分派吗？
 4. ☐ 如果以上都没有 → 才用 RunCommand
+5. ☐ **这是复杂命令吗？**（含 `$(...)`/`$var`/heredoc/引号嵌套）→ 优先 Write 写脚本，不要直接在 RunCommand 嵌套
 
 **如果跳过第 1-3 步直接用了 RunCommand → 这是浪费 TOKEN 的行为**
+**如果复杂命令没用 Write 写脚本 → 这是必然踩坑的行为**
 
 ---
 
@@ -355,6 +399,7 @@ python3 /tmp/fix.py"'
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-02 | 新增"复杂命令处理原则"小节：判定标准、Write 写脚本标准方案、反模式清单；违规自检清单加第 5 项"是否复杂命令" |
 | 2026-05-28 | 后端校验场景强化：工具选择决策中 aliyun-servers MCP 标注"优先！绝不先用 SSH 命令行"；命令超时自动处理新增"SSH 连接卡住"和"后端状态校验"两个场景 |
 | 2026-05-28 | 新增"工具选择决策"章节：决策流程（4步决策树）、违规自检清单（RunCommand 前必自问 4 项） |
 | 2026-05-25 | 新增"命令超时自动处理"章节；"直接执行"增加只读操作超时场景 |
