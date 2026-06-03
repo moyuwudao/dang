@@ -59,6 +59,7 @@ export const adminAPI = {
   // 订阅管理
   getSubscriptions: (page?: number, pageSize?: number) => api.get('/admin/subscriptions', { params: { page, pageSize } }).then(r => r.data),
   updateSubscription: (id: string, data: any) => api.put(`/admin/subscriptions/${id}`, data).then(r => r.data),
+  deleteSubscription: (id: string) => api.delete(`/admin/subscriptions/${id}`).then(r => r.data),
 
   // 图表数据
   getUserGrowth: (days?: number) => api.get('/admin/charts/user-growth', { params: { days } }).then(r => r.data),
@@ -83,11 +84,11 @@ export const adminAPI = {
   updateTokenPricing: (id: string, data: any) => api.put(`/admin/token-pricing/${id}`, data).then(r => r.data),
   deleteTokenPricing: (id: string) => api.delete(`/admin/token-pricing/${id}`).then(r => r.data),
 
-  // API策略
-  getApiPolicies: () => api.get('/admin/api-policies').then(r => r.data),
-  createApiPolicy: (data: any) => api.post('/admin/api-policies', data).then(r => r.data),
-  updateApiPolicy: (id: string, data: any) => api.put(`/admin/api-policies/${id}`, data).then(r => r.data),
-  deleteApiPolicy: (id: string) => api.delete(`/admin/api-policies/${id}`).then(r => r.data),
+  // API配置（系数）
+  getApiConfigs: () => api.get('/admin/api-configs').then(r => r.data),
+  createApiConfig: (data: any) => api.post('/admin/api-configs', data).then(r => r.data),
+  updateApiConfig: (id: string, data: any) => api.put(`/admin/api-configs/${id}`, data).then(r => r.data),
+  deleteApiConfig: (id: string) => api.delete(`/admin/api-configs/${id}`).then(r => r.data),
 };
 
 export const apiKeyAPI = {

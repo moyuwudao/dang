@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { Card, CardBody, Button, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Pagination, Spinner } from '@nextui-org/react';
-import { Plus, Search, Edit, Package, Clock, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Search, Edit, Package, Clock, Trash2, AlertCircle, RefreshCw, Coins } from 'lucide-react';
 import Layout from '@/components/Layout';
 import { adminAPI } from '@/services/api';
 import type { Plan, Subscription } from '@/types';
@@ -16,17 +16,15 @@ const getPlanIcon = (planId: string) => {
 
 const getPlanTypeLabel = (type?: string) => {
   switch (type) {
-    case 'subscription': return '订阅制';
-    case 'package': return '资源包';
+    case 'monthly': return '月度套餐';
     case 'recharge': return '充值';
-    default: return '订阅制';
+    default: return '月度套餐';
   }
 };
 
 const getPlanTypeColor = (type?: string) => {
   switch (type) {
-    case 'subscription': return 'bg-blue-50 text-blue-700 border-blue-200';
-    case 'package': return 'bg-purple-50 text-purple-700 border-purple-200';
+    case 'monthly': return 'bg-blue-50 text-blue-700 border-blue-200';
     case 'recharge': return 'bg-green-50 text-green-700 border-green-200';
     default: return 'bg-gray-50 text-gray-700 border-gray-200';
   }
@@ -34,6 +32,7 @@ const getPlanTypeColor = (type?: string) => {
 
 export default function SubscriptionsPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState('plans');
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
@@ -48,6 +47,9 @@ export default function SubscriptionsPage() {
 
   const [showDeletePlanModal, setShowDeletePlanModal] = useState(false);
   const [planToDelete, setPlanToDelete] = useState<string | null>(null);
+
+  const [showDeleteSubModal, setShowDeleteSubModal] = useState(false);
+  const [subToDelete, setSubToDelete] = useState<string | null>(null);
 
   const [showEditSubModal, setShowEditSubModal] = useState(false);
   const [editingSub, setEditingSub] = useState<Subscription | null>(null);
@@ -82,12 +84,16 @@ export default function SubscriptionsPage() {
   }, [subPage]);
 
   useEffect(() => {
-    fetchPlans();
-  }, [fetchPlans]);
+    if (activeTab === 'plans') {
+      fetchPlans();
+    }
+  }, [fetchPlans, activeTab]);
 
   useEffect(() => {
-    fetchSubscriptions();
-  }, [fetchSubscriptions]);
+    if (activeTab === 'subscriptions') {
+      fetchSubscriptions();
+    }
+  }, [fetchSubscriptions, activeTab]);
 
   const handleDeletePlan = async () => {
     if (!planToDelete) return;
@@ -98,6 +104,18 @@ export default function SubscriptionsPage() {
       fetchPlans();
     } catch (err: any) {
       setError(err.response?.data?.message || '删除套餐失败');
+    }
+  };
+
+  const handleDeleteSubscription = async () => {
+    if (!subToDelete) return;
+    try {
+      await adminAPI.deleteSubscription(subToDelete);
+      setShowDeleteSubModal(false);
+      setSubToDelete(null);
+      fetchSubscriptions();
+    } catch (err: any) {
+      setError(err.response?.data?.message || '删除订阅失败');
     }
   };
 
@@ -126,6 +144,11 @@ export default function SubscriptionsPage() {
     setShowDeletePlanModal(true);
   };
 
+  const openDeleteSub = (id: string) => {
+    setSubToDelete(id);
+    setShowDeleteSubModal(true);
+  };
+
   const openEditSub = (sub: Subscription) => {
     setEditingSub(sub);
     setSubStatusForm(sub.status);
@@ -150,8 +173,17 @@ export default function SubscriptionsPage() {
     const matchesSearch = !searchTerm ||
       (sub.userPhone?.includes(searchTerm)) ||
       (sub.planName?.includes(searchTerm));
-    return matchesSearch;
+    const matchesStatus = statusFilter === 'all' || sub.status === statusFilter;
+    return matchesSearch && matchesStatus;
   }) || [];
+
+  // Format token number to human readable
+  const formatTokens = (tokens: number) => {
+    if (tokens >= 10000) {
+      return `${(tokens / 10000).toFixed(0)}W`;
+    }
+    return tokens.toString();
+  };
 
   return (
     <Layout currentPage="subscriptions">
@@ -162,10 +194,12 @@ export default function SubscriptionsPage() {
             <h1 className="text-xl font-semibold text-gray-900">订阅管理</h1>
             <p className="text-gray-500 mt-1">管理套餐和用户订阅</p>
           </div>
-          <Button color="primary" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white" onClick={openCreatePlan}>
-            <Plus className="w-4 h-4" />
-            添加套餐
-          </Button>
+          {activeTab === 'plans' && (
+            <Button color="primary" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white" onClick={openCreatePlan}>
+              <Plus className="w-4 h-4" />
+              添加套餐
+            </Button>
+          )}
         </div>
 
         {/* Error Alert */}
@@ -173,14 +207,44 @@ export default function SubscriptionsPage() {
           <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <span className="flex-1">{error}</span>
-            <Button size="sm" variant="light" color="danger" onClick={() => { fetchPlans(); fetchSubscriptions(); }}>
+            <Button size="sm" variant="light" color="danger" onClick={() => { activeTab === 'plans' ? fetchPlans() : fetchSubscriptions(); }}>
               重试
             </Button>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Plans List */}
+        {/* Tabs */}
+        <div className="flex gap-2 border-b border-gray-200">
+          <button
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeTab === 'plans'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-800'
+            }`}
+            onClick={() => setActiveTab('plans')}
+          >
+            <div className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              <span>套餐列表</span>
+            </div>
+          </button>
+          <button
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeTab === 'subscriptions'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-800'
+            }`}
+            onClick={() => setActiveTab('subscriptions')}
+          >
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              <span>用户订阅</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Plans Tab */}
+        {activeTab === 'plans' && (
           <Card className="bg-white border border-gray-100">
             <CardBody className="p-6">
               <div className="flex items-center gap-3 mb-5">
@@ -218,31 +282,26 @@ export default function SubscriptionsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="font-semibold text-gray-800">{plan.name}</p>
-                              {plan.isRecommended && (
-                                <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">推荐</span>
-                              )}
                               <span className={`px-2 py-0.5 text-xs rounded-full border ${getPlanTypeColor(plan.type)}`}>
                                 {getPlanTypeLabel(plan.type)}
                               </span>
                             </div>
                             <p className="text-sm text-gray-500">{plan.description || '-'}</p>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-                              <span className="text-sm font-medium text-blue-600">¥{(plan.priceCents / 100).toFixed(0)}/{plan.durationDays}天</span>
-                              <span className="text-xs text-gray-400">
-                                {plan.quotaType === 'unlimited' ? '无限配额' : `${plan.quotaValue}分钟`}
+                              <span className="text-sm font-medium text-blue-600">
+                                ¥{(plan.priceCents / 100).toFixed(plan.priceCents % 100 === 0 ? 0 : 2)}
                               </span>
+                              <span className="text-xs text-gray-400">/{plan.durationDays}天</span>
+                              {plan.tokenQuota ? (
+                                <span className="text-xs text-gray-400 flex items-center gap-1">
+                                  <Coins className="w-3 h-3" />
+                                  {formatTokens(plan.tokenQuota)} TOKEN
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-400">无TOKEN配额</span>
+                              )}
                               <span className="text-xs text-gray-400">ID: {plan.id.slice(0, 8)}</span>
                             </div>
-                            {plan.featureQuotas && plan.featureQuotas.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                <span className="text-xs text-gray-400 mr-1">功能配额:</span>
-                                {plan.featureQuotas.map((quota, index) => (
-                                  <span key={index} className="px-1.5 py-0.5 text-xs bg-purple-50 text-purple-600 rounded border border-purple-100">
-                                    {quota.quotaValue}{quota.quotaUnit}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
                             {plan.allowedModels && plan.allowedModels.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 <span className="text-xs text-gray-400 mr-1">可用模型:</span>
@@ -276,8 +335,10 @@ export default function SubscriptionsPage() {
               )}
             </CardBody>
           </Card>
+        )}
 
-          {/* Subscriptions List */}
+        {/* Subscriptions Tab */}
+        {activeTab === 'subscriptions' && (
           <Card className="bg-white border border-gray-100">
             <CardBody className="p-6">
               <div className="flex items-center gap-3 mb-5">
@@ -336,10 +397,11 @@ export default function SubscriptionsPage() {
                 </div>
               ) : (
                 <>
-                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                  <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                     {filteredSubscriptions?.map((sub) => {
                       const statusConfig = getStatusConfig(sub.status);
                       const Icon = getPlanIcon(sub.planId);
+                      const isExpired = sub.status === 'expired';
                       return (
                         <div key={sub.id} className="flex items-start justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100">
                           <div className="flex-1">
@@ -351,15 +413,18 @@ export default function SubscriptionsPage() {
                                 {statusConfig.label}
                               </span>
                             </div>
-                            <p className="font-medium text-gray-800 text-sm">{sub.userPhone || sub.userId}</p>
+                            <p className="font-medium text-gray-800 text-sm">{sub.userPhone || sub.userId || '未知用户'}</p>
                             <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                               <span>套餐: {sub.planName || sub.planId}</span>
                             </div>
                             {sub.totalQuota > 0 && (
                               <div className="mt-3">
                                 <div className="flex items-center justify-between text-xs mb-1.5">
-                                  <span className="text-gray-500">配额使用</span>
-                                  <span className="text-gray-700 font-medium">{sub.usedQuota}/{sub.totalQuota}分钟</span>
+                                  <span className="text-gray-500 flex items-center gap-1">
+                                    <Coins className="w-3 h-3" />
+                                    TOKEN使用
+                                  </span>
+                                  <span className="text-gray-700 font-medium">{formatTokens(sub.usedQuota)}/{formatTokens(sub.totalQuota)}</span>
                                 </div>
                                 <div className="w-full bg-gray-200/80 rounded-full h-2">
                                   <div
@@ -375,16 +440,30 @@ export default function SubscriptionsPage() {
                             <p className="text-sm font-medium text-gray-700">{sub.startedAt?.slice(0, 10) || '-'}</p>
                             <p className="text-xs text-gray-500 mt-1">到期</p>
                             <p className="text-sm font-medium text-gray-700">{sub.expiresAt?.slice(0, 10) || '-'}</p>
-                            <Button
-                              size="sm"
-                              variant="light"
-                              color="primary"
-                              className="mt-2 hover:bg-gray-50"
-                              onClick={() => openEditSub(sub)}
-                            >
-                              <Edit className="w-3 h-3 mr-1" />
-                              编辑
-                            </Button>
+                            <div className="flex items-center gap-1 mt-2">
+                              <Button
+                                size="sm"
+                                variant="light"
+                                color="primary"
+                                className="hover:bg-gray-50"
+                                onClick={() => openEditSub(sub)}
+                              >
+                                <Edit className="w-3 h-3 mr-1" />
+                                编辑
+                              </Button>
+                              {isExpired && (
+                                <Button
+                                  size="sm"
+                                  variant="light"
+                                  color="danger"
+                                  className="hover:bg-red-50"
+                                  onClick={() => openDeleteSub(sub.id)}
+                                >
+                                  <Trash2 className="w-3 h-3 mr-1" />
+                                  删除
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -410,7 +489,7 @@ export default function SubscriptionsPage() {
               )}
             </CardBody>
           </Card>
-        </div>
+        )}
 
         {/* Delete Plan Modal */}
         <Modal isOpen={showDeletePlanModal} onClose={() => setShowDeletePlanModal(false)} classNames={{
@@ -434,6 +513,32 @@ export default function SubscriptionsPage() {
           <ModalFooter>
             <Button variant="light" onClick={() => setShowDeletePlanModal(false)} className="hover:bg-gray-100">取消</Button>
             <Button color="danger" className="bg-red-600 hover:bg-red-700" onClick={handleDeletePlan}>确认删除</Button>
+          </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Delete Subscription Modal */}
+        <Modal isOpen={showDeleteSubModal} onClose={() => setShowDeleteSubModal(false)} classNames={{
+          base: 'rounded-xl',
+          header: 'border-b border-gray-100',
+          footer: 'border-t border-gray-100',
+        }}>
+          <ModalContent>
+          <ModalHeader className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+              <Trash2 className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-lg font-bold text-gray-800">确认删除订阅</p>
+              <p className="text-sm text-gray-500">此操作不可撤销</p>
+            </div>
+          </ModalHeader>
+          <ModalBody>
+            <p className="text-gray-600">确定要删除该过期订阅记录吗？</p>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onClick={() => setShowDeleteSubModal(false)} className="hover:bg-gray-100">取消</Button>
+            <Button color="danger" className="bg-red-600 hover:bg-red-700" onClick={handleDeleteSubscription}>确认删除</Button>
           </ModalFooter>
           </ModalContent>
         </Modal>
