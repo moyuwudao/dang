@@ -1,411 +1,242 @@
----
-alwaysApply: false
-description: 阿里云ECS服务器部署状态报告 - 101.133.238.249 当前运行状态快照
----
+# 服务器状态与部署记录
 
-# SERVER_STATUS.md - 服务器部署状态报告
-
-## 报告概述
-
-| 项目 | 内容 |
-|-----|------|
-| **报告编号** | DEPLOY-REPORT-20260520 |
-| **服务器** | 101.133.238.249 |
-| **操作系统** | Ubuntu 22.04.5 LTS (Jammy) |
-| **报告周期** | 初始部署验收 |
-
-> **部署规范** → 详见 [SERVER_DEPLOY.md](SERVER_DEPLOY.md)
-> **安全红线** → 详见 [RED_LINES.md](RED_LINES.md)
+> **服务器**: 101.133.238.249 (changji)
+> **实际用户**: admin
+> **后端路径**: `/home/admin/dang/server/`
+> **最后更新**: 2026-06-02
 
 ---
 
-## 一、服务器基本信息
+## 一、本次部署记录（2026-06-02）
 
-### 1.1 硬件配置
+### 1.1 部署内容
 
-| 项目 | 配置 | 状态 |
-|-----|------|------|
-| CPU | 2核 | ✅ 正常 |
-| 内存 | 1.6GB | ✅ 正常 (使用19.5%) |
-| 磁盘 | 40GB SSD | ✅ 正常 (使用9.5%) |
-| 运行时间 | 16小时33分钟 | ✅ 稳定 |
-| 负载 | 0.24, 0.08, 0.02 | ✅ 低负载 |
+| 模块 | 变更内容 | 文件 |
+|------|---------|------|
+| API Key 分配策略 | 实现加权轮询 + 配额预检 + 健康过滤 | `api-key.service.ts` |
+| Redis 缓存机制 | 三层缓存：用户分配、活跃Key列表、实时使用量 | `api-key.service.ts` |
+| AI 服务集成 | 调用 `recordKeyUsage` 更新实时使用量缓存 | `ai.service.ts` |
+| 模块依赖 | ApiKeyModule 添加 RedisModule 依赖 | `api-key.module.ts` |
 
-### 1.2 系统信息
-
-| 项目 | 内容 |
-|-----|------|
-| 主机名 | iZuf6j5b88pu788rois7zhZ |
-| 内核版本 | 5.15.0-142-generic |
-| 系统架构 | x86_64 |
-| 时区 | Asia/Shanghai (CST) |
-
-### 1.3 网络配置
-
-| 项目 | 配置 |
-|-----|------|
-| 公网IP | 101.133.238.249 |
-| 内网IP | 172.24.29.151/18 |
-| 网关 | 172.24.63.255 |
-
----
-
-## 二、已部署服务清单
-
-### 2.1 系统服务
-
-| 序号 | 服务 | 版本 | 状态 | 自启动 |
-|-----|------|------|------|--------|
-| 1 | SSH | 8.9p1 | ✅ active | ✅ enabled |
-| 2 | Nginx | 1.18.0 | ✅ active | ✅ enabled |
-| 3 | Docker | 29.1.3 | ✅ active | ✅ enabled |
-| 4 | Fail2ban | 0.11.2 | ✅ active | ✅ enabled |
-| 5 | Unattended-upgrades | 2.8 | ✅ active | ✅ enabled |
-| 6 | Chrony | 4.2 | ✅ active | ✅ enabled |
-| 7 | UFW | 0.36.1 | ✅ active | ✅ enabled |
-
-### 2.2 已安装软件
-
-| 软件 | 版本 | 用途 |
-|-----|------|------|
-| Docker | 29.1.3 | 容器化平台 |
-| Nginx | 1.18.0 | Web服务器/反向代理 |
-| Fail2ban | 0.11.2 | 防暴力破解 |
-| UFW | 0.36.1 | 防火墙管理 |
-| Certbot | 1.21.0 | SSL证书管理 |
-| Chrony | 4.2 | 时间同步 |
-| Python3 | 3.10.12 | 脚本环境 |
-| Vim | 8.2.3995 | 文本编辑 |
-| Htop | 3.0.5 | 进程监控 |
-| jq | 1.6 | JSON处理 |
-| tree | 2.0.2 | 目录树 |
-| ncdu | 1.15.1 | 磁盘分析 |
-| tmux | 3.2a | 终端复用 |
-| iotop | 0.6 | IO监控 |
-| wget | 1.21.2 | 文件下载 |
-| curl | 7.81.0 | HTTP请求 |
-| git | 2.34.1 | 版本控制 |
-
-### 2.3 未安装软件（按需安装）
-
-| 软件 | 状态 | 备注 |
-|-----|------|------|
-| Node.js | ❌ 未安装 | 如需运行Node应用需安装 |
-| MySQL/PostgreSQL | ❌ 未安装 | 如需数据库需安装 |
-| Redis | ❌ 未安装 | 如需缓存需安装 |
-| Prometheus | ❌ 未安装 | 建议安装用于监控 |
-| Grafana | ❌ 未安装 | 建议安装用于可视化 |
-
----
-
-## 三、资源使用
-
-### 3.1 内存
-
-| 类型 | 总量 | 已用 | 可用 | 使用率 |
-|-----|------|------|------|--------|
-| 物理内存 | 1.6GB | 312MB | 1.1GB | 19.5% |
-| Swap | 0B | 0B | 0B | 0% |
-
-**评估**：内存使用率正常，有充足余量。
-
-### 3.2 磁盘
-
-| 挂载点 | 总量 | 已用 | 可用 | 使用率 |
-|--------|------|------|------|--------|
-| / (根目录) | 40GB | 3.8GB | 34GB | 9.5% |
-| /boot/efi | 197MB | 6.1MB | 191MB | 3.1% |
-
-**评估**：磁盘空间充足，使用率低于10%。
-
-### 3.3 CPU
-
-| 项目 | 内容 |
-|-----|------|
-| CPU核心数 | 2核 |
-| 负载平均值 | 0.24 / 0.08 / 0.02 |
-| 负载评估 | 极低（远低于核心数） |
-
-**评估**：CPU负载极低，系统运行轻松。
-
----
-
-## 四、服务运行详情
-
-### 4.1 SSH服务
-
-| 项目 | 状态 |
-|-----|------|
-| 服务状态 | ✅ active |
-| 监听端口 | 22/tcp |
-| Root登录 | ❌ 已禁用 |
-| 密码认证 | ✅ 已启用 |
-| 允许用户 | admin, root |
-| 最大尝试次数 | 3 |
-
-### 4.2 Nginx服务
-
-| 项目 | 状态 |
-|-----|------|
-| 服务状态 | ✅ active |
-| 版本 | 1.18.0 |
-| 监听端口 | 80/tcp |
-| 配置文件 | /etc/nginx/nginx.conf |
-
-### 4.3 Docker服务
-
-| 项目 | 状态 |
-|-----|------|
-| 服务状态 | ✅ active |
-| 版本 | 29.1.3 |
-| 容器运行数 | 0 |
-| 镜像数 | 0 |
-| 存储驱动 | overlay2 |
-
-### 4.4 防火墙状态
-
-| 规则 | 端口 | 协议 | 动作 |
-|-----|------|------|------|
-| SSH | 22 | TCP | ALLOW |
-| HTTP | 80 | TCP | ALLOW |
-| HTTPS | 443 | TCP | ALLOW |
-
-**默认策略**：入站deny，出站allow
-
----
-
-## 五、安全配置
-
-### 5.1 安全防护措施
-
-| 层级 | 措施 | 状态 | 评估 |
-|-----|------|------|------|
-| 阿里云安全组 | 端口开放控制 | ⚠️ 待优化 | 建议限制SSH IP |
-| UFW防火墙 | 端口过滤 | ✅ 已启用 | 配置正确 |
-| Fail2ban | 暴力破解防护 | ✅ 已启用 | 3次失败封禁1小时 |
-| SSH安全 | 禁用root登录 | ✅ 已配置 | 安全 |
-| 自动更新 | 安全补丁 | ✅ 已启用 | 每天检查 |
-| 密码策略 | 复杂度要求 | ⚠️ 待配置 | 建议启用 |
-
-### 5.2 用户账户
-
-| 用户 | 状态 | 权限 |
-|-----|------|------|
-| root | ❌ 禁用SSH | 全部 |
-| admin | ✅ 活跃 | sudo |
-
-### 5.3 安全风险评估
-
-| 风险项 | 等级 | 描述 | 建议措施 |
-|--------|------|------|---------|
-| 密码认证 | 🟡 中 | 仍使用密码登录 | 配置SSH密钥认证 |
-| 默认密码 | 🔴 高 | admin使用默认密码 | 立即修改密码 |
-| 安全组配置 | 🟡 中 | SSH端口对全网开放 | 限制IP白名单 |
-| 无监控 | 🟡 中 | 未安装监控工具 | 安装Prometheus |
-| 无告警 | 🟡 中 | 无自动告警机制 | 配置告警规则 |
-
----
-
-## 六、备份策略
-
-### 6.1 备份配置
-
-| 项目 | 配置 |
-|-----|------|
-| 备份脚本 | /backup/scripts/backup.sh |
-| 备份目录 | /backup/data/ |
-| 执行时间 | 每天凌晨 2:00 |
-| 保留周期 | 7天 |
-| 备份内容 | 系统配置、用户数据、Docker卷 |
-
-### 6.2 备份状态
-
-| 检查项 | 状态 |
-|--------|------|
-| 备份脚本存在 | ✅ 是 |
-| 备份目录可写 | ✅ 是 |
-| 定时任务配置 | ✅ 已配置 |
-| 最近一次备份 | 待执行（新部署） |
-
----
-
-## 七、存在的问题
-
-### 7.1 高优先级
-
-| 序号 | 问题 | 影响 | 建议措施 | 预计解决时间 |
-|-----|------|------|---------|------------|
-| 1 | admin用户使用默认密码 | 安全风险 | 立即修改密码 | 即时 |
-| 2 | 未配置SSH密钥认证 | 密码泄露风险 | 生成密钥对并配置 | 1小时 |
-
-### 7.2 中优先级
-
-| 序号 | 问题 | 影响 | 建议措施 | 预计解决时间 |
-|-----|------|------|---------|------------|
-| 3 | 阿里云安全组未限制SSH IP | 暴露攻击面 | 配置IP白名单 | 30分钟 |
-| 4 | 未安装系统监控工具 | 无法及时发现异常 | 安装Prometheus+Grafana | 2小时 |
-| 5 | 无自动告警机制 | 故障响应延迟 | 配置邮件/短信告警 | 2小时 |
-| 6 | 未配置SSL证书 | 数据传输不安全 | 使用Certbot申请证书 | 1小时 |
-
-### 7.3 低优先级
-
-| 序号 | 问题 | 影响 | 建议措施 | 预计解决时间 |
-|-----|------|------|---------|------------|
-| 7 | 未配置日志轮转 | 日志文件可能过大 | 配置logrotate | 30分钟 |
-| 8 | 未安装Node.js环境 | 无法运行Node应用 | 根据需求安装 | 按需 |
-| 9 | 未配置时区同步 | 时间可能漂移 | 确认chrony运行正常 | 即时 |
-
----
-
-## 八、风险评估
-
-### 8.1 整体风险等级
-
-| 评估维度 | 等级 | 说明 |
-|---------|------|------|
-| 系统稳定性 | 🟢 低 | 所有核心服务运行正常 |
-| 安全性 | 🟡 中 | 基本防护已配置，但有改进空间 |
-| 可用性 | 🟢 低 | 服务可用性高 |
-| 可维护性 | 🟡 中 | 缺少监控和告警 |
-| 数据安全 | 🟡 中 | 备份已配置但未验证 |
-
-### 8.2 风险矩阵
-
-| 风险 | 可能性 | 影响 | 等级 | 缓解措施 |
-|------|--------|------|------|---------|
-| 密码泄露 | 中 | 高 | 🔴 高 | 配置密钥认证 |
-| DDoS攻击 | 低 | 中 | 🟡 中 | 配置防火墙限制 |
-| 服务宕机 | 低 | 高 | 🟡 中 | 安装监控告警 |
-| 数据丢失 | 低 | 高 | 🟡 中 | 验证备份有效性 |
-| 系统入侵 | 低 | 高 | 🟡 中 | 加强安全审计 |
-
----
-
-## 九、优化建议
-
-### 9.1 立即执行（24小时内）
-
-1. **修改admin密码**
-   ```bash
-   ssh admin@101.133.238.249
-   passwd
-   ```
-
-2. **配置SSH密钥认证**
-   ```bash
-   # 本地生成密钥
-   ssh-keygen -t ed25519 -C "your_email@example.com"
-   
-   # 上传公钥
-   ssh-copy-id admin@101.133.238.249
-   
-   # 禁用密码登录
-   sudo sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-   sudo systemctl restart sshd
-   ```
-
-3. **配置阿里云安全组**
-   - 登录阿里云控制台
-   - 找到ECS安全组
-   - 将SSH规则改为仅允许你的IP
-
-### 9.2 短期执行（1周内）
-
-4. **安装监控工具**
-   ```bash
-   # 安装Node Exporter
-   docker run -d --name node-exporter -p 9100:9100 prom/node-exporter
-   ```
-
-5. **配置SSL证书**
-   ```bash
-   sudo certbot --nginx -d yourdomain.com
-   ```
-
-6. **配置日志轮转**
-   ```bash
-   sudo logrotate -f /etc/logrotate.conf
-   ```
-
-### 9.3 中期执行（1个月内）
-
-7. **建立CI/CD流程**
-8. **完善文档**
-9. **安全审计**
-
----
-
-## 十、总结
-
-### 10.1 部署完成度
-
-| 类别 | 完成度 | 状态 |
-|------|--------|------|
-| 系统初始化 | 100% | ✅ 完成 |
-| 安全加固 | 80% | 🟡 基本完成 |
-| 服务部署 | 100% | ✅ 完成 |
-| 性能优化 | 100% | ✅ 完成 |
-| 备份策略 | 100% | ✅ 完成 |
-| 监控告警 | 0% | ❌ 未开始 |
-
-### 10.2 总体评估
-
-**服务器初始化部署已基本完成**，系统运行稳定，核心服务正常，安全防护措施已配置。
-
-**需要改进**：
-1. **安全方面**：配置SSH密钥认证、修改默认密码、限制安全组IP
-2. **监控方面**：安装监控工具，建立告警机制
-3. **运维方面**：验证备份有效性，完善运维文档
-
-### 10.3 下一步行动
-
-| 优先级 | 行动项 | 截止时间 |
-|--------|--------|---------|
-| P0 | 修改admin密码 | 2026-05-20 |
-| P0 | 配置SSH密钥认证 | 2026-05-20 |
-| P1 | 配置安全组IP白名单 | 2026-05-21 |
-| P1 | 安装监控工具 | 2026-05-25 |
-| P2 | 配置SSL证书 | 2026-05-27 |
-| P2 | 验证备份有效性 | 2026-05-27 |
-
----
-
-## 附录
-
-### A. 常用命令速查
+### 1.2 部署结果
 
 ```bash
-# 查看服务状态
-sudo systemctl status ssh nginx docker fail2ban
-
-# 查看资源使用
-sudo df -h && sudo free -h
-
-# 查看端口监听
-sudo ss -tlnp
-
-# 查看防火墙
-sudo ufw status verbose
-
-# 查看登录日志
-sudo lastlog
-
-# 手动备份
-sudo /backup/scripts/backup.sh
+# 部署命令
+cd /home/admin/dang/server
+git pull origin master      # ✅ Already up to date
+npm run build               # ✅ 构建成功
+npx pm2 restart changji-api # ✅ 重启成功
+npx pm2 status              # ✅ online, PID 557292
+curl -s http://localhost:3000/api/v1/health  # 待验证
 ```
 
-### B. 重要文件路径
+### 1.3 服务状态
 
-| 文件 | 路径 |
-|-----|------|
-| SSH配置 | /etc/ssh/sshd_config |
-| Nginx配置 | /etc/nginx/nginx.conf |
-| 防火墙配置 | /etc/ufw/ |
-| Fail2ban配置 | /etc/fail2ban/jail.local |
-| 系统参数 | /etc/sysctl.conf |
-| 备份脚本 | /backup/scripts/backup.sh |
+| 服务 | 状态 | PID | 内存 | 重启次数 |
+|------|------|-----|------|---------|
+| changji-api | online | 557292 | ~81MB | 12 |
 
 ---
 
-*报告生成时间：2026-05-20 10:35:44 CST*
-*下次检查时间：建议每周一进行例行检查*
+## 二、多用户API访问架构改进
+
+### 2.1 问题背景
+
+**原有问题**：
+- `ApiKeyService.assignNewKey()` 使用 `findOne({ where: { status: ACTIVE } })` 取第一个可用 Key
+- 所有用户可能分配到同一个 API Key，导致该 Key 的配额快速耗尽
+- 每次请求都查询数据库，无 Redis 缓存
+
+### 2.2 解决方案
+
+#### 2.2.1 加权轮询分配算法
+
+```typescript
+// 综合评分 = 使用率(40%) + 健康度(30%) + 响应时间(20%) + 配额余量(10%)
+private selectOptimalKey(keys: ApiKey[]): ApiKey {
+  const scoredKeys = keys.map(key => {
+    const usageRate = key.dailyQuota > 0 ? key.dailyUsage / key.dailyQuota : 0;
+    const usageScore = (1 - usageRate) * 40;
+    
+    let healthScore = 30;
+    if (key.lastHealthCheckStatus === 'healthy') healthScore = 30;
+    else if (key.lastHealthCheckStatus === 'unhealthy') healthScore = 0;
+    else healthScore = 15;
+    
+    // ... 响应时间评分、配额余量评分
+    
+    return { key, score: usageScore + healthScore + responseScore + quotaScore };
+  });
+  
+  // 分数相近时随机选择，避免总是命中同一个
+  scoredKeys.sort((a, b) => b.score - a.score);
+  const topKeys = scoredKeys.filter(s => s.score >= scoredKeys[0].score - 5);
+  if (topKeys.length > 1) {
+    return topKeys[Math.floor(Math.random() * topKeys.length)].key;
+  }
+  return scoredKeys[0].key;
+}
+```
+
+#### 2.2.2 三层 Redis 缓存
+
+| 缓存键 | TTL | 用途 |
+|--------|-----|------|
+| `api:active_keys` | 5分钟 | 活跃Key列表，减少数据库查询 |
+| `api:user_key:${userId}` | 24小时 | 用户分配关系，确保同一用户持续命中同一Key |
+| `api:key_usage:${keyId}` | 当天有效 | 实时使用量，用于动态负载均衡 |
+
+#### 2.2.3 配额预检与并发控制
+
+```typescript
+// 分配前检查
+private isKeyAvailable(key: ApiKey): boolean {
+  if (key.status !== ApiKeyStatus.ACTIVE) return false;
+  if (key.lastHealthCheckStatus !== 'healthy') return false;
+  if (key.dailyUsage >= key.dailyQuota) return false;
+  if (key.expiresAt && key.expiresAt < new Date()) return false;
+  return true;
+}
+
+// 并发负载检查
+if (assignedUserCount >= selectedKey.maxConcurrentRequests) {
+  const alternativeKey = this.findLessLoadedKey(availableKeys, selectedKey);
+  if (alternativeKey) {
+    return this.assignKeyToUser(userId, alternativeKey);
+  }
+}
+```
+
+### 2.3 缓存命中策略
+
+**用户缓存命中流程**：
+
+```
+用户请求 API Key
+  ↓
+1. 查 Redis: `api:user_key:${userId}`
+  ├→ 命中 → 获取 Key ID → 验证 Key 是否仍可用 → 返回
+  └→ 未命中 → 继续
+  ↓
+2. 查数据库: user_api_key 表
+  ├→ 找到活跃分配 → 缓存到 Redis → 返回
+  └→ 未找到 → 继续
+  ↓
+3. 执行加权轮询分配新 Key
+  ├→ 查 Redis 活跃Key列表（或数据库）
+  ├→ 过滤可用Key（配额预检）
+  ├→ 加权评分选择最优Key
+  ├→ 并发负载检查
+  └→ 分配并缓存到 Redis
+```
+
+---
+
+## 三、计费系统重构记录
+
+### 3.1 重构背景
+
+原计费系统过于复杂，包含：
+- 多种计费标准（按分钟、按字符、按TOKEN）
+- 功能类型字段（AI对话、语言转写等）
+- 复杂的套餐配置（quotaType、quotaValue、features等）
+
+### 3.2 新方案
+
+| 项目 | 旧方案 | 新方案 |
+|------|--------|--------|
+| 计费模式 | 多种（分钟/字符/TOKEN） | 仅TOKEN计费 |
+| 功能类型 | AI对话、语言转写等 | 全部删除 |
+| 价格单位 | 分 | 元 |
+| API系数 | 手动配置 | 基于API配置自动生成，可调整 |
+| 用户费用 | 复杂计算 | TOKEN消耗 × TOKEN单价 |
+| 套餐类型 | 复杂套餐 | 月度套餐（固定TOKEN）+ 充值（实时消耗） |
+
+### 3.3 核心公式
+
+```
+用户端TOKEN消耗 = Σ（API系数 × 原始TOKEN消耗）
+用户端费用 = TOKEN消耗 × TOKEN单价
+```
+
+### 3.4 已修改文件
+
+**后端**：
+- `server/src/subscription/entities/plan.entity.ts` - 简化套餐实体
+- `server/src/subscription/entities/subscription.entity.ts` - 简化订阅实体
+- `server/src/subscription/services/token-billing.service.ts` - Token计费核心服务
+- `server/src/admin/admin.controller.ts` - 添加删除订阅API
+- `server/src/admin/admin.service.ts` - 添加删除订阅服务
+
+**前端**：
+- `admin/pages/billing-config.tsx` - 计费配置页面重构
+- `admin/pages/subscriptions.tsx` - 订阅管理页面重构（标签页+TOKEN显示+删除过期）
+- `admin/pages/plan-editor.tsx` - 套餐编辑页面简化
+- `admin/services/api.ts` - API调用封装更新
+- `admin/types/index.ts` - 类型定义清理
+
+---
+
+## 四、已知问题与修复记录
+
+### 4.1 已修复问题
+
+| 问题 | 原因 | 修复方式 |
+|------|------|---------|
+| 所有用户分配到同一API Key | `findOne` 取第一个可用Key | 实现加权轮询 + 随机打散 |
+| 每次请求查数据库 | 无缓存机制 | 添加Redis三层缓存 |
+| 计费配置页面客户端异常 | `toFixed` 调用非数字类型 | `Number()` 转换 |
+| AdminModule依赖注入错误 | MonitorService/MetricsService缺失 | 使用 `@Optional()` 装饰器 |
+| JWT令牌无效 | token保存路径错误 | 修复 `response.accessToken` |
+| API系数接口404 | 前端路径与后端不匹配 | 统一为 `/admin/api-configs` |
+| 模型价格保存报错 | 数据库列不存在 | 添加缺失列 |
+| 套餐列表显示分钟 | 前端未更新 | 改为显示TOKEN数量 |
+
+### 4.2 待验证问题
+
+| 问题 | 状态 |
+|------|------|
+| 健康检查 curl 结果 | 待确认 |
+| 多用户API分配实际效果 | 待测试 |
+| Redis缓存命中率 | 待监控 |
+
+---
+
+## 五、部署检查清单
+
+```bash
+# 1. 确认路径
+cd /home/admin/dang/server
+pwd  # 应输出 /home/admin/dang/server
+
+# 2. 拉取代码
+git pull origin master
+
+# 3. 构建
+npm run build
+
+# 4. 确认编译输出
+ls dist/main.js  # 应存在
+
+# 5. 重启服务
+npx pm2 restart changji-api
+
+# 6. 验证状态
+npx pm2 status
+curl -s http://localhost:3000/api/v1/health
+
+# 7. 查看日志（如有异常）
+npx pm2 logs changji-api --lines 20 --nostream
+```
+
+---
+
+## 六、更新记录
+
+| 日期 | 版本 | 更新内容 |
+|-----|------|---------|
+| 2026-06-02 | v1.0 | 初始版本：记录API分配策略改进、计费系统重构、部署状态 |
+
+---
+
+*本文档记录服务器部署状态、架构改进和已知问题，便于后续维护和更新。*

@@ -59,10 +59,10 @@ dependencies:
 
   # 系统播放器
   url_launcher: ^6.2.5
-  
+
   # 加密
   pointycastle: ^3.9.1
-  
+
   # 网络检测
   connectivity_plus: ^5.0.2
   webdav_client: ^1.2.2
