@@ -24,7 +24,11 @@ export class AuthService {
     this.redisClient = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
-      password: process.env.REDIS_PASSWORD || process.env.REDIS_PASS,
+      password: process.env.REDIS_PASSWORD || process.env.REDIS_PASS || 'Redis123456',
+    });
+    // 防止 ioredis unhandled error event 导致进程崩溃（异常5+6修复）
+    this.redisClient.on('error', (err) => {
+      this.logger.warn(`Redis client error (non-fatal): ${err.message}`);
     });
   }
 
