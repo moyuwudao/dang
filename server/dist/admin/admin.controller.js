@@ -82,6 +82,10 @@ let AdminController = class AdminController {
         const result = await this.adminService.updateSubscription(id, data);
         return { code: 200, message: 'success', data: result };
     }
+    async deleteSubscription(id) {
+        await this.adminService.deleteSubscription(id);
+        return { code: 200, message: 'success', data: null };
+    }
     async assignPlanToUser(userId, data) {
         const result = await this.adminService.assignPlanToUser(userId, data.planId);
         return { code: 200, message: 'success', data: result };
@@ -323,6 +327,13 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "updateSubscription", null);
+__decorate([
+    (0, common_1.Delete)('subscriptions/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "deleteSubscription", null);
 __decorate([
     (0, common_1.Post)('users/:id/subscribe'),
     __param(0, (0, common_1.Param)('id')),

@@ -53,6 +53,15 @@ let AiService = class AiService {
             if (!billingResult.success) {
                 console.warn(`Token计费失败: ${billingResult.message}`, { userId, totalTokens });
             }
+            const { UserApiKey } = await Promise.resolve().then(() => require('../api-key/entities/user-api-key.entity'));
+            const userApiKeyRepo = this.apiUsageLogRepository.manager.getRepository(UserApiKey);
+            const assignment = await userApiKeyRepo.findOne({
+                where: { userId, isActive: true },
+                order: { assignedAt: 'DESC' },
+            });
+            if (assignment) {
+                await this.apiKeyService.recordKeyUsage(assignment.apiKeyId, totalTokens);
+            }
             await this.apiUsageLogRepository.save({
                 userId,
                 provider: apiKey.provider,

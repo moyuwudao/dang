@@ -407,8 +407,17 @@ class RealtimeTranscriptionService {
   ) {
     AppLogger().i('Realtime', 'Starting audio stream...');
 
-    // 注意：web_socket_channel 会自动处理 WebSocket ping-pong
-    // 不需要手动发送心跳包
+    // 心跳包机制：防止听悟服务端 25s 空闲断开
+    // 录音 pause 时 audioStream 不会有数据，每 10s 发一个 320 字节静音帧（10ms @ 16kHz 16bit PCM）
+    final heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      try {
+        final silentFrame = Uint8List(320); // 10ms silence @ 16kHz/16bit
+        channel.sink.add(silentFrame);
+        AppLogger().d('Realtime', 'Heartbeat: sent 320 bytes silence');
+      } catch (e) {
+        AppLogger().w('Realtime', 'Heartbeat failed: $e');
+      }
+    });
 
     return audioStream.listen(
       (chunk) {
@@ -421,7 +430,8 @@ class RealtimeTranscriptionService {
       },
       onDone: () {
         AppLogger().i('Realtime', 'Audio stream done');
-        
+        heartbeatTimer.cancel();
+
         // 发送 StopTranscription 指令
         final stopMessage = {
           'header': {
@@ -436,6 +446,7 @@ class RealtimeTranscriptionService {
       },
       onError: (error) {
         AppLogger().e('Realtime', 'Audio stream error: $error');
+        heartbeatTimer.cancel();
       },
     );
   }

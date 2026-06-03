@@ -66,13 +66,7 @@ export declare class ApiKeyController {
     getHealthyModels(): Promise<{
         code: number;
         message: string;
-        data: {
-            id: string;
-            provider: import("./entities/api-key.entity").ApiKeyProvider;
-            name: string;
-            model: string;
-            lastHealthCheckAt: Date;
-        }[];
+        data: any;
     }>;
     getApiKeyById(id: string): Promise<{
         code: number;

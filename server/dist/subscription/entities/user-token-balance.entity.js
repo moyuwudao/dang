@@ -19,7 +19,7 @@ __decorate([
     __metadata("design:type", String)
 ], UserTokenBalance.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'user_id', unique: true }),
+    (0, typeorm_1.Column)({ name: 'user_id', type: 'uuid', unique: true }),
     __metadata("design:type", String)
 ], UserTokenBalance.prototype, "userId", void 0);
 __decorate([

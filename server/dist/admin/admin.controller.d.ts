@@ -152,6 +152,11 @@ export declare class AdminController {
         message: string;
         data: import("../subscription/entities/subscription.entity").Subscription;
     }>;
+    deleteSubscription(id: string): Promise<{
+        code: number;
+        message: string;
+        data: any;
+    }>;
     assignPlanToUser(userId: string, data: {
         planId: string;
     }): Promise<{

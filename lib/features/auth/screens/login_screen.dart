@@ -143,10 +143,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _startCountdown();
       AppLogger().i('Login', '短信验证码发送成功');
 
+      // 修复异常2：dev 模式下显示验证码（SMS 服务未配置时）
+      final devCode = data['devCode'] as String?;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('验证码已发送'), backgroundColor: AppColors.success),
-        );
+        if (devCode != null && devCode.isNotEmpty) {
+          // dev fallback：直接显示验证码
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('【开发模式】验证码: $devCode（SMS服务未配置）'),
+              backgroundColor: AppColors.warning,
+              duration: const Duration(seconds: 10),
+            ),
+          );
+          // 自动填入验证码输入框
+          _smsCodeController.text = devCode;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('验证码已发送'), backgroundColor: AppColors.success),
+          );
+        }
       }
     } catch (e) {
       AppLogger().e('Login', '发送短信验证码失败: $e');

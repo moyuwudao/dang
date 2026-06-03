@@ -641,11 +641,17 @@ class AccountCenterTab extends ConsumerWidget {
     final defaultConfigs = subscriptionState?.defaultConfigs ?? [];
 
     if (defaultConfigs.isEmpty) {
-      // 没有默认配置，直接开启
+      // 修复异常6：defaultConfigs 为空时也要 setEnabled(true)，并跳转到 API 配置管理
+      await ref.read(cloudApiEnabledProvider.notifier).setEnabled(true);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已开启云端AI服务')),
+          const SnackBar(
+            content: Text('已开启云端AI服务，请到 API配置管理 配置模型'),
+            duration: Duration(seconds: 3),
+          ),
         );
+        // 跳转到 API 配置管理
+        context.push('/settings/multi-api');
       }
       return;
     }

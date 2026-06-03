@@ -7,6 +7,7 @@ import 'api_service.dart';
 import 'app_logger.dart';
 import 'secure_storage_service.dart';
 import 'storage_service.dart';
+import '../../features/auth/providers/auth_provider.dart';
 import '../../features/subscription/providers/subscription_provider.dart';
 
 /// API 配置解析器 - 统一管理云端/本地配置的选择逻辑
@@ -22,6 +23,14 @@ class ApiConfigResolver {
 
   /// 解析指定功能应使用的 API 配置
   Future<ResolvedApiConfig?> resolve(ApiFunctionType functionType) async {
+    // 修复异常4：未登录时强制跳过云端配置（云端配置仅在登录状态下有效）
+    final authState = _ref.read(authNotifierProvider).valueOrNull;
+    final isLoggedIn = authState?.isLoggedIn ?? false;
+    if (!isLoggedIn) {
+      AppLogger().i('ApiConfigResolver', '未登录：跳过云端配置，直接走本地');
+      return _loadLocalConfig();
+    }
+
     // 1. 从 MultiApiConfig 获取场景分配
     final multiConfig = await _loadMultiApiConfig();
     if (multiConfig != null) {

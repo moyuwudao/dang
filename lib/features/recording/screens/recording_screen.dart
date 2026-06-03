@@ -18,6 +18,8 @@ class RecordingScreen extends ConsumerStatefulWidget {
 class _RecordingScreenState extends ConsumerState<RecordingScreen> {
   final List<String> _tags = [];
   final NotificationService _notificationService = NotificationService();
+  // 修复异常3：实时转写界面自动滚动
+  final ScrollController _realtimeScrollController = ScrollController();
 
   @override
   void initState() {
@@ -34,6 +36,26 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
       } else {
         AppLogger().w('Realtime', 'Widget is NOT mounted!');
       }
+    });
+  }
+
+  @override
+  void dispose() {
+    // 释放 ScrollController
+    _realtimeScrollController.dispose();
+    super.dispose();
+  }
+
+  // 修复异常3：实时转写自动滚动到底部
+  void _scrollToBottom() {
+    if (!_realtimeScrollController.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_realtimeScrollController.hasClients) return;
+      _realtimeScrollController.animateTo(
+        _realtimeScrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -563,42 +585,11 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                     ),
                   ),
                   Divider(color: Colors.white.withOpacity(0.1)),
-                  // 转写内容区域
+                  // 转写内容区域 - 优化UI（异常3+4修复）
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: realtimeText != null && realtimeText.isNotEmpty
-                          ? SingleChildScrollView(
-                              child: Text(
-                                realtimeText,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  height: 1.6,
-                                ),
-                              ),
-                            )
-                          : Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      AppColors.primary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    l10n.waitingForVoiceInput,
-                                    style: TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                    ),
+                    child: realtimeText != null && realtimeText.isNotEmpty
+                        ? _buildRealtimeTranscriptView(realtimeText, isRecording)
+                        : _buildRealtimeEmptyView(l10n),
                   ),
                   // 底部提示
                   Container(
@@ -690,5 +681,131 @@ class WaveformPainter extends CustomPainter {
       if (oldDelegate.amplitudes[i] != amplitudes[i]) return true;
     }
     return false;
+  }
+}
+
+// 转写段落模型（优化UI用）
+class _TranscriptSegment {
+  final String text;
+  final bool isFinal;
+  final DateTime timestamp;
+  _TranscriptSegment({required this.text, required this.isFinal, required this.timestamp});
+}
+
+extension _RecordingScreenTranscriptView on _RecordingScreenState {
+  // 优化UI（异常3+4）：带自动滚动的实时转写视图
+  Widget _buildRealtimeTranscriptView(String realtimeText, bool isRecording) {
+    // 每次新内容到达时滚动到底
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+
+    // 解析文本成段落（按句号/换行分割）
+    final sentences = _splitIntoSentences(realtimeText);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: ListView.builder(
+        controller: _realtimeScrollController,
+        itemCount: sentences.length,
+        itemBuilder: (context, index) {
+          final isLast = index == sentences.length - 1;
+          final sentence = sentences[index];
+          return _buildTranscriptSentence(
+            sentence,
+            isLast: isLast,
+            isRecording: isRecording,
+          );
+        },
+      ),
+    );
+  }
+
+  // 将文本拆分成句子
+  List<String> _splitIntoSentences(String text) {
+    if (text.isEmpty) return [];
+    // 按句末标点分割，保留标点
+    final regex = RegExp(r'[^。！？!?\.\n]+[。！？!?\.\n]?');
+    final matches = regex.allMatches(text).toList();
+    if (matches.isEmpty) return [text];
+    return matches.map((m) => m.group(0)!).toList();
+  }
+
+  // 单个句子的展示
+  Widget _buildTranscriptSentence(
+    String sentence, {
+    required bool isLast,
+    required bool isRecording,
+  }) {
+    final trimmed = sentence.trim();
+    if (trimmed.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 句首小圆点（当前正在写入的句子高亮）
+          Container(
+            margin: const EdgeInsets.only(top: 8, right: 10),
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: isLast && isRecording
+                  ? AppColors.primary
+                  : Colors.white.withOpacity(0.4),
+              shape: BoxShape.circle,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              trimmed,
+              style: TextStyle(
+                color: isLast && isRecording ? Colors.white : Colors.white70,
+                fontSize: 17,
+                height: 1.7,
+                fontWeight: isLast && isRecording ? FontWeight.w500 : FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 等待输入视图
+  Widget _buildRealtimeEmptyView(AppLocalizations l10n) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // 优化的等待动画 - 三个跳动的小点
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(3, (i) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.3 + i * 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            l10n.waitingForVoiceInput,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 14,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

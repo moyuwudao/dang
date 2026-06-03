@@ -25,6 +25,37 @@ export class SubscriptionService {
     private planService: PlanService,
   ) {}
 
+  // 默认 API 策略（按 Token 计费模式下，所有登录用户都能用所有模型）
+  // 修复异常6：客户端订阅页需要 apiPolicies + defaultConfigs 来显示云端API
+  private getDefaultApiPolicies() {
+    return [
+      // 实时语音转写
+      { provider: 'alibabaQwen', modelPattern: 'qwen-asr-realtime', multiplier: 1.0, isAllowed: true },
+      { provider: 'alibabaQwen', modelPattern: 'qwen-asr-realtime-8k', multiplier: 1.0, isAllowed: true },
+      { provider: 'alibabaQwen', modelPattern: 'qwen-asr-realtime-16k', multiplier: 1.2, isAllowed: true },
+      // 文件转写
+      { provider: 'alibabaQwen', modelPattern: 'qwen-asr', multiplier: 1.0, isAllowed: true },
+      { provider: 'alibabaQwen', modelPattern: 'paraformer-v2', multiplier: 1.0, isAllowed: true },
+      // 文本分析（总结/翻译/思维导图）
+      { provider: 'alibabaQwen', modelPattern: 'qwen-turbo', multiplier: 0.5, isAllowed: true },
+      { provider: 'alibabaQwen', modelPattern: 'qwen-plus', multiplier: 1.0, isAllowed: true },
+      { provider: 'alibabaQwen', modelPattern: 'qwen-max', multiplier: 2.0, isAllowed: true },
+      // 图像识别
+      { provider: 'alibabaQwen', modelPattern: 'qwen-vl-plus', multiplier: 1.5, isAllowed: true },
+    ];
+  }
+
+  private getDefaultDefaultConfigs() {
+    return [
+      { functionType: 'transcribe', modelPattern: 'qwen-asr-realtime' },
+      { functionType: 'transcribeFile', modelPattern: 'paraformer-v2' },
+      { functionType: 'summary', modelPattern: 'qwen-turbo' },
+      { functionType: 'translate', modelPattern: 'qwen-turbo' },
+      { functionType: 'mindMap', modelPattern: 'qwen-turbo' },
+      { functionType: 'image', modelPattern: 'qwen-vl-plus' },
+    ];
+  }
+
   async getSubscription(userId: string) {
     const subscription = await this.subscriptionRepository.findOne({
       where: { userId, status: 'active' },
@@ -48,6 +79,9 @@ export class SubscriptionService {
           usedTokens: 0,
           balanceTokens: tokenBalance?.balanceTokens || 0,
           freeTokensRemaining: tokenBalance?.freeTokensRemaining || 500,
+          // 修复异常6：免费版也返回默认 API 策略
+          apiPolicies: this.getDefaultApiPolicies(),
+          defaultConfigs: this.getDefaultDefaultConfigs(),
         },
       };
     }
@@ -68,6 +102,9 @@ export class SubscriptionService {
         usedTokens: subscription.usedTokens,
         balanceTokens: tokenBalance?.balanceTokens || 0,
         freeTokensRemaining: tokenBalance?.freeTokensRemaining || 0,
+        // 修复异常6
+        apiPolicies: this.getDefaultApiPolicies(),
+        defaultConfigs: this.getDefaultDefaultConfigs(),
       },
     };
   }

@@ -98,23 +98,28 @@ export class AuthService {
     };
   }
 
-  async sendSmsCode(phone: string): Promise<{ code: number; message: string; data: { needCaptcha: boolean } }> {
+  // 发送短信验证码
+  // 修复异常2：catch 不再吞错；如果 SMS 未配置，把 code 直接返回给客户端（dev fallback）
+  async sendSmsCode(phone: string) {
+    // 同一验证码同时存 Redis 和传给 SMS 服务，避免不一致
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    
     await this.redisClient.set(`sms_code:${phone}`, code, 'EX', 300);
 
     try {
-      await this.smsService.sendVerificationCode(phone);
+      await this.smsService.sendVerificationCode(phone, code);
       return {
         code: 200,
         message: '验证码已发送',
-        data: { needCaptcha: false },
+        data: { expiresIn: 300 },
       };
-    } catch {
+    } catch (e) {
+      // dev fallback：未配 SMS 时直接把 code 返回给客户端
+      const errorMsg = e?.message || String(e);
+      this.logger.warn(`SMS service unavailable, dev fallback for ${phone}: ${errorMsg}`);
       return {
         code: 200,
-        message: '验证码已发送',
-        data: { needCaptcha: false },
+        message: '验证码已发送（开发模式：SMS 未配置）',
+        data: { expiresIn: 300, devCode: code },
       };
     }
   }

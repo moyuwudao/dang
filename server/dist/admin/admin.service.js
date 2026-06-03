@@ -179,6 +179,10 @@ let AdminService = class AdminService {
         await this.subscriptionRepo.update(subId, data);
         return this.subscriptionRepo.findOne({ where: { id: subId } });
     }
+    async deleteSubscription(subId) {
+        await this.subscriptionRepo.delete(subId);
+        return { success: true };
+    }
     async getRechargeRecords(page = 1, limit = 20) {
         const [records, total] = await this.rechargeRepo.findAndCount({
             order: { createdAt: 'DESC' },

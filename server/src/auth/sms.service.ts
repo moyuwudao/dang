@@ -39,12 +39,15 @@ export class SmsService {
     }
   }
 
-  async sendVerificationCode(phone: string): Promise<boolean> {
+  // 发送验证码短信
+  // 修复异常2：接收 code 参数（与 Redis 中存储的 code 保持一致）
+  async sendVerificationCode(phone: string, code?: string): Promise<boolean> {
     if (!this.accessKeyId || !this.accessKeySecret || !this.signName || !this.templateCode) {
       throw new BadRequestException('短信服务未配置');
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // 如果调用方没传 code，重新生成
+    const finalCode = code || Math.floor(100000 + Math.random() * 900000).toString();
     
     const params: Record<string, string> = {
       AccessKeyId: this.accessKeyId,
@@ -57,7 +60,7 @@ export class SmsService {
       SignatureNonce: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       SignatureVersion: '1.0',
       TemplateCode: this.templateCode,
-      TemplateParam: JSON.stringify({ code }),
+      TemplateParam: JSON.stringify({ code: finalCode }),
       Timestamp: new Date().toISOString(),
       Version: '2017-05-25',
     };

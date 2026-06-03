@@ -21,13 +21,37 @@ const user_api_key_entity_1 = require("./entities/user-api-key.entity");
 const crypto_util_1 = require("../common/crypto.util");
 const axios_1 = require("@nestjs/axios");
 const rxjs_1 = require("rxjs");
+const redis_service_1 = require("../redis/redis.service");
 let ApiKeyService = class ApiKeyService {
-    constructor(apiKeyRepository, userApiKeyRepository, httpService) {
+    constructor(apiKeyRepository, userApiKeyRepository, httpService, redisService) {
         this.apiKeyRepository = apiKeyRepository;
         this.userApiKeyRepository = userApiKeyRepository;
         this.httpService = httpService;
+        this.redisService = redisService;
+        this.ACTIVE_KEYS_CACHE = 'api:active_keys';
+        this.USER_KEY_CACHE_PREFIX = 'api:user_key:';
+        this.KEY_USAGE_PREFIX = 'api:key_usage:';
+        this.CACHE_TTL = 300;
     }
     async getApiKey(userId) {
+        const cachedKeyId = await this.redisService.get(`${this.USER_KEY_CACHE_PREFIX}${userId}`);
+        if (cachedKeyId) {
+            const cachedKey = await this.getKeyFromCacheOrDb(cachedKeyId);
+            if (cachedKey && this.isKeyAvailable(cachedKey)) {
+                const decryptedKey = crypto_util_1.CryptoUtil.decrypt(cachedKey.apiKeyEncrypted);
+                return {
+                    code: 200,
+                    message: 'success',
+                    data: {
+                        provider: cachedKey.provider,
+                        apiKey: decryptedKey,
+                        model: cachedKey.model,
+                        rateLimitPerMin: cachedKey.rateLimitPerMin,
+                        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                    },
+                };
+            }
+        }
         const existingAssignment = await this.userApiKeyRepository.findOne({
             where: { userId, isActive: true },
             order: { assignedAt: 'DESC' },
@@ -36,7 +60,8 @@ let ApiKeyService = class ApiKeyService {
             const apiKey = await this.apiKeyRepository.findOne({
                 where: { id: existingAssignment.apiKeyId },
             });
-            if (apiKey && apiKey.status === api_key_entity_1.ApiKeyStatus.ACTIVE) {
+            if (apiKey && this.isKeyAvailable(apiKey)) {
+                await this.redisService.set(`${this.USER_KEY_CACHE_PREFIX}${userId}`, apiKey.id, this.CACHE_TTL);
                 const decryptedKey = crypto_util_1.CryptoUtil.decrypt(apiKey.apiKeyEncrypted);
                 return {
                     code: 200,
@@ -54,6 +79,7 @@ let ApiKeyService = class ApiKeyService {
         return this.assignNewKey(userId);
     }
     async refreshApiKey(userId) {
+        await this.redisService.del(`${this.USER_KEY_CACHE_PREFIX}${userId}`);
         await this.userApiKeyRepository.update({ userId, isActive: true }, { isActive: false });
         return this.assignNewKey(userId);
     }
@@ -78,6 +104,7 @@ let ApiKeyService = class ApiKeyService {
             allowedIpRanges: dto.allowedIpRanges,
         });
         await this.apiKeyRepository.save(apiKey);
+        await this.redisService.del(this.ACTIVE_KEYS_CACHE);
         return {
             code: 200,
             message: 'API Key 创建成功',
@@ -187,6 +214,8 @@ let ApiKeyService = class ApiKeyService {
         if (dto.allowedIpRanges !== undefined)
             apiKey.allowedIpRanges = dto.allowedIpRanges;
         await this.apiKeyRepository.save(apiKey);
+        await this.redisService.del(this.ACTIVE_KEYS_CACHE);
+        await this.redisService.del(`${this.KEY_USAGE_PREFIX}${id}`);
         return {
             code: 200,
             message: 'API Key 更新成功',
@@ -204,6 +233,8 @@ let ApiKeyService = class ApiKeyService {
             throw new common_1.NotFoundException('API Key 不存在');
         }
         await this.apiKeyRepository.delete(id);
+        await this.redisService.del(this.ACTIVE_KEYS_CACHE);
+        await this.redisService.del(`${this.KEY_USAGE_PREFIX}${id}`);
         return {
             code: 200,
             message: 'API Key 删除成功',
@@ -249,6 +280,22 @@ let ApiKeyService = class ApiKeyService {
         }
     }
     async getHealthyModels() {
+        const cached = await this.redisService.get(this.ACTIVE_KEYS_CACHE);
+        if (cached) {
+            const keys = JSON.parse(cached);
+            const healthyKeys = keys.filter((k) => k.status === api_key_entity_1.ApiKeyStatus.ACTIVE && k.lastHealthCheckStatus === 'healthy');
+            return {
+                code: 200,
+                message: 'success',
+                data: healthyKeys.map((k) => ({
+                    id: k.id,
+                    provider: k.provider,
+                    name: k.name,
+                    model: k.model,
+                    lastHealthCheckAt: k.lastHealthCheckAt,
+                })),
+            };
+        }
         const keys = await this.apiKeyRepository.find({
             where: {
                 status: api_key_entity_1.ApiKeyStatus.ACTIVE,
@@ -290,32 +337,151 @@ let ApiKeyService = class ApiKeyService {
             },
         };
     }
+    async recordKeyUsage(keyId, tokens) {
+        await this.redisService.increment(`${this.KEY_USAGE_PREFIX}${keyId}`, tokens);
+        const now = new Date();
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const ttlSeconds = Math.floor((endOfDay.getTime() - now.getTime()) / 1000);
+        await this.redisService.expire(`${this.KEY_USAGE_PREFIX}${keyId}`, ttlSeconds);
+        const key = await this.apiKeyRepository.findOne({ where: { id: keyId } });
+        if (key) {
+            key.dailyUsage += tokens;
+            key.lastUsedAt = new Date();
+            await this.apiKeyRepository.save(key);
+        }
+    }
+    async getKeyFromCacheOrDb(keyId) {
+        const cached = await this.redisService.get(this.ACTIVE_KEYS_CACHE);
+        if (cached) {
+            const keys = JSON.parse(cached);
+            const found = keys.find((k) => k.id === keyId);
+            if (found) {
+                const realTimeUsage = await this.redisService.get(`${this.KEY_USAGE_PREFIX}${keyId}`);
+                if (realTimeUsage) {
+                    found.dailyUsage = parseInt(realTimeUsage, 10);
+                }
+                return found;
+            }
+        }
+        return this.apiKeyRepository.findOne({ where: { id: keyId } });
+    }
+    isKeyAvailable(key) {
+        if (key.status !== api_key_entity_1.ApiKeyStatus.ACTIVE)
+            return false;
+        if (key.lastHealthCheckStatus !== 'healthy')
+            return false;
+        if (key.dailyUsage >= key.dailyQuota)
+            return false;
+        if (key.expiresAt && key.expiresAt < new Date())
+            return false;
+        return true;
+    }
     async assignNewKey(userId) {
-        const availableKey = await this.apiKeyRepository.findOne({
-            where: { status: api_key_entity_1.ApiKeyStatus.ACTIVE },
-        });
-        if (!availableKey) {
+        const activeKeys = await this.getActiveKeysWithCache();
+        const availableKeys = activeKeys.filter(key => this.isKeyAvailable(key));
+        if (availableKeys.length === 0) {
             throw new common_1.ForbiddenException('API Key 池已耗尽，请联系管理员');
         }
+        const selectedKey = this.selectOptimalKey(availableKeys);
+        const assignedUserCount = await this.userApiKeyRepository.count({
+            where: { apiKeyId: selectedKey.id, isActive: true },
+        });
+        if (assignedUserCount >= selectedKey.maxConcurrentRequests) {
+            const alternativeKey = this.findLessLoadedKey(availableKeys, selectedKey);
+            if (alternativeKey) {
+                return this.assignKeyToUser(userId, alternativeKey);
+            }
+        }
+        return this.assignKeyToUser(userId, selectedKey);
+    }
+    async getActiveKeysWithCache() {
+        const cached = await this.redisService.get(this.ACTIVE_KEYS_CACHE);
+        if (cached) {
+            const keys = JSON.parse(cached);
+            for (const key of keys) {
+                const realTimeUsage = await this.redisService.get(`${this.KEY_USAGE_PREFIX}${key.id}`);
+                if (realTimeUsage) {
+                    key.dailyUsage = parseInt(realTimeUsage, 10);
+                }
+            }
+            return keys;
+        }
+        const keys = await this.apiKeyRepository.find({
+            where: { status: api_key_entity_1.ApiKeyStatus.ACTIVE },
+        });
+        await this.redisService.set(this.ACTIVE_KEYS_CACHE, JSON.stringify(keys), this.CACHE_TTL);
+        return keys;
+    }
+    selectOptimalKey(keys) {
+        const scoredKeys = keys.map(key => {
+            const usageRate = key.dailyQuota > 0 ? key.dailyUsage / key.dailyQuota : 0;
+            const usageScore = (1 - usageRate) * 40;
+            let healthScore = 30;
+            if (key.lastHealthCheckStatus === 'healthy') {
+                healthScore = 30;
+            }
+            else if (key.lastHealthCheckStatus === 'unhealthy') {
+                healthScore = 0;
+            }
+            else {
+                healthScore = 15;
+            }
+            let responseScore = 20;
+            if (key.lastUsedAt) {
+                const minutesSinceLastUse = (Date.now() - key.lastUsedAt.getTime()) / 60000;
+                if (minutesSinceLastUse < 5) {
+                    responseScore = 20;
+                }
+                else if (minutesSinceLastUse < 30) {
+                    responseScore = 15;
+                }
+                else {
+                    responseScore = 10;
+                }
+            }
+            const quotaScore = key.dailyQuota > 0
+                ? (1 - (key.dailyUsage / key.dailyQuota)) * 10
+                : 10;
+            return {
+                key,
+                score: usageScore + healthScore + responseScore + quotaScore,
+            };
+        });
+        scoredKeys.sort((a, b) => b.score - a.score);
+        const topKeys = scoredKeys.filter(s => s.score >= scoredKeys[0].score - 5);
+        if (topKeys.length > 1) {
+            const randomIndex = Math.floor(Math.random() * topKeys.length);
+            return topKeys[randomIndex].key;
+        }
+        return scoredKeys[0].key;
+    }
+    findLessLoadedKey(keys, excludeKey) {
+        const otherKeys = keys.filter(k => k.id !== excludeKey.id);
+        if (otherKeys.length === 0)
+            return null;
+        return this.selectOptimalKey(otherKeys);
+    }
+    async assignKeyToUser(userId, apiKey) {
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 24);
         const assignment = this.userApiKeyRepository.create({
             userId,
-            apiKeyId: availableKey.id,
+            apiKeyId: apiKey.id,
             assignedAt: new Date(),
             expiresAt,
             isActive: true,
         });
         await this.userApiKeyRepository.save(assignment);
-        const decryptedKey = crypto_util_1.CryptoUtil.decrypt(availableKey.apiKeyEncrypted);
+        await this.redisService.set(`${this.USER_KEY_CACHE_PREFIX}${userId}`, apiKey.id, 24 * 60 * 60);
+        const decryptedKey = crypto_util_1.CryptoUtil.decrypt(apiKey.apiKeyEncrypted);
         return {
             code: 200,
             message: 'success',
             data: {
-                provider: availableKey.provider,
+                provider: apiKey.provider,
                 apiKey: decryptedKey,
-                model: availableKey.model,
-                rateLimitPerMin: availableKey.rateLimitPerMin,
+                model: apiKey.model,
+                rateLimitPerMin: apiKey.rateLimitPerMin,
                 expiresAt,
             },
         };
@@ -597,6 +763,7 @@ exports.ApiKeyService = ApiKeyService = __decorate([
     __param(1, (0, typeorm_1.InjectRepository)(user_api_key_entity_1.UserApiKey)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
-        axios_1.HttpService])
+        axios_1.HttpService,
+        redis_service_1.RedisService])
 ], ApiKeyService);
 //# sourceMappingURL=api-key.service.js.map

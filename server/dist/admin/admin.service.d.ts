@@ -110,6 +110,9 @@ export declare class AdminService {
         totalPages: number;
     }>;
     updateSubscription(subId: string, data: Partial<Subscription>): Promise<Subscription>;
+    deleteSubscription(subId: string): Promise<{
+        success: boolean;
+    }>;
     getRechargeRecords(page?: number, limit?: number): Promise<{
         items: {
             id: string;

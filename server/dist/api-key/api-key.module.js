@@ -17,6 +17,7 @@ const api_key_health_service_1 = require("./api-key-health.service");
 const api_key_entity_1 = require("./entities/api-key.entity");
 const user_api_key_entity_1 = require("./entities/user-api-key.entity");
 const rate_limit_interceptor_1 = require("./interceptors/rate-limit.interceptor");
+const redis_module_1 = require("../redis/redis.module");
 let ApiKeyModule = class ApiKeyModule {
 };
 exports.ApiKeyModule = ApiKeyModule;
@@ -25,6 +26,7 @@ exports.ApiKeyModule = ApiKeyModule = __decorate([
         imports: [
             typeorm_1.TypeOrmModule.forFeature([api_key_entity_1.ApiKey, user_api_key_entity_1.UserApiKey]),
             axios_1.HttpModule,
+            redis_module_1.RedisModule,
             jwt_1.JwtModule.register({
                 secret: process.env.JWT_SECRET || 'changji_jwt_secret_change_me',
                 signOptions: { expiresIn: '15m' },
