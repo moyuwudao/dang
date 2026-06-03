@@ -27,7 +27,7 @@ export class AiService {
     model?: string;
     stream?: boolean;
   }) {
-    // 1. 获取 API Key
+    // 1. 获取 API Key（带负载均衡和缓存）
     const apiKeyResult = await this.apiKeyService.getApiKey(userId);
     if (!apiKeyResult.data?.apiKey) {
       throw new HttpException('未分配 API Key', 500);
@@ -56,6 +56,19 @@ export class AiService {
       if (!billingResult.success) {
         // 计费失败，但AI调用已成功，记录异常
         console.warn(`Token计费失败: ${billingResult.message}`, { userId, totalTokens });
+      }
+
+      // 5. 记录API Key使用（更新实时使用量缓存）
+      // 从apiKeyResult中无法直接获取keyId，需要通过其他方式获取
+      // 这里我们通过查询用户分配关系来获取keyId
+      const { UserApiKey } = await import('../api-key/entities/user-api-key.entity');
+      const userApiKeyRepo = this.apiUsageLogRepository.manager.getRepository(UserApiKey);
+      const assignment = await userApiKeyRepo.findOne({
+        where: { userId, isActive: true },
+        order: { assignedAt: 'DESC' },
+      });
+      if (assignment) {
+        await this.apiKeyService.recordKeyUsage(assignment.apiKeyId, totalTokens);
       }
 
       // 记录API使用日志

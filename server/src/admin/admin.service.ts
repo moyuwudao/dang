@@ -228,6 +228,12 @@ export class AdminService {
     return this.subscriptionRepo.findOne({ where: { id: subId } });
   }
 
+  // 删除订阅
+  async deleteSubscription(subId: string) {
+    await this.subscriptionRepo.delete(subId);
+    return { success: true };
+  }
+
   // 充值记录
   async getRechargeRecords(page = 1, limit = 20) {
     const [records, total] = await this.rechargeRepo.findAndCount({

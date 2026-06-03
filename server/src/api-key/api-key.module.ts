@@ -8,11 +8,13 @@ import { ApiKeyHealthService } from './api-key-health.service';
 import { ApiKey } from './entities/api-key.entity';
 import { UserApiKey } from './entities/user-api-key.entity';
 import { RateLimitInterceptor } from './interceptors/rate-limit.interceptor';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([ApiKey, UserApiKey]),
     HttpModule,
+    RedisModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'changji_jwt_secret_change_me',
       signOptions: { expiresIn: '15m' },

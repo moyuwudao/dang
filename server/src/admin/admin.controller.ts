@@ -113,6 +113,12 @@ export class AdminController {
     return { code: 200, message: 'success', data: result };
   }
 
+  @Delete('subscriptions/:id')
+  async deleteSubscription(@Param('id') id: string) {
+    await this.adminService.deleteSubscription(id);
+    return { code: 200, message: 'success', data: null };
+  }
+
   @Post('users/:id/subscribe')
   async assignPlanToUser(@Param('id') userId: string, @Body() data: { planId: string }) {
     const result = await this.adminService.assignPlanToUser(userId, data.planId);
