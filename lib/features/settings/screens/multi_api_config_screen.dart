@@ -11,6 +11,7 @@ import '../../../core/services/secure_storage_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/aliyun_signer.dart';
+import '../../../routes/app_router.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../subscription/providers/subscription_provider.dart';
@@ -197,6 +198,13 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       appBar: AppBar(
         title: Text(l10n.apiConfigManagement),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.dashboard_outlined),
+            tooltip: 'Key 池',
+            onPressed: () {
+              GoRouter.of(context).pushNamed(AppRoute.apiKeyPool.name);
+            },
+          ),
           TextButton(
             onPressed: _saveConfig,
             child: Text(l10n.save, style: const TextStyle(color: Colors.white)),

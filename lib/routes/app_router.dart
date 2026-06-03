@@ -10,6 +10,7 @@ import '../features/settings/screens/settings_screen.dart';
 import '../features/settings/screens/api_key_config_screen.dart';
 import '../features/settings/screens/api_key_wizard_screen.dart';
 import '../features/settings/screens/multi_api_config_screen.dart';
+import '../features/settings/screens/api_key_pool_screen.dart';
 import '../features/settings/screens/prompt_template_management_screen.dart';
 import '../features/settings/screens/privacy_policy_screen.dart';
 import '../features/settings/screens/terms_of_service_screen.dart';
@@ -51,6 +52,7 @@ enum AppRoute {
   apiKeyConfig,
   apiKeyWizard,
   multiApiConfig,
+  apiKeyPool,
   promptTemplates,
   privacyPolicy,
   termsOfService,
@@ -252,6 +254,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoute.multiApiConfig.name,
         pageBuilder: (context, state) =>
             _slideUpTransitionPage(const MultiApiConfigScreen(), state),
+      ),
+      GoRoute(
+        path: '/settings/api-key-pool',
+        name: AppRoute.apiKeyPool.name,
+        pageBuilder: (context, state) =>
+            _slideUpTransitionPage(const ApiKeyPoolScreen(), state),
       ),
       GoRoute(
         path: '/settings/prompt-templates',
