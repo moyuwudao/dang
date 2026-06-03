@@ -3,24 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/ai_model_config.dart';
 import '../../../core/models/api_key_pool.dart';
+import '../../../core/models/health_check_result.dart';
+import '../../../core/models/throttle_scope.dart';
+import '../../../core/services/health_check_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../providers/daily_usage_provider.dart';
+import '../providers/health_check_provider.dart';
 import '../providers/multi_api_pools_provider.dart';
+import 'fallback_settings.dart';
+import 'health_check_tab.dart';
+import 'throttle_badge.dart';
+import 'usage_tab.dart';
 
 /// ============================================================================
-/// ApiKeyPoolView — API Key 池化视图（A1 阶段新增）
+/// ApiKeyPoolView — API Key 池化视图
 ///
-/// 显示结构：
-///   ┌─────────────────────────────────┐
-///   │ 池概览卡片（活跃/限流/总用量）  │
-///   ├─────────────────────────────────┤
-///   │ Provider 池卡片 #1              │
-///   │   ├ Key 1（健康徽标+用量条）    │
-///   │   ├ Key 2（健康徽标+用量条）    │
-///   │   └ [+ 添加 Key]                │
-///   ├─────────────────────────────────┤
-///   │ Provider 池卡片 #2              │
-///   │   ...                           │
-///   └─────────────────────────────────┘
+/// A1 阶段：基础 Key 池管理
+/// A2 阶段新增：
+///   - Tab 切换：池 / 用量 / 健康
+///   - 限流状态徽标
+///   - 降级与轮询设置
+///   - 一键"全部检查"按钮
 /// ============================================================================
 class ApiKeyPoolView extends ConsumerStatefulWidget {
   const ApiKeyPoolView({super.key});
@@ -29,72 +32,131 @@ class ApiKeyPoolView extends ConsumerStatefulWidget {
   ConsumerState<ApiKeyPoolView> createState() => _ApiKeyPoolViewState();
 }
 
-class _ApiKeyPoolViewState extends ConsumerState<ApiKeyPoolView> {
+class _ApiKeyPoolViewState extends ConsumerState<ApiKeyPoolView>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     // 首次加载
-    Future.microtask(() {
-      ref.read(multiApiPoolsProvider.notifier).load();
+    Future.microtask(() async {
+      await ref.read(multiApiPoolsProvider.notifier).load();
+      await ref.read(dailyUsageProvider.notifier).load();
+      await ref.read(healthCheckProvider.notifier).load();
     });
   }
 
   @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Tab Bar
+        Container(
+          color: Theme.of(context).colorScheme.surface,
+          child: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(icon: Icon(Icons.dashboard_outlined), text: '池'),
+              Tab(icon: Icon(Icons.show_chart), text: '用量'),
+              Tab(icon: Icon(Icons.health_and_safety), text: '健康'),
+            ],
+          ),
+        ),
+        // Tab Content
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: const [
+              _PoolListTab(),
+              UsageTab(),
+              HealthCheckTab(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ============================================================================
+// Tab 1: 池列表
+// ============================================================================
+class _PoolListTab extends ConsumerStatefulWidget {
+  const _PoolListTab();
+
+  @override
+  ConsumerState<_PoolListTab> createState() => _PoolListTabState();
+}
+
+class _PoolListTabState extends ConsumerState<_PoolListTab> {
+  @override
   Widget build(BuildContext context) {
     final state = ref.watch(multiApiPoolsProvider);
     final notifier = ref.read(multiApiPoolsProvider.notifier);
+    final healthState = ref.watch(healthCheckProvider);
+    final throttleCount = healthState.activeThrottles.length;
 
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (state.pools.isEmpty) {
-      return _EmptyState(onAdd: () => _showAddPoolDialog(context, notifier));
-    }
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // 概览卡片
+        // 概览 + 限流提示
         _OverviewCard(
           totalKeys: state.totalKeys,
           activeKeys: state.activeKeys,
           totalUsage: state.totalDailyUsage,
           totalQuota: state.totalDailyQuota,
+          throttleCount: throttleCount,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
-        // 池列表
-        ...state.pools.map((pool) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _PoolCard(
-                pool: pool,
-                onAddKey: () => _showAddKeyDialog(context, notifier, pool),
-                onEditKey: (key) =>
-                    _showEditKeyDialog(context, notifier, pool, key),
-                onDeleteKey: (key) =>
-                    _confirmDeleteKey(context, notifier, pool, key),
-                onResetKey: (key) =>
-                    notifier.resetKeyErrors(pool.id, key.id),
-                onTestKey: (key) => _testKey(pool, key),
-              ),
-            )),
+        // 降级设置
+        const FallbackSettings(),
+        const SizedBox(height: 12),
 
-        // 添加池按钮
-        Center(
-          child: TextButton.icon(
-            icon: const Icon(Icons.add_circle_outline),
-            label: const Text('添加 Provider 池'),
-            onPressed: () => _showAddPoolDialog(context, notifier),
+        if (state.pools.isEmpty)
+          _EmptyState(onAdd: () => _showAddPoolDialog(context, notifier))
+        else ...[
+          ...state.pools.map((pool) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _PoolCard(
+                  pool: pool,
+                  onAddKey: () => _showAddKeyDialog(context, notifier, pool),
+                  onEditKey: (key) =>
+                      _showEditKeyDialog(context, notifier, pool, key),
+                  onDeleteKey: (key) =>
+                      _confirmDeleteKey(context, notifier, pool, key),
+                  onResetKey: (key) =>
+                      notifier.resetKeyErrors(pool.id, key.id),
+                  onTestKey: (key) => _testKey(pool, key),
+                ),
+              )),
+          Center(
+            child: TextButton.icon(
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('添加 Provider 池'),
+              onPressed: () => _showAddPoolDialog(context, notifier),
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: 24),
       ],
     );
   }
 
   // ============================================================================
-  // 对话框 / 操作
+  // 对话框 / 操作（与 A1 阶段一致）
   // ============================================================================
 
   void _showAddPoolDialog(BuildContext context, MultiApiPoolsNotifier notifier) {
@@ -174,32 +236,58 @@ class _ApiKeyPoolViewState extends ConsumerState<ApiKeyPoolView> {
     messenger.showSnackBar(
       SnackBar(content: Text('正在测试 ${pool.displayName} / ${key.name}...')),
     );
-    // 简化版：仅显示提示，真实测试逻辑在 A2 阶段接入
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('${key.name} 测试完成（详细结果请见 A2 阶段）'),
-        ),
-      );
+    ref.read(healthCheckProvider.notifier).setChecking(key.id, true);
+    try {
+      final service = ref.read(healthCheckServiceProvider);
+      final result = await service.checkKey(key: key, pool: pool);
+      ref.read(healthCheckProvider.notifier).updateResult(result);
+      if (result.status == HealthStatus.throttled) {
+        ref.read(healthCheckProvider.notifier).setThrottle(
+              keyId: key.id,
+              isThrottled: true,
+              scope: ThrottleScope.unknown,
+              until: null,
+              message: result.errorMessage,
+            );
+      } else {
+        ref.read(healthCheckProvider.notifier).clearThrottle(key.id);
+      }
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+                '${key.name}: ${result.status.label} (${result.responseTimeMs}ms)'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('测试失败: $e')),
+        );
+      }
+    } finally {
+      ref.read(healthCheckProvider.notifier).setChecking(key.id, false);
     }
   }
 }
 
 // ============================================================================
-// 概览卡片
+// 概览卡片（A2 增强：增加限流提示）
 // ============================================================================
 class _OverviewCard extends StatelessWidget {
   final int totalKeys;
   final int activeKeys;
   final int totalUsage;
   final int totalQuota;
+  final int throttleCount;
 
   const _OverviewCard({
     required this.totalKeys,
     required this.activeKeys,
     required this.totalUsage,
     required this.totalQuota,
+    required this.throttleCount,
   });
 
   @override
@@ -213,16 +301,12 @@ class _OverviewCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: [
-                const Icon(Icons.dashboard_outlined, color: AppColors.primary),
-                const SizedBox(width: 8),
-                const Text(
-                  'API Key 池总览',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              children: const [
+                Icon(Icons.dashboard_outlined, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text('API Key 池总览',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 12),
@@ -240,20 +324,47 @@ class _OverviewCard extends StatelessWidget {
                   label: '异常',
                   color: Colors.orange,
                 ),
+                if (throttleCount > 0)
+                  _Metric(
+                    value: '$throttleCount',
+                    label: '限流',
+                    color: Colors.deepOrange,
+                  ),
               ],
             ),
             if (totalQuota > 0) ...[
               const SizedBox(height: 12),
-              Text(
-                '今日用量: $totalUsage / $totalQuota',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
+              Text('今日用量: $totalUsage / $totalQuota',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 4),
               LinearProgressIndicator(
                 value: usageRatio.clamp(0.0, 1.0),
                 backgroundColor: AppColors.divider,
                 valueColor: AlwaysStoppedAnimation(
                   usageRatio > 0.8 ? Colors.orange : AppColors.primary,
+                ),
+              ),
+            ],
+            if (throttleCount > 0) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber,
+                        color: Colors.orange, size: 14),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        '$throttleCount 个 Key 正在限流，已自动从调用候选中排除',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -275,22 +386,19 @@ class _Metric extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: color ?? AppColors.textPrimary,
-          ),
-        ),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: color ?? AppColors.textPrimary)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
   }
 }
 
 // ============================================================================
-// 池卡片
+// 池卡片（A2 增强：Key 行增加限流徽标）
 // ============================================================================
 class _PoolCard extends StatefulWidget {
   final ApiKeyPool pool;
@@ -323,7 +431,6 @@ class _PoolCardState extends State<_PoolCard> {
       elevation: 1,
       child: Column(
         children: [
-          // 池头部
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
@@ -339,34 +446,22 @@ class _PoolCardState extends State<_PoolCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          pool.displayName,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        Text(pool.displayName,
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 4),
-                        Text(
-                          '共 ${pool.keys.length} 个 Key · 活跃 ${pool.availableKeys.length}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
+                        Text('共 ${pool.keys.length} 个 Key · 活跃 ${pool.availableKeys.length}',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey)),
                       ],
                     ),
                   ),
                   _PoolHealthBadge(score: pool.poolHealth),
-                  Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
-                  ),
+                  Icon(_expanded ? Icons.expand_less : Icons.expand_more),
                 ],
               ),
             ),
           ),
-
-          // Key 列表
           if (_expanded)
             ...pool.keys.map((key) => _KeyRow(
                   keyEntry: key,
@@ -375,8 +470,6 @@ class _PoolCardState extends State<_PoolCard> {
                   onReset: () => widget.onResetKey(key),
                   onTest: () => widget.onTestKey(key),
                 )),
-
-          // 添加 Key 按钮
           if (_expanded)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -410,16 +503,14 @@ class _PoolHealthBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text(
-        '${score.toStringAsFixed(0)}分',
-        style: TextStyle(fontSize: 11, color: color),
-      ),
+      child: Text('${score.toStringAsFixed(0)}分',
+          style: TextStyle(fontSize: 11, color: color)),
     );
   }
 }
 
 // ============================================================================
-// Key 行
+// Key 行（A2 增强：限流徽标）
 // ============================================================================
 class _KeyRow extends StatelessWidget {
   final ApiKeyEntry keyEntry;
@@ -465,31 +556,22 @@ class _KeyRow extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          key.name,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        Text(key.name,
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w500)),
                         const SizedBox(width: 6),
-                        Text(
-                          key.maskedKey,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                          ),
-                        ),
+                        Text(key.maskedKey,
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey)),
+                        const SizedBox(width: 6),
+                        // A2: 限流徽标
+                        ThrottleBadge(keyId: key.id, dense: true),
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      key.statusLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: key.statusColor,
-                      ),
-                    ),
+                    Text(key.statusLabel,
+                        style: TextStyle(
+                            fontSize: 11, color: key.statusColor)),
                   ],
                 ),
               ),
@@ -540,21 +622,17 @@ class _KeyRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  '${key.dailyUsage}/${key.dailyQuota}',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
+                Text('${key.dailyUsage}/${key.dailyQuota}',
+                    style: const TextStyle(fontSize: 10, color: Colors.grey)),
               ],
             ),
           ],
           if (key.lastError != null) ...[
             const SizedBox(height: 4),
-            Text(
-              '最后错误: ${key.lastError}',
-              style: const TextStyle(fontSize: 10, color: Colors.red),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            Text('最后错误: ${key.lastError}',
+                style: const TextStyle(fontSize: 10, color: Colors.red),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
           ],
         ],
       ),
@@ -563,7 +641,7 @@ class _KeyRow extends StatelessWidget {
 }
 
 // ============================================================================
-// 添加池对话框（简化版：选择 provider）
+// 添加池对话框
 // ============================================================================
 class _AddPoolDialog extends StatefulWidget {
   final Future<void> Function(ApiKeyPool) onAdd;
@@ -648,7 +726,8 @@ class _AddPoolDialogState extends State<_AddPoolDialog> {
                     updatedAt: now,
                   );
                   final pool = ApiKeyPool(
-                    id: 'pool_${_selectedProvider!.name}_${now.millisecondsSinceEpoch}',
+                    id:
+                        'pool_${_selectedProvider!.name}_${now.millisecondsSinceEpoch}',
                     provider: _selectedProvider!,
                     model: _modelController.text.trim(),
                     name: _nameController.text.trim().isEmpty
@@ -748,8 +827,8 @@ class _AddKeyDialogState extends State<_AddKeyDialog> {
             ],
             TextField(
               controller: _dailyQuotaController,
-              decoration:
-                  const InputDecoration(labelText: '每日 Token 配额 (0=无限制)'),
+              decoration: const InputDecoration(
+                  labelText: '每日 Token 配额 (0=无限制)'),
               keyboardType: TextInputType.number,
             ),
           ],
@@ -812,15 +891,11 @@ class _EmptyState extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text(
-              '还没有配置 API Key 池',
-              style: TextStyle(fontSize: 16),
-            ),
+            const Text('还没有配置 API Key 池',
+                style: TextStyle(fontSize: 16)),
             const SizedBox(height: 8),
-            const Text(
-              '添加你的第一个 Provider 池开始使用',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            const Text('添加你的第一个 Provider 池开始使用',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               icon: const Icon(Icons.add),

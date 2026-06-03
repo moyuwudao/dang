@@ -8,6 +8,7 @@ import 'core/models/api_config.dart';
 import 'core/services/api_service.dart';
 import 'core/services/app_logger.dart';
 import 'core/services/cloud_api_service.dart';
+import 'core/services/daily_usage_reset_scheduler.dart';
 import 'core/services/secure_storage_service.dart';
 import 'core/services/storage_service.dart';
 import 'core/services/transcription_queue_service.dart';
@@ -92,6 +93,10 @@ class _ChangjiAppState extends ConsumerState<ChangjiApp> {
 
     ref.read(transcriptionQueueProvider).start();
     AppLogger().i('App', '转写队列已启动');
+
+    // A2 阶段：启动每日用量重置调度器
+    ref.read(dailyUsageResetSchedulerProvider).start();
+    AppLogger().i('App', '每日用量重置调度器已启动');
   }
 
   /// 检测是否首次安装/重装，如果是则只清除云端相关数据
