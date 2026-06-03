@@ -588,7 +588,7 @@ class _RecordingScreenState extends ConsumerState<RecordingScreen> {
                   // 转写内容区域 - 优化UI（异常3+4修复）
                   Expanded(
                     child: realtimeText != null && realtimeText.isNotEmpty
-                        ? _buildRealtimeTranscriptView(realtimeText, isRecording)
+                        ? _buildRealtimeTranscriptView(realtimeText, state.isRecording)
                         : _buildRealtimeEmptyView(l10n),
                   ),
                   // 底部提示

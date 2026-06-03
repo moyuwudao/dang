@@ -15,6 +15,7 @@ import { RechargeRecord } from '../subscription/entities/recharge-record.entity'
 import { ApiUsageLog } from '../subscription/entities/api-usage-log.entity';
 import { TokenPricing } from '../subscription/entities/token-pricing.entity';
 import { ApiConfig } from '../subscription/entities/api-config.entity';
+import { UserTokenBalance } from '../subscription/entities/user-token-balance.entity';
 import { Plan } from '../subscription/entities/plan.entity';
 import { AuditLog } from './entities/audit-log.entity';
 
@@ -28,6 +29,7 @@ import { AuditLog } from './entities/audit-log.entity';
       ApiUsageLog,
       TokenPricing,
       ApiConfig,
+      UserTokenBalance,
       Plan,
       AuditLog,
     ]),
