@@ -35,6 +35,9 @@ description: APK 构建异常案例集锦 - 收集所有构建问题及解决方
 | CASE-005 | 类路径快照缺失 | `shrunk-classpath-snapshot.bin (No such file or directory)` | ✅ 已解决 |
 | CASE-007 | 代码未同步到 WSL | APK 包含旧代码 | ✅ 已解决 |
 | CASE-008 | WSL 代理警告导致命令退出 | `wsl: 检测到 localhost 代理配置` | ✅ 已解决 |
+| CASE-009 | 同步后 key.properties 丢失 | `Keystore was tampered with, or password was incorrect` | ✅ 已解决 |
+| CASE-010 | rsync --delete 误删目标端独有文件 | key.properties / .env 等被删除 | ✅ 已解决 |
+| CASE-011 | 引用未定义变量（编译期不报错）| `The argument type 'String' can't be assigned to the parameter type 'bool'` | ✅ 已解决 |
 
 ---
 
@@ -239,6 +242,203 @@ wsl -d dang bash -c 'echo "[wsl2]" > /etc/wsl.conf'
 
 ---
 
+## 🔴 CASE-009: 同步后 key.properties 丢失
+
+### 问题现象
+- Flutter 构建时报错：
+  ```
+  Keystore file '/home/mayn/dang/android/key.properties' not found for signing config 'release'.
+  ```
+  或
+  ```
+  Keystore was tampered with, or password was incorrect
+  ```
+- 但 Windows 端没动过 `key.properties`
+
+### 实际案例（2026-06-03）
+从 Windows 同步代码到 WSL 后构建，提示 `Keystore was tampered with, or password was incorrect`。检查发现 WSL 端 `/home/mayn/dang/android/key.properties` 文件被删除。
+
+### 根本原因
+**`rsync --delete` 同步 `android/` 目录时，会删除目标端独有的文件**：
+- Windows 端 `D:\trae_projects\dang\android\` 中**没有** `key.properties`（因为它不进入 git）
+- WSL 端 `/home/mayn/dang/android/key.properties` 是手动放的（按规则不入 git）
+- 同步命令：
+  ```bash
+  rsync -av --delete /mnt/d/trae_projects/dang/android/ /home/mayn/dang/android/
+  ```
+  `--delete` 会删除 WSL 端所有 Windows 端没有的文件，包括 `key.properties`
+
+### 解决方案
+**方案 A（推荐）：同步 `android/` 时不用 `--delete`，并加 `--exclude`**：
+```bash
+rsync -av \
+  --exclude='build/' \
+  --exclude='.gradle/' \
+  --exclude='.idea/' \
+  --exclude='key.properties' \
+  /mnt/d/trae_projects/dang/android/ /home/mayn/dang/android/
+```
+
+**方案 B：用 `--delete` 时**先备份关键文件**：
+```bash
+cp /home/mayn/dang/android/key.properties /tmp/key.properties.bak
+rsync -av --delete /mnt/d/trae_projects/dang/android/ /home/mayn/dang/android/
+[ -f /home/mayn/dang/android/key.properties ] || cp /tmp/key.properties.bak /home/mayn/dang/android/key.properties
+```
+
+**方案 C：被删后恢复**（按 [dang-构建apk规则](dang-构建apk规则.md#android-签名配置)）：
+```bash
+# 在 WSL 端重新创建
+cat > /home/mayn/dang/android/key.properties << 'EOF'
+storePassword=123456
+keyPassword=123456
+keyAlias=changji
+storeFile=/home/mayn/.android/signing/changji.jks
+EOF
+chmod 600 /home/mayn/dang/android/key.properties
+```
+
+### 验证方法
+```bash
+# 构建前先验证 key.properties 存在
+[ -f /home/mayn/dang/android/key.properties ] && echo "OK" || echo "MISSING"
+
+# 检查密钥库文件
+ls -la /home/mayn/.android/signing/changji.jks
+```
+
+### 预防清单
+- [ ] 同步 `android/` 时**禁用 `--delete`** 或
+- [ ] 用 `--exclude='key.properties'` 排除
+- [ ] 构建前检查 `[ -f /home/mayn/dang/android/key.properties ]`
+- [ ] 备份 `key.properties` 到 `~/.android/` 或 `tmp/`
+
+---
+
+## 🔴 CASE-010: rsync --delete 误删目标端独有文件
+
+### 问题现象
+- 同步代码后，目标端**独有**的文件被删除
+- 这些文件通常不入 git（如 `.env`、`key.properties`、`*.local`、`*.bak` 等）
+- 构建或运行时找不到关键文件
+
+### 实际案例（2026-06-03）
+同步 `server/` 目录时也用 `--delete`，导致：
+- 服务器 `/home/admin/dang/server/.env`（应存在）被删（虽然这次是反向问题）
+- WSL 端 `/home/mayn/dang/android/key.properties` 被删
+
+### 根本原因
+`--delete` 行为：
+> "delete extraneous files from destination directories"
+
+任何目标端存在、源端不存在的文件都会被删除。**`--delete` 是双向破坏**：
+- 同步 Windows → WSL：删 WSL 端独有的（如 `key.properties`、`.env`）
+- 同步 WSL → 服务器：删服务器端独有的（如 `.env`、日志、配置）
+
+### 解决方案
+
+**铁律：谨慎使用 `--delete`，必须配合 `--exclude`**
+
+**标准 rsync 命令模板**（带 exclude 列表）：
+```bash
+# 同步 lib/（不需要 --delete，因为完全替换）
+rsync -av /mnt/d/trae_projects/dang/lib/ /home/mayn/dang/lib/
+
+# 同步 android/（需要 --delete 清理 build/.gradle/，但要保护 key.properties）
+rsync -av --delete \
+  --exclude='build/' \
+  --exclude='.gradle/' \
+  --exclude='.idea/' \
+  --exclude='key.properties' \
+  /mnt/d/trae_projects/dang/android/ /home/mayn/dang/android/
+
+# 同步 server/（需要 --delete 清理 dist/，但要保护 .env）
+rsync -av --delete \
+  --exclude='node_modules/' \
+  --exclude='dist/' \
+  --exclude='.env' \
+  --exclude='*.log' \
+  /mnt/d/trae_projects/dang/server/ /home/mayn/dang/server/
+```
+
+### 关键 exclude 项
+
+| 目录 | 必须 exclude | 原因 |
+|------|------------|------|
+| `android/` | `key.properties` | 签名密钥，**绝对不能删** |
+| `android/` | `build/` `.gradle/` | 构建产物，下次构建会重新生成 |
+| `server/` | `.env` | 环境变量配置（不入 git）|
+| `server/` | `node_modules/` | 依赖（下次 install 重新生成）|
+| `server/` | `*.log` | 日志文件 |
+| 任何目录 | `.local` `*.bak` `*.swp` | 临时/本地文件 |
+
+### 验证方法
+```bash
+# 同步后立即验证关键文件
+[ -f /home/mayn/dang/android/key.properties ] || echo "❌ key.properties 丢失"
+[ -f /home/admin/dang/server/.env ] || echo "❌ .env 丢失"
+```
+
+### 预防
+- ❌ **禁止**用裸 `rsync -av --delete /src/ /dst/`（无 exclude）
+- ✅ **必须**配合 `--exclude='关键文件'`
+- ✅ **必须**先备份再操作
+- ✅ 同步后立即验证关键文件
+
+---
+
+## 🔴 CASE-011: 引用未定义变量（编译期不报错）
+
+### 问题现象
+- Flutter 构建时报编译错误：
+  ```
+  Error: The argument type 'String' can't be assigned to the parameter type 'bool'.
+  ```
+  或
+  ```
+  The function 'xxx' is not defined
+  ```
+- 但该变量在**当前类**中确实不存在
+- 错误指向的函数签名有误，参数类型不匹配
+
+### 实际案例（2026-06-03）
+修改 `recording_screen.dart` 的实时转写 UI 优化时，新加的 `_buildRealtimeTranscriptView(realtimeText, isRecording)` 调用时传了 `isRecording`（字符串），导致：
+```
+Error: The argument type 'String' can't be assigned to the parameter type 'bool'.
+```
+
+实际本意是 `state.isRecording`（bool），漏写了 `state.` 前缀。
+
+### 根本原因
+- **Dart 词法作用域**：`isRecording` 这种短名在 widget 内部可能因为属性提升（extension / mixin）而指向其他类型
+- 在 `_showRealtimeTranscriptionSheet` 函数里，`state` 是参数，但调用时漏写 `state.` 前缀
+- 编译期错误信息不够直观（`isRecording` 实际是 String 类型而非 bool）
+
+### 解决方案
+**修复时按错误位置定位，再读上下文确认变量来源**：
+```dart
+// 错误调用
+_buildRealtimeTranscriptView(realtimeText, isRecording)  // 传了 String
+
+// 正确调用
+_buildRealtimeTranscriptView(realtimeText, state.isRecording)  // 传了 bool
+```
+
+### 预防
+- ✅ 修复杂构造函数调用时，**先读函数签名**确认参数类型
+- ✅ IDE 警告优先（红线、高亮）— 不要忽略
+- ✅ `flutter analyze` 能在编译前发现大部分此类问题
+- ❌ 不要"凭感觉"猜变量名
+
+### 验证方法
+```bash
+# 编译前先 analyze
+wsl -d dang bash -c 'export PATH=/home/mayn/flutter/bin:$PATH && cd /home/mayn/dang && timeout 120 flutter analyze lib/'
+# 期望：No issues found!
+```
+
+---
+
 ## � 使用指南
 
 ### 构建失败时
@@ -279,6 +479,7 @@ wsl -d dang bash -c 'echo "[wsl2]" > /etc/wsl.conf'
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-03 | **新增 3 个案例**（基于 2026-06-03 修复过程沉淀）：CASE-009 同步后 key.properties 丢失；CASE-010 rsync --delete 误删目标端独有文件（含铁律+exclude 模板+多目录 exclude 表）；CASE-011 引用未定义变量编译错误。完整 11 个案例覆盖：APK 时间戳 / NDK / 资源文件 / 依赖兼容 / 缓存缺失 / 代码同步 / WSL 代理 / 签名密钥 / rsync 风险 / 变量引用 |
 | 2026-05-25 | 安全修复：flutter build 加 timeout 1200；pub get 加 timeout 120；rsync 加 --timeout=60；git diff 加 timeout 30 |
 | 2026-05-12 | 初始版本，包含所有案例 |
 | 2026-05-19 | 方案C重构：API 案例拆分到 API_TROUBLESHOOTING.md，保留纯构建案例 |

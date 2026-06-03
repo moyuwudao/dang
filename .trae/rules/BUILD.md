@@ -696,6 +696,103 @@ ssh -o ConnectTimeout=10 changji 'pm2 flush && sleep 5 && pm2 logs changji-api -
 
 ---
 
+## 📋 客户端标准构建流程（2026-06-03 沉淀）
+
+> **目的**：把 2026-06-03 修复流程固化为标准，**所有后续构建必须按此顺序执行**。
+> 
+> **构建前必查** → [SERVER_STATUS.md](../docs/SERVER_STATUS.md)（如涉及后端）
+
+### 阶段一：代码同步（Windows → WSL）
+
+```bash
+# WSL 端必须用 cp，不是 Windows copy（详见 CASE-007）
+# 关键：必须同步 lib/ + android/ + pubspec.yaml + assets/
+# 不能用 --delete 同步 android/（会删 key.properties）
+wsl -d dang bash -c 'rsync -av /mnt/d/trae_projects/dang/lib/ /home/mayn/dang/lib/ && \
+                      rsync -av --exclude=build/ --exclude=.gradle/ /mnt/d/trae_projects/dang/android/ /home/mayn/dang/android/ && \
+                      rsync -av /mnt/d/trae_projects/dang/pubspec.yaml /home/mayn/dang/pubspec.yaml && \
+                      [ -d /mnt/d/trae_projects/dang/assets ] && rsync -av /mnt/d/trae_projects/dang/assets/ /home/mayn/dang/assets/ || true'
+```
+
+### 阶段二：检查签名密钥（必查，否则APK无签名）
+
+```bash
+# 必须存在且包含正确的 alias 和密码
+[ -f /home/mayn/dang/android/key.properties ] && cat /home/mayn/dang/android/key.properties
+# 期望：storePassword=123456 / keyAlias=changji / storeFile=/home/mayn/.android/signing/changji.jks
+# 缺失时按 [dang-构建apk规则](dang-构建apk规则.md#android-签名配置) 恢复
+```
+
+### 阶段三：清理 + 依赖 + 构建
+
+```bash
+wsl -d dang bash -c 'export PATH=/home/mayn/flutter/bin:/usr/bin:/bin:/usr/local/bin:$PATH && \
+                      cd /home/mayn/dang && \
+                      timeout 120 flutter clean && \
+                      timeout 180 flutter pub get && \
+                      timeout 1500 flutter build apk --release'
+```
+
+### 阶段四：复制 APK + 时间戳命名 + 验证
+
+```bash
+# 必须用 WSL 内部的 cp，生成时间戳（详见 CASE-001）
+wsl -d dang bash -c 'TS=$(date +%Y%m%d_%H%M); \
+                      cp /home/mayn/dang/build/app/outputs/flutter-apk/app-release.apk /mnt/d/trae_projects/dang/build/changji_app_${TS}.apk && \
+                      ls -la /mnt/d/trae_projects/dang/build/changji_app_${TS}.apk'
+# Windows 端验证
+Get-Item d:\trae_projects\dang\build\changji_app_*.apk | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+```
+
+### 阶段五：服务器部署（如有后端代码修改）
+
+```bash
+# 提交推送
+git add server/ lib/
+git commit -m "..."
+git push origin master
+
+# 服务器 pull + build + restart
+wsl -d dang bash -c 'ssh -o ConnectTimeout=10 changji "cd /home/admin/dang && git pull origin master && cd server && npm run build && pm2 delete all && pm2 start dist/main.js --name changji-api && pm2 save"'
+
+# 验证稳定（至少 60 秒）
+wsl -d dang bash -c 'ssh -o ConnectTimeout=10 changji "pm2 flush && sleep 60 && pm2 jlist"'
+# 期望：restart_time=0 status=online
+```
+
+### 阶段六：核心 API 自测
+
+```bash
+# 验证码接口（应返回 200 + devCode）
+wsl -d dang bash -c 'curl -s --max-time 10 -X POST http://101.133.238.249/api/v1/auth/send-sms-code -H "Content-Type: application/json" -d "{\"phone\":\"13912345678\"}"'
+```
+
+### 完整检查清单
+
+- [ ] **阶段一**：lib/ + android/ + pubspec.yaml + assets/ 全部同步到 WSL
+- [ ] **阶段二**：`/home/mayn/dang/android/key.properties` 存在
+- [ ] **阶段三**：`flutter clean` 成功（不能跳过）→ `pub get` 成功 → `flutter build apk --release` 成功
+- [ ] **阶段四**：APK 用时间戳命名 `changji_app_YYYYMMDD_HHMM.apk`，时间戳匹配构建时刻
+- [ ] **阶段五**（如有后端修改）：服务器 `restart_time=0` 持续 60 秒
+- [ ] **阶段六**：核心 API 返回正常业务响应（非 5xx）
+
+### 异常对照
+
+构建失败时按 [BUILD_TROUBLESHOOTING.md](BUILD_TROUBLESHOOTING.md) 案例索引排查：
+- **CASE-001**：APK 复制后不是最新（Windows copy vs WSL cp）
+- **CASE-002**：NDK 版本不匹配
+- **CASE-003**：资源文件缺失
+- **CASE-004**：FlutterLifecycleAdapter 找不到
+- **CASE-005**：类路径快照缺失
+- **CASE-007**：代码未同步到 WSL，APK 包含旧代码
+- **CASE-008**：WSL 代理警告导致命令提前退出
+- **CASE-009**：构建前未检查 key.properties（同步时误删）
+- **CASE-010**：rsync --delete 误删目标端独有文件
+
+后端反复重启问题 → [SERVER_DEPLOY.md 问题9](SERVER_DEPLOY.md#问题9后端反复重启redis-noauth--ioredis-unhandled-error-event)
+
+---
+
 ## 更新记录
 
 | 日期 | 更新内容 |

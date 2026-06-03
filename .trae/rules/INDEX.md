@@ -47,7 +47,8 @@ description: 规则索引 - 所有规则的目录和快速定位
 | 文件 | 用途 | 触发条件 |
 |------|------|---------|
 | [SERVER_DEPLOY.md](SERVER_DEPLOY.md) | 阿里云 ECS 部署（**部署前必读 SERVER_STATUS.md**） | 编辑 admin/、server/ |
-| [SERVER_DEPLOY_PROCEDURE.md](SERVER_DEPLOY_PROCEDURE.md) | 部署流程 | 编辑 admin/、server/ |
+| [SERVER_DEPLOY_PROCEDURE.md](SERVER_DEPLOY_PROCEDURE.md) | 部署流程（含后端代码部署标准流程） | 编辑 admin/、server/ |
+| [BUILD_TROUBLESHOOTING.md](BUILD_TROUBLESHOOTING.md) | APK 构建异常案例集锦（CASE-001~011） | 构建失败时优先查 |
 | [SERVER_OPS.md](SERVER_OPS.md) | 服务器运维 | 编辑 admin/、server/ |
 | [SERVER_SECURITY.md](SERVER_SECURITY.md) | 服务器安全 | 编辑 admin/、server/ |
 | [SERVER_API.md](SERVER_API.md) | 畅记云 API | 编辑 admin/、server/、lib/**/api/ |
@@ -285,6 +286,7 @@ description: 规则索引 - 所有规则的目录和快速定位
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-03 | **重大更新**（基于 2026-06-03 修复过程沉淀）：BUILD.md 新增 "WSL SSH 密钥配置" 和 ".env 与 process.env 规范" 章节和"客户端标准构建流程"（6 阶段）；SERVER_DEPLOY_PROCEDURE.md 新增"六、后端代码部署标准流程"（6 阶段）；SERVER_DEPLOY.md 新增问题9（后端反复重启 1472 次根因复盘）和问题10（WSL SSH 密钥缺失）；HIGH_RISK_OPS.md 增加 .env 提醒；BUILD_TROUBLESHOOTING.md 新增 3 个案例 CASE-009/010/011（key.properties 丢失、rsync --delete 风险、引用未定义变量）|
 | 2026-06-03 | **重大更新**：BUILD.md 新增 "WSL SSH 密钥配置" 和 ".env 与 process.env 规范" 章节；SERVER_DEPLOY.md 新增问题9（后端反复重启 1472 次根因复盘）和问题10（WSL SSH 密钥缺失）；HIGH_RISK_OPS.md 增加 .env 提醒 |
 | 2026-06-02 | 服务器相关规则更新：INDEX.md 新增 SERVER_STATUS.md 和 SERVER_DIRECTORY.md 引用；SERVER_DEPLOY.md 新增"部署前必读"章节 |
 | 2026-05-28 | 补充 Playwright MCP（34工具速查）、aliyun-servers MCP（13工具速查）、更新 MCP 服务器表为 5 个 |

@@ -321,9 +321,109 @@ sudo systemctl start redis-server
 
 ---
 
+## 六、后端代码部署标准流程（2026-06-03 沉淀）
+
+> **目的**：把 2026-06-03 修复流程固化为标准，**所有后续后端代码修改必须按此顺序执行**。
+> 
+> **前置必查**：
+> - [SERVER_STATUS.md](../docs/SERVER_STATUS.md) - 服务器当前状态
+> - [.env 规范](BUILD.md#-env-与-processenv-规范部署必修) - 环境变量配置要求
+> - [SERVER_DEPLOY.md 问题9](SERVER_DEPLOY.md#问题9后端反复重启redis-noauth--ioredis-unhandled-error-event) - 反复重启根因
+
+### 阶段一：本地代码修改与测试
+
+```bash
+# 在 Windows 端编辑 server/src/ 下的代码
+# 写代码时注意：
+#   - 所有 ioredis 客户端必须有 password fallback 和 error 事件监听器
+#   - 涉及 .env 字段的代码，必须同时确认 .env 实际存在且包含该字段
+#   - 涉及 NestJS Module 注入新 Repository，必须同步 forFeature 列表
+```
+
+### 阶段二：提交到 git
+
+```bash
+git -C d:/trae_projects/dang add server/
+git -C d:/trae_projects/dang commit -m "fix: 简短描述（含根本原因）"
+git -C d:/trae_projects/dang push origin master
+```
+
+### 阶段三：服务器 pull + build
+
+```bash
+wsl -d dang bash -c 'ssh -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 changji "
+  set -e
+  cd /home/admin/dang
+  git pull origin master 2>&1 | tail -5
+  cd server
+  npm run build 2>&1 | tail -5
+  ls -la dist/admin/admin.module.js  # 验证编译产物
+"'
+```
+
+### 阶段四：检查并修复 .env
+
+```bash
+# 必查项：服务器 .env 必须存在且包含关键字段
+wsl -d dang bash -c 'ssh -o ConnectTimeout=10 changji "
+  ls -la /home/admin/dang/server/.env
+  [ -f /home/admin/dang/server/.env ] || cp /opt/changji-cloud/api/.env /home/admin/dang/server/.env
+  grep -E \"^REDIS_PASSWORD|^DB_PASSWORD|^JWT_SECRET\" /home/admin/dang/server/.env
+"'
+```
+
+### 阶段五：重启 pm2
+
+```bash
+wsl -d dang bash -c 'ssh -o ConnectTimeout=10 changji "
+  pm2 delete all 2>&1 | tail -3
+  cd /home/admin/dang/server
+  pm2 start dist/main.js --name changji-api --cwd /home/admin/dang/server 2>&1 | tail -5
+  pm2 save 2>&1 | tail -3
+"'
+```
+
+### 阶段六：稳定性和功能验证
+
+```bash
+# 等待 30-60 秒，看重启次数是否为 0
+wsl -d dang bash -c 'ssh -o ConnectTimeout=10 changji "
+  pm2 flush  # 清空历史日志
+  sleep 30
+  pm2 jlist 2>&1 | python3 -c \"
+import json,sys
+for p in json.load(sys.stdin):
+  if p[\\\"name\\\"]==\\\"changji-api\\\":
+    print(f\\\"重启次数: {p[\\\"pm2_env\\\"][\\\"restart_time\\\"]} 状态: {p[\\\"pm2_env\\\"][\\\"status\\\"]} 内存: {p[\\\"monit\\\"][\\\"memory\\\"]/1024/1024:.1f}MB\\\")
+\"
+  pm2 logs changji-api --lines 30 --nostream --err 2>&1 | tail -10  # 应该无 NOAUTH/Error
+"'
+
+# 测试核心 API
+wsl -d dang bash -c 'curl -s --max-time 10 -X POST http://101.133.238.249/api/v1/auth/send-sms-code -H "Content-Type: application/json" -d "{\"phone\":\"13912345678\"}"'
+```
+
+### 完整检查清单
+
+- [ ] **阶段二**：commit 信息描述根本原因，**不只是症状**
+- [ ] **阶段三**：`dist/main.js` 编译成功且 mtime > 当前时间
+- [ ] **阶段四**：`.env` 存在，**包含** `REDIS_PASSWORD=Redis123456`（必查）
+- [ ] **阶段五**：pm2 restart_time = 0 持续 30 秒以上
+- [ ] **阶段六**：核心 API 正常返回（非 5xx，非 NOAUTH 错误）
+
+### 异常对照
+
+后端部署失败时按 [SERVER_DEPLOY.md 问题集](SERVER_DEPLOY.md#七常见问题与解决方案) 排查：
+- **问题9**（最重要）：后端反复重启（Redis NOAUTH + ioredis error event + .env 路径）
+- **问题8**：数据库表结构变更后实体类未同步
+- **问题10**：WSL 端 SSH 密钥缺失（无法远程操作）
+
+---
+
 ## 更新记录
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-03 | **新增"六、后端代码部署标准流程"**：6 阶段（本地开发→commit→服务器 pull→检查 .env→pm2 restart→稳定验证）+ 完整检查清单 + 异常对照。把 2026-06-03 修复流程（Redis NOAUTH + AdminModule 502）固化为标准 |
 | 2026-05-25 | 安全修复：systemctl 加 --no-pager；psql/pg_dump 加 statement_timeout；redis-cli 加 --no-auth-warning；curl 加超时 |
 | 2026-05-21 | 从 SERVER_DEPLOY.md 拆分，独立为 SERVER_DEPLOY_PROCEDURE.md |
