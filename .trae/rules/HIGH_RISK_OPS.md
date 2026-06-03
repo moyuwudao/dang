@@ -20,11 +20,19 @@ description: 高风险操作规范 - 需要特别小心和先问再做的操作
 - ⚠️ 删除 `build/` 目录
 - ⚠️ 删除 `node_modules/` 或依赖
 - ⚠️ 数据库迁移（涉及 schema 变更）
+- ⚠️ `rsync --delete` 同步目录（会删除目标端不在源端的文件）
+- ⚠️ `pm2 delete all`（会删除所有服务，慎用！）
 
 **执行前**：
 - 必须先说清楚要删什么
 - 解释为什么需要删
 - 等待确认
+
+**特别提醒：`.env` 文件**
+- ⚠️ 服务器上 `/home/admin/dang/server/.env` **必须存在**且包含 `REDIS_PASSWORD=Redis123456`
+- ⚠️ 缺失会导致应用启动时 Redis 认证失败，进程反复崩溃（pm2 重启 1472 次）
+- ⚠️ **不要**假设 `.env` 在 `/opt/...` 旧路径（已废弃）
+- 完整规范 → [BUILD.md § .env 与 process.env 规范](BUILD.md#-env-与-processenv-规范部署必修)
 
 ---
 

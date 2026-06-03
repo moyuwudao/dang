@@ -13,7 +13,7 @@ description: 阿里云ECS服务器部署规范 - 101.133.238.249 标准化操作
 **适用范围**：所有对该服务器的部署、配置、维护操作
 **服务器IP**：101.133.238.249（公网）/ 172.24.29.151（内网）
 **操作系统**：Ubuntu 22.04.5 LTS
-**文档版本**：v1.8
+**文档版本**：v3.2
 
 > **MCP 连接** → 详见 `aliyun-servers` MCP（mcp-server-ssh）
 > **安全红线** → 详见 [RED_LINES.md](RED_LINES.md)
@@ -373,6 +373,123 @@ echo "\d billing_standards" | sudo -u postgres psql -d appdb
 grep -n "base_price" /home/admin/dang/server/src/subscription/entities/billing-standard.entity.ts
 ```
 
+### 问题9：后端反复重启（Redis NOAUTH + ioredis unhandled error event）
+
+> **关键案例（2026-06-03）**：服务重启 1472 次，pm2 status 显示 `restart_time: 1472`，`uptime: 0s`（一直在崩溃重启）。
+
+**现象**：
+- `pm2 status` 显示 `↺ 1472`（重启次数异常大）
+- `uptime` 只有 0~几秒（秒崩）
+- 错误日志重复出现 `Unhandled error event: ReplyError: NOAUTH Authentication required`
+- 但 `redis-cli -a Redis123456 PING` 直接测试是 OK 的
+
+**根本原因**（三个问题叠加）：
+
+1. **`.env` 文件路径错误**：
+   - 服务器只有 `/opt/changji-cloud/api/.env`（老路径）
+   - 但 pm2 进程 `cwd` 是 `/home/admin/dang/server`
+   - NestJS `ConfigModule` 找不到 .env → `ConfigService.get('REDIS_PASSWORD')` 返回 undefined
+   - ⚠️ **重要**：`process.env.X` 也不读 .env（Node 默认行为）
+
+2. **代码里直接用 `process.env.X` 没有 fallback**：
+   ```typescript
+   // auth.service.ts (错误)
+   password: process.env.REDIS_PASSWORD || process.env.REDIS_PASS,  // password = undefined
+   ```
+
+3. **ioredis 'error' 事件没有监听器**：
+   - EventEmitter 'error' 事件没有监听器时，Node 进程会**抛出未捕获异常并退出**
+   - ioredis 客户端连接失败时 emit 'error' 事件
+   - 后果：每次 Redis 调用 → 进程崩溃 → pm2 重启 → 再次崩溃 → 死循环
+
+**完整解决方案**：
+
+**A. 修复 `.env` 路径**：
+```bash
+ssh -o ConnectTimeout=10 changji 'cp /opt/changji-cloud/api/.env /home/admin/dang/server/.env'
+```
+
+**B. 修复代码（auth.service.ts）**：
+```typescript
+this.redisClient = new Redis({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  password: process.env.REDIS_PASSWORD || process.env.REDIS_PASS || 'Redis123456',  // ← fallback
+});
+// 必须监听 error 事件！
+this.redisClient.on('error', (err) => {
+  this.logger.warn(`Redis client error (non-fatal): ${err.message}`);
+});
+```
+
+**C. 重启服务**：
+```bash
+ssh -o ConnectTimeout=10 changji 'pm2 delete all && pm2 start dist/main.js --name changji-api && pm2 save'
+```
+
+**D. 验证稳定**：
+```bash
+# 等待60秒，看重启次数是否仍为0
+ssh -o ConnectTimeout=10 changji 'pm2 flush && sleep 60 && pm2 jlist | python3 -c "
+import json,sys
+for p in json.load(sys.stdin):
+  if p[\"name\"]==\"changji-api\":
+    print(f\"重启: {p[\"pm2_env\"][\"restart_time\"]} 状态: {p[\"pm2_env\"][\"status\"]}\")
+"'
+# 期望：重启 = 0，状态 = online
+```
+
+**预防清单（部署前必查）**：
+- [ ] `ls -la /home/admin/dang/server/.env` 文件存在
+- [ ] `.env` 中包含 `REDIS_PASSWORD=Redis123456`
+- [ ] 所有 ioredis 客户端都有 `redisClient.on('error', ...)` 监听器
+- [ ] `pm2 logs changji-api --err` 实时检查没有 NOAUTH / ECONNREFUSED
+
+### 问题10：WSL 端 SSH 密钥缺失（远程运维中断）
+
+> **关键案例（2026-06-03）**：在 WSL 实例 `dang` 中执行 `ssh changji` 命令时报 `permission denied (publickey)`。
+
+**现象**：
+- WSL 终端执行 `ssh changji` 失败
+- 错误：`Permission denied (publickey)`
+- Windows 端的 `id_ed25519` 存在但 WSL 端 `~/.ssh/` 目录不存在
+
+**根本原因**：
+- WSL 实例是新创建或被重置的，`~/.ssh/` 是空的
+- Windows 端 `C:\Users\xxx\.ssh\` 已有密钥
+- WSL 和 Windows 是两个文件系统，不共享 `.ssh/`
+
+**解决方案**（一次性配置）：
+```powershell
+# 复制 Windows 端密钥到 WSL
+wsl -d dang bash -c 'bash /mnt/d/trae_projects/dang/tmp/setup_wsl_ssh.sh'
+```
+
+或手动复制：
+```bash
+# 在 WSL 内执行
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+cp /mnt/c/Users/<Windows用户>/.ssh/id_ed25519 ~/.ssh/
+cp /mnt/c/Users/<Windows用户>/.ssh/id_ed25519.pub ~/.ssh/
+cp /mnt/c/Users/<Windows用户>/.ssh/config ~/.ssh/
+cp /mnt/c/Users/<Windows用户>/.ssh/known_hosts ~/.ssh/
+chmod 600 ~/.ssh/id_ed25519 ~/.ssh/config
+chmod 644 ~/.ssh/id_ed25519.pub ~/.ssh/known_hosts
+```
+
+**权限强制要求**（Linux SSH 安全规范）：
+| 文件 | 权限 |
+|-----|------|
+| `~/.ssh/` | `700` |
+| `~/.ssh/id_ed25519` | `600` |
+| `~/.ssh/config` | `600` |
+| `~/.ssh/known_hosts` | `644` |
+
+**详细规范** → 详见 [BUILD.md § WSL SSH 密钥配置](BUILD.md#-wsl-ssh-密钥配置远程操作前置条件)
+
+---
+
 **实际案例（2026-05-21）**
 优化后台 UI 后多次部署，服务器文件已确认是新版本（`grep bg-gradient` 返回 0），但用户多端均看到旧版。
 
@@ -481,6 +598,7 @@ curl -s http://101.133.238.249/subscriptions | grep -o bg-gradient | wc -l
 
 | 日期 | 版本 | 更新内容 |
 |-----|------|---------|
+| 2026-06-03 | v3.2 | **新增问题9（核心）**：后端反复重启 1472 次的根因复盘（Redis NOAUTH + ioredis unhandled error + .env 路径错）含完整解决方案和预防清单；**新增问题10**：WSL 端 SSH 密钥缺失的标准化恢复流程；引用 [BUILD.md § WSL SSH 密钥配置](BUILD.md) 和 [.env 规范](BUILD.md#-env-与-processenv-规范部署必修) |
 | 2026-06-02 | v3.1 | 新增"部署前必读"章节：强制要求部署前查阅 SERVER_STATUS.md；更新相关文档引用 |
 | 2026-06-01 | v3.0 | **最终纠正**：实际用户是 admin（不是 mayn）；实际路径是 /home/admin/；编译输出路径是 dist/main.js（不是 dist/src/main.js）；更新所有路径引用 |
 | 2026-06-01 | v2.1 | 纠正：实际用户是 mayn 不是 admin（后被证明错误） |

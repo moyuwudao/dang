@@ -571,10 +571,136 @@ Get-Item D:\trae_projects\dang\changji_app_*.apk | Select-Object Name, LastWrite
 
 ---
 
+## 🔑 WSL SSH 密钥配置（远程操作前置条件）
+
+> **背景**：WSL 实例 `dang` 在新环境或重置后，`~/.ssh/` 是空的，无法无密码连接 `changji` 服务器（101.133.238.249）。Windows 端已有密钥，必须复制到 WSL。
+
+### 标准流程（一次性配置）
+
+```powershell
+# 1. 复制 Windows 端密钥到 WSL（脚本在 d:\trae_projects\dang\tmp\）
+#    探测当前 Windows 用户名 + 自动检测 .ssh 目录
+wsl -d dang bash -c 'bash /mnt/d/trae_projects/dang/tmp/setup_wsl_ssh.sh'
+
+# 2. 验证连接（首次会提示 host key，选择 yes）
+wsl -d dang bash -c 'ssh -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 changji "echo CONN_OK && whoami"'
+```
+
+### 权限强制要求（Linux SSH 安全规范）
+
+| 文件 | 权限 | 原因 |
+|-----|------|------|
+| `~/.ssh/` | `700` | SSH 要求目录不可被其他用户访问 |
+| `~/.ssh/id_ed25519` | `600` | 私钥不能被其他用户读取 |
+| `~/.ssh/config` | `600` | 配置可能包含敏感信息 |
+| `~/.ssh/known_hosts` | `644` | 公开信息（已认证的主机指纹）|
+
+### 关键 SSH 配置文件（`~/.ssh/config`）
+
+```bash
+Host changji
+    HostName 101.133.238.249
+    User admin
+    Port 22
+    IdentityFile ~/.ssh/id_ed25519
+    StrictHostKeyChecking accept-new
+    ConnectTimeout 30
+```
+
+### 强制要求
+
+- ✅ **所有 `ssh changji` 命令必须带超时参数**：
+  ```bash
+  ssh -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 changji "cmd"
+  ```
+  否则网络不通时会无限卡住（详见 [RED_LINES.md 5.2](RED_LINES.md)）
+- ✅ **跨环境 SSH 必须用 WSL bash 中转**：
+  ```powershell
+  wsl -d dang bash -c 'ssh changji "cmd"'  # ✅ 外层单引号 + 内层双引号
+  ```
+  避免 PowerShell 引号/转义陷阱
+- ❌ **禁止**用 `wsl -d dang bash -c "ssh changji 'cmd'"`（PowerShell 会破坏引号）
+- ❌ **禁止**直接 `ssh admin@101.133.238.249`（交互式登录会永久阻塞）
+
+### ⚠️ 与 aliyun-servers MCP 的关系
+
+| 工具 | 优先级 | 适用场景 |
+|-----|-------|---------|
+| `aliyun-servers` MCP（`mcp_aliyun-servers_ssh_exec` 等） | **最高** | 服务器运维首选（自动超时、稳定）|
+| `wsl -d dang ssh changji` | 备选 | MCP 不可用时使用 |
+| `wsl bash -c "ssh ..."`（PowerShell 直连） | 禁止 | PowerShell 端引号会破坏 |
+
+**最佳实践**：所有 SSH 操作优先用 `mcp_aliyun-servers_ssh_exec` 工具。WSL 方式仅作 MCP 不可用时的备选。
+
+---
+
+## 🔄 .env 与 process.env 规范（部署必修）
+
+> **关键教训（2026-06-03）**：后端 `auth.service.ts` 用 `process.env.REDIS_PASSWORD` 直接读，但服务器 `/home/admin/dang/server/.env` **不存在**（之前只有 `/opt/changji-cloud/api/.env`），导致应用启动时 `password: undefined`，Redis 返回 NOAUTH，ioredis 抛出 unhandled error event 反复使进程崩溃（1472 次重启）。
+
+### 三条铁律
+
+1. **`.env` 文件必须存在于进程的 `cwd` 下**（不是 `/opt/...` 等历史路径）
+2. **`process.env.X` 不读 `.env` 文件**（NestJS `ConfigService` 才读）—— 但代码里直接 `process.env.X` 时必须给 fallback
+3. **所有 `ioredis` 客户端必须监听 `error` 事件**，否则 Redis 故障会让整个 Node 进程崩溃
+
+### 必查的 `.env` 字段
+
+```bash
+# 在服务器上必须存在：
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=appdb
+DB_USER=appuser
+DB_PASSWORD=AppUser123456
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=Redis123456  # ← 缺这个会触发 NOAUTH 反复重启
+JWT_SECRET=changji_jwt_secret_change_me_in_production
+NODE_ENV=production
+PORT=3000
+```
+
+### 复制 `.env` 到正确位置
+
+```bash
+ssh -o ConnectTimeout=10 changji 'cp /opt/changji-cloud/api/.env /home/admin/dang/server/.env'
+```
+
+### 代码侧防御（必加）
+
+**所有 `ioredis` 客户端**必须这样写：
+```typescript
+this.redisClient = new Redis({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  password: process.env.REDIS_PASSWORD || process.env.REDIS_PASS || 'Redis123456',  // fallback
+});
+this.redisClient.on('error', (err) => {  // ← 必须监听 error 事件！
+  this.logger.warn(`Redis client error (non-fatal): ${err.message}`);
+});
+```
+
+**为什么必须监听 error 事件**：
+- EventEmitter 的 'error' 事件如果没有监听器，Node 进程会**默认抛出未捕获异常并退出**
+- ioredis 连接失败时会 emit 'error' 事件
+- 后果：进程反复崩溃 + pm2 疯狂重启 + 整个 API 不可用
+
+### 验证
+
+```bash
+# 服务器上执行
+ssh -o ConnectTimeout=10 changji 'pm2 flush && sleep 5 && pm2 logs changji-api --lines 30 --nostream --err | head -20'
+# 期望：错误日志完全为空（或只有正常 WARN，不是 ReplyError）
+```
+
+---
+
 ## 更新记录
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-03 | **新增"WSL SSH 密钥配置"章节**：WSL 端密钥从 Windows 复制流程 + 权限规范 + 超时强制 + MCP 优先；**新增".env 与 process.env 规范"章节**：三条铁律（.env 路径/ConfigService/fallback）+ ioredis 错误事件处理 + Redis NOAUTH 反复重启根因复盘 |
 | 2026-06-02 | 新增"代码同步安全规范"小节（rsync --delete 风险+标准流程+--exclude 方案）；问题 3 强化为"key.properties 仅 WSL 端" |
 | 2026-05-27 | 重大更新：强制流程改为分步执行（禁止合并命令）；新增3条绝对禁止（合并步骤、固定文件名、只同步lib/）；INTERACTION.md 增加构建阻断5条规则 |
 | 2026-05-25 | 安全修复：rsync 加 --timeout=60；flutter build 加 timeout 1200；flutter pub get 加 timeout 300 |

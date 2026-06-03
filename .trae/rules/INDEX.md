@@ -285,6 +285,7 @@ description: 规则索引 - 所有规则的目录和快速定位
 
 | 日期 | 更新内容 |
 |-----|---------|
+| 2026-06-03 | **重大更新**：BUILD.md 新增 "WSL SSH 密钥配置" 和 ".env 与 process.env 规范" 章节；SERVER_DEPLOY.md 新增问题9（后端反复重启 1472 次根因复盘）和问题10（WSL SSH 密钥缺失）；HIGH_RISK_OPS.md 增加 .env 提醒 |
 | 2026-06-02 | 服务器相关规则更新：INDEX.md 新增 SERVER_STATUS.md 和 SERVER_DIRECTORY.md 引用；SERVER_DEPLOY.md 新增"部署前必读"章节 |
 | 2026-05-28 | 补充 Playwright MCP（34工具速查）、aliyun-servers MCP（13工具速查）、更新 MCP 服务器表为 5 个 |
 | 2026-05-28 | Skill 触发速查新增 P0+P1 共 9 条：codebase-onboarding/understand/search-first/cost-aware/deep-research/product-capability/ADR/postgres-patterns/market-research |
