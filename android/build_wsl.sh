@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 FLUTTER_SDK="/home/mayn/flutter"
 

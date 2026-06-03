@@ -1,4 +1,4 @@
-package com.changji.changji_app
+﻿package com.changji.changji_app
 
 import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity

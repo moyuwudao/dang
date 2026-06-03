@@ -1,4 +1,4 @@
-# ML Kit Text Recognition
+﻿# ML Kit Text Recognition
 -keep class com.google.mlkit.vision.text.** { *; }
 -keep class com.google.mlkit.vision.text.chinese.** { *; }
 -keep class com.google.mlkit.vision.text.devanagari.** { *; }

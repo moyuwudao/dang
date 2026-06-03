@@ -1,4 +1,4 @@
-package com.example.changji
+﻿package com.example.changji
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager

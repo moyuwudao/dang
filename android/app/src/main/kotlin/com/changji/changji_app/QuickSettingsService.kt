@@ -11,13 +11,13 @@ class QuickSettingsService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        
+
         // 启动录音界面
         val intent = Intent(this, MainActivity::class.java).apply {
             action = "com.changji.changji_app.RECORD"
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        
+
         // 解锁设备（如果需要）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startActivityAndCollapse(intent)
