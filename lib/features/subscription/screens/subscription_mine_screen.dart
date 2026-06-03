@@ -177,8 +177,10 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
   }
 
   Widget _buildQuotaCard(BuildContext context, SubscriptionState state, AppLocalizations l10n) {
-    final progress = state.totalQuota > 0
-        ? state.usedQuota / state.totalQuota
+    final totalTokens = state.tokenBalance.totalTokens;
+    final usedTokens = state.tokenBalance.usedTokens;
+    final progress = totalTokens > 0
+        ? usedTokens / totalTokens
         : 0.0;
 
     return Container(
@@ -195,14 +197,14 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                l10n.transcriptionQuota,
+                'Token 余额',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
-                '${state.totalQuota - state.usedQuota} ${l10n.minutes}',
+                '${state.tokenBalance.balanceTokens} Tokens',
                 style: const TextStyle(
                   color: AppColors.success,
                   fontWeight: FontWeight.bold,
@@ -223,7 +225,7 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${l10n.minutesUsed(state.usedQuota, state.totalQuota)}',
+                '已用 $usedTokens / 总计 $totalTokens Tokens',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 14,

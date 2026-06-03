@@ -122,7 +122,7 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '¥${subscription.balanceCents / 100}',
+                        '${subscription.tokenBalance.balanceTokens} Tokens',
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -152,7 +152,7 @@ class ProfileScreen extends ConsumerWidget {
                   Column(
                     children: [
                       Text(
-                        '${subscription.totalQuota - subscription.usedQuota}',
+                        '${subscription.tokenBalance.freeTokensRemaining}',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -161,7 +161,7 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '剩余配额',
+                        '免费Token',
                         style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],
@@ -169,7 +169,7 @@ class ProfileScreen extends ConsumerWidget {
                   Column(
                     children: [
                       Text(
-                        '${subscription.totalQuota}',
+                        '${subscription.tokenBalance.totalTokens}',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -178,7 +178,7 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '总配额',
+                        '总Token',
                         style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],

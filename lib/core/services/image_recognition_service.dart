@@ -21,14 +21,14 @@ class ImageRecognitionService {
       throw Exception('API未配置，请先在设置中配置API Key');
     }
 
-    // 计费检查
+    // 计费检查（Token余额预估）
     if (_billingService != null) {
       final canUse = await _billingService!.canUseFeature(
         FeatureType.imageRecognition,
-        1,
+        1, // 1张 = 2000 Token
       );
       if (!canUse) {
-        throw Exception('图像识别配额不足，请充值或升级套餐');
+        throw Exception('Token余额不足，请充值后再试');
       }
     }
 
@@ -82,15 +82,8 @@ class ImageRecognitionService {
           throw Exception('${config.displayName} 不支持图像识别');
       }
 
-      // 计费扣减
-      if (_billingService != null) {
-        await _billingService!.consumeFeature(
-          FeatureType.imageRecognition,
-          1,
-          provider: config.provider.name,
-          model: useModel,
-        );
-      }
+      // 清除余额缓存（后端已自动扣减Token）
+      _billingService?.clearBalanceCache();
 
       await StorageService.incrementUsageStat(
           config.name, 'image_recognition',

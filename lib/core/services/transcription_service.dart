@@ -116,14 +116,14 @@ class TranscriptionService {
       throw Exception('API未配置，请先在设置中配置API Key');
     }
 
-    // 计费检查
+    // 计费检查（Token余额预估）
     if (_billingService != null) {
       final canUse = await _billingService!.canUseFeature(
         FeatureType.transcription,
-        1, // 预估1分钟
+        1, // 预估1分钟 = 1200 Token
       );
       if (!canUse) {
-        throw Exception('语音转写配额不足，请充值或升级套餐');
+        throw Exception('Token余额不足，请充值后再试');
       }
     }
 
@@ -184,16 +184,8 @@ class TranscriptionService {
         }
       }
 
-      // 计费扣减（按实际音频时长）
-      if (_billingService != null) {
-        final durationMinutes = await _getAudioDuration(audioFilePath);
-        await _billingService!.consumeFeature(
-          FeatureType.transcription,
-          durationMinutes,
-          provider: config.provider.name,
-          model: effectiveModel,
-        );
-      }
+      // 清除余额缓存（后端已自动扣减Token）
+      _billingService?.clearBalanceCache();
 
       _statsService?.apiVoiceCallCompleted(true);
       return result;

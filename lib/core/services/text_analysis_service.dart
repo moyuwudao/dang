@@ -20,14 +20,14 @@ class TextAnalysisService {
       throw Exception('API未配置，请先在设置中配置API Key');
     }
 
-    // 计费检查
+    // 计费检查（Token余额预估）
     if (_billingService != null) {
       final canUse = await _billingService!.canUseFeature(
         FeatureType.textAnalysis,
         text.length / 1000,
       );
       if (!canUse) {
-        throw Exception('文本分析配额不足，请充值或升级套餐');
+        throw Exception('Token余额不足，请充值后再试');
       }
     }
 
@@ -67,15 +67,8 @@ class TextAnalysisService {
           break;
       }
 
-      // 计费扣减
-      if (_billingService != null) {
-        await _billingService!.consumeFeature(
-          FeatureType.textAnalysis,
-          (text.length + result.length) / 1000,
-          provider: config.provider.name,
-          model: useModel,
-        );
-      }
+      // 清除余额缓存（后端已自动扣减Token）
+      _billingService?.clearBalanceCache();
 
       await StorageService.incrementUsageStat(
           config.name, 'text_analysis',
@@ -92,14 +85,14 @@ class TextAnalysisService {
       throw Exception('API未配置，请先在设置中配置API Key');
     }
 
-    // 计费检查
+    // 计费检查（Token余额预估）
     if (_billingService != null) {
       final canUse = await _billingService!.canUseFeature(
         FeatureType.textAnalysis,
         text.length / 1000,
       );
       if (!canUse) {
-        throw Exception('文本分析配额不足，请充值或升级套餐');
+        throw Exception('Token余额不足，请充值后再试');
       }
     }
 
@@ -139,15 +132,8 @@ class TextAnalysisService {
           break;
       }
 
-      // 计费扣减
-      if (_billingService != null) {
-        await _billingService!.consumeFeature(
-          FeatureType.textAnalysis,
-          (text.length + result.length) / 1000,
-          provider: config.provider.name,
-          model: useModel,
-        );
-      }
+      // 清除余额缓存（后端已自动扣减Token）
+      _billingService?.clearBalanceCache();
 
       await StorageService.incrementUsageStat(
           config.name, 'text_analysis',
@@ -164,14 +150,14 @@ class TextAnalysisService {
       throw Exception('API未配置，请先在设置中配置API Key');
     }
 
-    // 计费检查
+    // 计费检查（Token余额预估）
     if (_billingService != null) {
       final canUse = await _billingService!.canUseFeature(
         FeatureType.aiChat,
         prompt.length / 1000,
       );
       if (!canUse) {
-        throw Exception('AI对话配额不足，请充值或升级套餐');
+        throw Exception('Token余额不足，请充值后再试');
       }
     }
 
@@ -206,15 +192,8 @@ class TextAnalysisService {
           break;
       }
 
-      // 计费扣减
-      if (_billingService != null) {
-        await _billingService!.consumeFeature(
-          FeatureType.aiChat,
-          (prompt.length + result.length) / 1000,
-          provider: config.provider.name,
-          model: useModel,
-        );
-      }
+      // 清除余额缓存（后端已自动扣减Token）
+      _billingService?.clearBalanceCache();
 
       await StorageService.incrementUsageStat(
           config.name, 'chat',
@@ -235,14 +214,14 @@ class TextAnalysisService {
       throw Exception('API未配置，请先在设置中配置API Key');
     }
 
-    // 计费检查
+    // 计费检查（Token余额预估）
     if (_billingService != null) {
       final canUse = await _billingService!.canUseFeature(
         FeatureType.aiChat,
         (prompt.length + systemPrompt.length) / 1000,
       );
       if (!canUse) {
-        throw Exception('AI对话配额不足，请充值或升级套餐');
+        throw Exception('Token余额不足，请充值后再试');
       }
     }
 
@@ -280,15 +259,8 @@ class TextAnalysisService {
           break;
       }
 
-      // 计费扣减
-      if (_billingService != null) {
-        await _billingService!.consumeFeature(
-          FeatureType.aiChat,
-          (prompt.length + systemPrompt.length + result.length) / 1000,
-          provider: config.provider.name,
-          model: useModel,
-        );
-      }
+      // 清除余额缓存（后端已自动扣减Token）
+      _billingService?.clearBalanceCache();
 
       await StorageService.incrementUsageStat(
           config.name, 'chat',

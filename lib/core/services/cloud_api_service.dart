@@ -71,6 +71,15 @@ class CloudApiService {
             }
             // 刷新失败或重试失败，清除 Token
             await clearToken();
+          } else if (error.response?.statusCode == 429) {
+            final message = error.response?.data?['message'] as String? ?? '';
+            if (message.contains('请求过于频繁')) {
+              AppLogger().w('API', '速率限制触发: $message');
+            } else if (message.contains('并发请求过多')) {
+              AppLogger().w('API', '并发限制触发: $message');
+            } else if (message.contains('日配额已用完')) {
+              AppLogger().w('API', '日配额耗尽: $message');
+            }
           }
           handler.next(error);
         },

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/cloud_api_service.dart';
 import '../../../core/services/secure_storage_service.dart';
+import '../../../core/services/billing_service.dart';
 import '../models/plan_model.dart';
 
 class ApiPolicy {
@@ -35,7 +36,6 @@ class ApiPolicy {
   }
 }
 
-/// 场景默认模型配置
 class DefaultConfig {
   final String functionType;
   final String modelPattern;
@@ -57,10 +57,8 @@ class SubscriptionState {
   final bool isActive;
   final String? planId;
   final String? planName;
-  final int totalQuota;
-  final int usedQuota;
   final DateTime? expiresAt;
-  final int balanceCents;
+  final TokenBalance tokenBalance;
   final List<ApiPolicy> apiPolicies;
   final List<DefaultConfig> defaultConfigs;
 
@@ -68,10 +66,13 @@ class SubscriptionState {
     this.isActive = false,
     this.planId,
     this.planName,
-    this.totalQuota = 0,
-    this.usedQuota = 0,
     this.expiresAt,
-    this.balanceCents = 0,
+    this.tokenBalance = const TokenBalance(
+      balanceTokens: 0,
+      freeTokensRemaining: 0,
+      totalTokens: 0,
+      usedTokens: 0,
+    ),
     this.apiPolicies = const [],
     this.defaultConfigs = const [],
   });
@@ -80,10 +81,8 @@ class SubscriptionState {
     bool? isActive,
     String? planId,
     String? planName,
-    int? totalQuota,
-    int? usedQuota,
     DateTime? expiresAt,
-    int? balanceCents,
+    TokenBalance? tokenBalance,
     List<ApiPolicy>? apiPolicies,
     List<DefaultConfig>? defaultConfigs,
   }) {
@@ -91,10 +90,8 @@ class SubscriptionState {
       isActive: isActive ?? this.isActive,
       planId: planId ?? this.planId,
       planName: planName ?? this.planName,
-      totalQuota: totalQuota ?? this.totalQuota,
-      usedQuota: usedQuota ?? this.usedQuota,
       expiresAt: expiresAt ?? this.expiresAt,
-      balanceCents: balanceCents ?? this.balanceCents,
+      tokenBalance: tokenBalance ?? this.tokenBalance,
       apiPolicies: apiPolicies ?? this.apiPolicies,
       defaultConfigs: defaultConfigs ?? this.defaultConfigs,
     );
@@ -120,16 +117,29 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       final defaultConfigs = (data['defaultConfigs'] as List<dynamic>?)
           ?.map((e) => DefaultConfig.fromJson(e))
           .toList() ?? [];
+
+      TokenBalance tokenBalance;
+      try {
+        final balanceResponse = await CloudApiService.instance.get('/subscription/balance');
+        final balanceData = balanceResponse.data['data'] as Map<String, dynamic>;
+        tokenBalance = TokenBalance.fromJson(balanceData);
+      } catch (_) {
+        tokenBalance = const TokenBalance(
+          balanceTokens: 0,
+          freeTokensRemaining: 0,
+          totalTokens: 0,
+          usedTokens: 0,
+        );
+      }
+
       final state = SubscriptionState(
         isActive: data['status'] == 'active',
         planId: data['planId'],
         planName: data['planName'],
-        totalQuota: _parseInt(data['totalQuota']),
-        usedQuota: _parseInt(data['usedQuota']),
         expiresAt: data['expiresAt'] != null
             ? DateTime.parse(data['expiresAt'])
             : null,
-        balanceCents: _parseInt(data['balanceCents']),
+        tokenBalance: tokenBalance,
         apiPolicies: policies,
         defaultConfigs: defaultConfigs,
       );
@@ -149,22 +159,48 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       final defaultConfigs = (data['defaultConfigs'] as List<dynamic>?)
           ?.map((e) => DefaultConfig.fromJson(e))
           .toList() ?? [];
+
+      TokenBalance tokenBalance;
+      try {
+        final balanceResponse = await CloudApiService.instance.get('/subscription/balance');
+        final balanceData = balanceResponse.data['data'] as Map<String, dynamic>;
+        tokenBalance = TokenBalance.fromJson(balanceData);
+      } catch (_) {
+        tokenBalance = const TokenBalance(
+          balanceTokens: 0,
+          freeTokensRemaining: 0,
+          totalTokens: 0,
+          usedTokens: 0,
+        );
+      }
+
       state = AsyncData(SubscriptionState(
         isActive: data['status'] == 'active',
         planId: data['planId'],
         planName: data['planName'],
-        totalQuota: _parseInt(data['totalQuota']),
-        usedQuota: _parseInt(data['usedQuota']),
         expiresAt: data['expiresAt'] != null
             ? DateTime.parse(data['expiresAt'])
             : null,
-        balanceCents: _parseInt(data['balanceCents']),
+        tokenBalance: tokenBalance,
         apiPolicies: policies,
         defaultConfigs: defaultConfigs,
       ));
     } catch (e, stack) {
       state = AsyncError(e, stack);
     }
+  }
+
+  Future<void> refreshBalance() async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    try {
+      final balanceResponse = await CloudApiService.instance.get('/subscription/balance');
+      final balanceData = balanceResponse.data['data'] as Map<String, dynamic>;
+      final tokenBalance = TokenBalance.fromJson(balanceData);
+
+      state = AsyncData(current.copyWith(tokenBalance: tokenBalance));
+    } catch (_) {}
   }
 }
 
@@ -184,6 +220,22 @@ final packagePlansProvider = FutureProvider<List<PlanModel>>((ref) async {
   return data.map((e) => PlanModel.fromJson(e)).toList();
 });
 
+final userTokenBalanceProvider = FutureProvider<TokenBalance>((ref) async {
+  try {
+    final response = await CloudApiService.instance.get('/subscription/balance');
+    final data = response.data['data'] as Map<String, dynamic>;
+    return TokenBalance.fromJson(data);
+  } catch (e) {
+    return const TokenBalance(
+      balanceTokens: 0,
+      freeTokensRemaining: 0,
+      totalTokens: 0,
+      usedTokens: 0,
+    );
+  }
+});
+
+@Deprecated('使用 userTokenBalanceProvider 替代')
 final userBalanceProvider = FutureProvider<int>((ref) async {
   try {
     final response = await CloudApiService.instance.get('/subscription/balance');
