@@ -24,11 +24,18 @@ import {
   Tabs,
   Tab,
   Textarea,
+  CheckboxGroup,
+  Checkbox,
+  RadioGroup,
+  Radio,
 } from '@nextui-org/react';
-import { Plus, Search, Trash2, Key, Eye, Copy, Check, Shield, Sparkles, AlertCircle, FileJson, TestTube, Activity, Edit } from 'lucide-react';
+import {
+  Plus, Search, Trash2, Key, Eye, Copy, Check, Shield, Sparkles, AlertCircle, FileJson,
+  TestTube, Activity, Edit, FileText, MessageSquare, Mic, MicOff, Image as ImageIcon, Brain,
+} from 'lucide-react';
 import Layout from '@/components/Layout';
 import { apiKeyAPI } from '@/services/api';
-import type { ApiKey, ApiKeyProvider, ApiKeyStatus, ApiKeyScope } from '@/types';
+import type { ApiKey, ApiKeyProvider, ApiKeyStatus, ApiKeyScope, SupportedFeature } from '@/types';
 
 const PROVIDER_OPTIONS = [
   { key: 'qwen', label: '阿里云通义千问' },
@@ -39,6 +46,59 @@ const PROVIDER_OPTIONS = [
   { key: 'grok', label: 'Grok (xAI)' },
   { key: 'custom', label: '自定义' },
 ];
+
+// 5 个功能类型 + all（与后端 TestableFeature / supportedFeatures 对齐）
+const FEATURE_OPTIONS: { key: SupportedFeature; label: string; icon: any; desc: string }[] = [
+  { key: 'textAnalysis', label: '文本分析', icon: FileText, desc: '摘要/聊天/理解' },
+  { key: 'speechTranscribe', label: '语言转写', icon: MessageSquare, desc: '文本翻译/转写' },
+  { key: 'speechRealtime', label: '语音实时转写', icon: Mic, desc: '实时语音转文字' },
+  { key: 'speechOffline', label: '离线语音转写', icon: MicOff, desc: '上传音频文件转写' },
+  { key: 'imageRecognition', label: '图像识别', icon: ImageIcon, desc: '图片理解/OCR' },
+  { key: 'all', label: '全部功能', icon: Brain, desc: '通杀（仅推荐给综合模型）' },
+];
+
+const FEATURE_LABEL: Record<string, string> = FEATURE_OPTIONS.reduce(
+  (m, f) => ({ ...m, [f.key]: f.label }),
+  {} as Record<string, string>,
+);
+
+const FEATURE_COLOR: Record<string, 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'default'> = {
+  textAnalysis: 'primary',
+  speechTranscribe: 'secondary',
+  speechRealtime: 'success',
+  speechOffline: 'warning',
+  imageRecognition: 'danger',
+  all: 'default',
+};
+
+// 测试用例 - 每个功能预设的测试数据
+interface TestCase {
+  name: string;
+  desc: string;
+  data: { testText?: string; testImageUrl?: string; testAudioUrl?: string };
+}
+const TEST_CASES: Record<SupportedFeature, TestCase[]> = {
+  textAnalysis: [
+    { name: 'Ping（最小调用）', desc: '使用 max_tokens=1 验证连通性，零成本', data: { testText: 'ping' } },
+    { name: '中文摘要', desc: '让模型总结一段中文文本', data: { testText: '请用一句话总结：人工智能正在改变我们的生活方式，从智能手机到自动驾驶，AI 的应用无处不在。' } },
+    { name: '中英翻译', desc: '让模型把英文翻译成中文', data: { testText: '请把以下英文翻译成中文：Hello, how are you today?' } },
+    { name: '关键词提取', desc: '让模型从文本中提取关键词', data: { testText: '请从这段文本中提取 3 个关键词：可再生能源包括太阳能、风能、水能和地热能，是未来能源结构转型的关键。' } },
+  ],
+  speechTranscribe: [
+    { name: '短音频转写', desc: '上传一段短音频测试', data: { testAudioUrl: 'https://dashscope.oss-cn-beijing.aliyuncs.com/samples/audio/paraFeeling-happy.mp3' } },
+  ],
+  speechRealtime: [
+    { name: 'WebSocket 鉴权', desc: '仅验证 WebSocket 鉴权和连接建立', data: {} },
+  ],
+  speechOffline: [
+    { name: '本地音频文件', desc: '上传 OSS 公开音频文件', data: { testAudioUrl: 'https://dashscope.oss-cn-beijing.aliyuncs.com/samples/audio/paraFeeling-happy.mp3' } },
+  ],
+  imageRecognition: [
+    { name: '1x1 透明 PNG（最小）', desc: '最小成本测试，验证 API 接收图片', data: { testImageUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=' } },
+    { name: '公共测试图', desc: '用阿里云示例图片测试', data: { testImageUrl: 'https://dashscope.oss-cn-beijing.aliyuncs.com/images/256_1.png' } },
+  ],
+  all: [],
+};
 
 const STATUS_COLORS: Record<string, { color: string; bg: string; text: string }> = {
   active: { color: 'success', bg: 'bg-green-100', text: 'text-green-700' },
@@ -86,7 +146,12 @@ export default function ApiKeysPage() {
     dailyQuota: 1000,
     scopes: ['all'],
     expiresAt: '',
+    supportedFeatures: [] as SupportedFeature[],
   });
+
+  const [testFeature, setTestFeature] = useState<'connectivity' | SupportedFeature>('connectivity');
+  const [testText, setTestText] = useState('ping');
+  const [testImageUrl, setTestImageUrl] = useState('');
 
   const [jsonInput, setJsonInput] = useState('');
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -136,6 +201,7 @@ export default function ApiKeysPage() {
         dailyQuota: newKey.dailyQuota,
         scopes: newKey.scopes as ApiKeyScope[],
         expiresAt: newKey.expiresAt || undefined,
+        supportedFeatures: newKey.supportedFeatures,
       });
       await fetchApiKeys();
       setShowAddModal(false);
@@ -176,15 +242,25 @@ export default function ApiKeysPage() {
     }
   };
 
-  const handleTestKey = async (key: ApiKey) => {
+  const handleTestKey = async (
+    key: ApiKey,
+    feature: 'connectivity' | SupportedFeature = 'connectivity',
+    testData: { testText?: string; testImageUrl?: string } = {},
+  ) => {
     setSelectedKey(key);
     setShowTestModal(true);
     setTesting(true);
     setTestResult(null);
-    
+    setTestFeature(feature);
+    setTestText(testData.testText ?? 'ping');
+    setTestImageUrl(testData.testImageUrl ?? '');
+
     try {
-      const result = await apiKeyAPI.testApiKey(key.id);
-      setTestResult(result);
+      const payload: any = { feature };
+      if (feature === 'textAnalysis' && testData.testText) payload.testText = testData.testText;
+      if (feature === 'imageRecognition' && testData.testImageUrl) payload.testImageUrl = testData.testImageUrl;
+      const result = await apiKeyAPI.testApiKey(key.id, payload);
+      setTestResult(result?.data ?? result);
     } catch (err: any) {
       setTestResult({ status: 'error', error: err?.response?.data?.message || '测试失败' });
     } finally {
@@ -212,6 +288,7 @@ export default function ApiKeysPage() {
       dailyQuota: key.dailyQuota,
       scopes: key.scopes || ['all'],
       expiresAt: key.expiresAt ? new Date(key.expiresAt).toISOString().split('T')[0] : '',
+      supportedFeatures: (key.supportedFeatures || []) as SupportedFeature[],
     });
     setShowEditModal(true);
   };
@@ -233,6 +310,7 @@ export default function ApiKeysPage() {
         dailyQuota: newKey.dailyQuota,
         scopes: newKey.scopes as ApiKeyScope[],
         expiresAt: newKey.expiresAt || undefined,
+        supportedFeatures: newKey.supportedFeatures,
       });
       await fetchApiKeys();
       setShowEditModal(false);
@@ -287,6 +365,7 @@ export default function ApiKeysPage() {
       dailyQuota: 1000,
       scopes: ['all'],
       expiresAt: '',
+      supportedFeatures: [],
     });
   };
 
@@ -458,6 +537,7 @@ export default function ApiKeysPage() {
                   <TableColumn className="bg-gray-50/80">名称</TableColumn>
                   <TableColumn className="bg-gray-50/80">提供商</TableColumn>
                   <TableColumn className="bg-gray-50/80">模型</TableColumn>
+                  <TableColumn className="bg-gray-50/80">支持功能</TableColumn>
                   <TableColumn className="bg-gray-50/80">速率限制</TableColumn>
                   <TableColumn className="bg-gray-50/80">并发</TableColumn>
                   <TableColumn className="bg-gray-50/80">日配额</TableColumn>
@@ -486,6 +566,25 @@ export default function ApiKeysPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-gray-600">{key.model}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                          {(key.supportedFeatures && key.supportedFeatures.length > 0) ? (
+                            key.supportedFeatures.map((f) => (
+                              <Chip
+                                key={f}
+                                size="sm"
+                                variant="flat"
+                                color={FEATURE_COLOR[f] || 'default'}
+                                className="text-xs"
+                              >
+                                {FEATURE_LABEL[f] || f}
+                              </Chip>
+                            ))
+                          ) : (
+                            <span className="text-gray-400 text-xs italic">未配置</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <span className="text-gray-600">{key.rateLimitPerMin}/分钟</span>
@@ -699,6 +798,43 @@ export default function ApiKeysPage() {
                       onChange={(e) => setNewKey({ ...newKey, expiresAt: e.target.value })}
                       classNames={{ inputWrapper: 'rounded-xl' }}
                     />
+
+                    {/* 功能支持（多选） */}
+                    <div className="p-4 bg-gradient-to-br from-blue-50/60 to-indigo-50/40 border border-blue-100 rounded-xl">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Brain className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-semibold text-gray-800">支持的功能（多选）</span>
+                        <span className="text-xs text-gray-500">· 用于套餐编辑时按功能过滤</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-3">
+                        勾选此 API Key 实际能调用的能力。套餐编辑页面将只展示能匹配所选功能的 API。
+                      </p>
+                      <CheckboxGroup
+                        value={newKey.supportedFeatures}
+                        onValueChange={(v) => setNewKey({ ...newKey, supportedFeatures: v as SupportedFeature[] })}
+                        orientation="horizontal"
+                        classNames={{ wrapper: 'gap-2' }}
+                      >
+                        {FEATURE_OPTIONS.map((f) => {
+                          const Icon = f.icon;
+                          return (
+                            <Checkbox
+                              key={f.key}
+                              value={f.key}
+                              classNames={{
+                                base: 'max-w-full m-0 border border-gray-200 rounded-lg p-2 hover:bg-white data-[selected=true]:bg-blue-50 data-[selected=true]:border-blue-300',
+                                label: 'text-xs',
+                              }}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <Icon className="w-3.5 h-3.5 text-blue-600" />
+                                <span className="font-medium">{f.label}</span>
+                              </div>
+                            </Checkbox>
+                          );
+                        })}
+                      </CheckboxGroup>
+                    </div>
                   </div>
                 </Tab>
                 <Tab key="json" title="JSON 导入">
@@ -814,66 +950,246 @@ export default function ApiKeysPage() {
           onClose={() => {
             setShowTestModal(false);
             setTestResult(null);
+            setTestFeature('connectivity');
+            setTestText('ping');
+            setTestImageUrl('');
           }}
           classNames={{ base: 'rounded-xl' }}
+          size="2xl"
+          scrollBehavior="inside"
         >
           <ModalContent>
             <ModalHeader className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
                 <TestTube className="w-5 h-5 text-blue-600" />
               </div>
-              <div>
-                <p className="text-lg font-bold text-gray-800">连通性测试</p>
-                <p className="text-sm text-gray-500">{selectedKey?.name}</p>
+              <div className="flex-1">
+                <p className="text-lg font-bold text-gray-800">功能连通性测试</p>
+                <p className="text-sm text-gray-500">
+                  {selectedKey?.name} · {selectedKey?.provider} · {selectedKey?.model}
+                </p>
               </div>
             </ModalHeader>
             <ModalBody>
+              {/* 功能选择 */}
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">选择测试功能</p>
+                <RadioGroup
+                  value={testFeature}
+                  onValueChange={(v) => setTestFeature(v as any)}
+                  orientation="horizontal"
+                  classNames={{ wrapper: 'gap-2' }}
+                  isDisabled={testing}
+                >
+                  <Radio value="connectivity" size="sm">
+                    <span className="text-sm">仅连通性</span>
+                  </Radio>
+                  {FEATURE_OPTIONS.filter((f) => f.key !== 'all').map((f) => {
+                    const Icon = f.icon;
+                    const supported = (selectedKey?.supportedFeatures || []).includes(f.key as SupportedFeature)
+                      || (selectedKey?.supportedFeatures || []).includes('all');
+                    return (
+                      <Radio
+                        key={f.key}
+                        value={f.key}
+                        size="sm"
+                        isDisabled={!supported}
+                        description={!supported ? '该 API 未声明支持' : undefined}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Icon className="w-3.5 h-3.5 text-blue-600" />
+                          <span className="text-sm">{f.label}</span>
+                        </div>
+                      </Radio>
+                    );
+                  })}
+                </RadioGroup>
+                {selectedKey?.supportedFeatures && selectedKey.supportedFeatures.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    💡 提示：此 API 已声明支持{' '}
+                    <span className="font-semibold text-blue-700">
+                      {selectedKey.supportedFeatures.map((f) => FEATURE_LABEL[f] || f).join('、')}
+                    </span>
+                    ，未声明的功能测试结果可能不准确。
+                  </p>
+                )}
+              </div>
+
+              {/* 测试用例（预设数据） */}
+              {testFeature !== 'connectivity' && (
+                <div className="p-3 bg-gradient-to-br from-indigo-50/60 to-purple-50/40 border border-indigo-100 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="w-4 h-4 text-indigo-600" />
+                    <span className="text-sm font-semibold text-gray-800">测试用例</span>
+                    <span className="text-xs text-gray-500">· 一键填入预设测试数据</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {(TEST_CASES[testFeature as SupportedFeature] || []).map((tc, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        disabled={testing}
+                        onClick={() => {
+                          setTestText(tc.data.testText || '');
+                          setTestImageUrl(tc.data.testImageUrl || '');
+                        }}
+                        className="text-left p-2 bg-white border border-gray-200 rounded hover:border-indigo-400 hover:bg-indigo-50 transition-colors disabled:opacity-50"
+                      >
+                        <div className="text-xs font-semibold text-gray-800">{tc.name}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{tc.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 测试数据输入（仅特定功能） */}
+              {testFeature === 'textAnalysis' && (
+                <Input
+                  label="测试文本"
+                  placeholder="请输入要测试的文本（默认 ping）"
+                  value={testText}
+                  onChange={(e) => setTestText(e.target.value)}
+                  size="sm"
+                  classNames={{ inputWrapper: 'rounded-xl' }}
+                  description="将以 max_tokens=1 调用一次 chat/completions 验证连通性"
+                />
+              )}
+              {testFeature === 'imageRecognition' && (
+                <Input
+                  label="测试图片 URL（可选）"
+                  placeholder="留空将使用 1x1 透明 PNG"
+                  value={testImageUrl}
+                  onChange={(e) => setTestImageUrl(e.target.value)}
+                  size="sm"
+                  classNames={{ inputWrapper: 'rounded-xl' }}
+                  description="支持 http(s) URL 或 data:image/png;base64,..."
+                />
+              )}
+
               {testing ? (
                 <div className="flex items-center justify-center py-10">
                   <Spinner size="lg" color="primary" />
                   <span className="ml-3 text-gray-500">测试中...</span>
                 </div>
               ) : testResult ? (
-                <div className="space-y-4">
-                  <div className={`p-4 rounded-xl ${
-                    testResult.status === 'healthy' 
-                      ? 'bg-green-50 border border-green-200' 
-                      : 'bg-red-50 border border-red-200'
-                  }`}>
+                <div className="space-y-3 mt-2">
+                  {/* 总体状态 */}
+                  <div
+                    className={`p-4 rounded-xl ${
+                      testResult.status === 'healthy'
+                        ? 'bg-green-50 border border-green-200'
+                        : testResult.status === 'degraded'
+                        ? 'bg-yellow-50 border border-yellow-200'
+                        : 'bg-red-50 border border-red-200'
+                    }`}
+                  >
                     <div className="flex items-center gap-2">
                       {testResult.status === 'healthy' ? (
                         <Check className="w-5 h-5 text-green-600" />
+                      ) : testResult.status === 'degraded' ? (
+                        <AlertCircle className="w-5 h-5 text-yellow-600" />
                       ) : (
                         <AlertCircle className="w-5 h-5 text-red-600" />
                       )}
-                      <span className={`font-semibold ${
-                        testResult.status === 'healthy' ? 'text-green-800' : 'text-red-800'
-                      }`}>
-                        {testResult.status === 'healthy' ? '测试通过' : '测试失败'}
+                      <span
+                        className={`font-semibold ${
+                          testResult.status === 'healthy'
+                            ? 'text-green-800'
+                            : testResult.status === 'degraded'
+                            ? 'text-yellow-800'
+                            : 'text-red-800'
+                        }`}
+                      >
+                        {testResult.status === 'healthy'
+                          ? '✓ 测试通过'
+                          : testResult.status === 'degraded'
+                          ? '⚠ 通过但有警告'
+                          : '✗ 测试失败'}
                       </span>
                     </div>
+                    {testResult.warnings && testResult.warnings.length > 0 && (
+                      <ul className="mt-2 text-xs text-yellow-700 space-y-1">
+                        {testResult.warnings.map((w: string, i: number) => (
+                          <li key={i}>• {w}</li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                  
-                  {testResult.responseTime && (
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <p className="text-sm text-gray-500">响应时间</p>
-                      <p className="font-semibold text-gray-800">{testResult.responseTime}ms</p>
+
+                  {/* 各项检查 */}
+                  {testResult.checks && (
+                    <div className="space-y-2">
+                      {testResult.checks.connectivity && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-700">🔌 鉴权 / 连通性</span>
+                            <Chip
+                              size="sm"
+                              color={testResult.checks.connectivity.ok ? 'success' : 'danger'}
+                              variant="flat"
+                            >
+                              {testResult.checks.connectivity.ok ? 'OK' : 'FAIL'}
+                            </Chip>
+                          </div>
+                          {testResult.checks.connectivity.responseTime && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              响应时间：{testResult.checks.connectivity.responseTime}ms
+                            </p>
+                          )}
+                          {testResult.checks.connectivity.details && (
+                            <pre className="text-xs text-gray-600 mt-1 overflow-auto">
+                              {JSON.stringify(testResult.checks.connectivity.details, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      )}
+                      {testResult.checks.feature && (
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-700">
+                              🎯 功能测试（{FEATURE_LABEL[testResult.feature] || testResult.feature}）
+                            </span>
+                            <Chip
+                              size="sm"
+                              color={testResult.checks.feature.ok ? 'success' : 'danger'}
+                              variant="flat"
+                            >
+                              {testResult.checks.feature.ok ? 'OK' : 'FAIL'}
+                            </Chip>
+                          </div>
+                          {testResult.checks.feature.responseTime && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              响应时间：{testResult.checks.feature.responseTime}ms
+                            </p>
+                          )}
+                          {testResult.checks.feature.details && (
+                            <pre className="text-xs text-gray-600 mt-1 overflow-auto">
+                              {JSON.stringify(testResult.checks.feature.details, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      )}
+                      {testResult.checks.balance && (
+                        <div className="p-3 bg-purple-50 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-700">💰 账户余额</span>
+                            <Chip size="sm" color="secondary" variant="flat">
+                              {testResult.checks.balance.exhausted ? '已耗尽' : '正常'}
+                            </Chip>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {testResult.checks.balance.total} {testResult.checks.balance.currency || ''}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
-                  
+
                   {testResult.error && (
-                    <div className="p-4 bg-red-50 rounded-xl">
-                      <p className="text-sm text-red-500">错误信息</p>
-                      <p className="text-red-700">{testResult.error}</p>
-                    </div>
-                  )}
-                  
-                  {testResult.details && (
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <p className="text-sm text-gray-500">详细信息</p>
-                      <pre className="text-xs text-gray-600 mt-1 overflow-auto">
-                        {JSON.stringify(testResult.details, null, 2)}
-                      </pre>
+                    <div className="p-3 bg-red-50 rounded-lg">
+                      <p className="text-sm text-red-500 font-semibold">错误信息</p>
+                      <p className="text-red-700 text-sm mt-1">{testResult.error}</p>
                     </div>
                   )}
                 </div>
@@ -885,6 +1201,9 @@ export default function ApiKeysPage() {
                 onClick={() => {
                   setShowTestModal(false);
                   setTestResult(null);
+                  setTestFeature('connectivity');
+                  setTestText('ping');
+                  setTestImageUrl('');
                 }}
                 className="hover:bg-gray-100 rounded-xl"
               >
@@ -894,9 +1213,15 @@ export default function ApiKeysPage() {
                 <Button
                   color="primary"
                   className="bg-blue-600 hover:bg-blue-700 rounded-xl"
-                  onClick={() => handleTestKey(selectedKey)}
+                  onClick={() =>
+                    handleTestKey(
+                      selectedKey,
+                      testFeature,
+                      { testText, testImageUrl },
+                    )
+                  }
                 >
-                  重新测试
+                  {testResult ? '重新测试' : '开始测试'}
                 </Button>
               )}
             </ModalFooter>
@@ -976,6 +1301,27 @@ export default function ApiKeysPage() {
                         {selectedKey.lastHealthCheckStatus === 'healthy' ? '正常' : 
                          selectedKey.lastHealthCheckStatus === 'unhealthy' ? '异常' : '未测试'}
                       </p>
+                    </div>
+                    <div className="p-4 bg-gray-50/80 rounded-xl col-span-2">
+                      <p className="text-sm text-gray-500 mb-2">支持的功能</p>
+                      {(selectedKey.supportedFeatures && selectedKey.supportedFeatures.length > 0) ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedKey.supportedFeatures.map((f) => (
+                            <Chip
+                              key={f}
+                              size="sm"
+                              variant="flat"
+                              color={FEATURE_COLOR[f] || 'default'}
+                            >
+                              {FEATURE_LABEL[f] || f}
+                            </Chip>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">
+                          ⚠️ 未配置。套餐编辑时此 API 将出现在所有功能的下拉中，可能导致不匹配
+                        </p>
+                      )}
                     </div>
                     <div className="p-4 bg-gray-50/80 rounded-xl col-span-2">
                       <p className="text-sm text-gray-500 mb-1">Key ID</p>
@@ -1134,6 +1480,43 @@ export default function ApiKeysPage() {
                   onChange={(e) => setNewKey({ ...newKey, expiresAt: e.target.value })}
                   classNames={{ inputWrapper: 'rounded-xl' }}
                 />
+
+                {/* 功能支持（多选） */}
+                <div className="p-4 bg-gradient-to-br from-blue-50/60 to-indigo-50/40 border border-blue-100 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-gray-800">支持的功能（多选）</span>
+                    <span className="text-xs text-gray-500">· 用于套餐编辑时按功能过滤</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">
+                    勾选此 API Key 实际能调用的能力。
+                  </p>
+                  <CheckboxGroup
+                    value={newKey.supportedFeatures}
+                    onValueChange={(v) => setNewKey({ ...newKey, supportedFeatures: v as SupportedFeature[] })}
+                    orientation="horizontal"
+                    classNames={{ wrapper: 'gap-2' }}
+                  >
+                    {FEATURE_OPTIONS.map((f) => {
+                      const Icon = f.icon;
+                      return (
+                        <Checkbox
+                          key={f.key}
+                          value={f.key}
+                          classNames={{
+                            base: 'max-w-full m-0 border border-gray-200 rounded-lg p-2 hover:bg-white data-[selected=true]:bg-blue-50 data-[selected=true]:border-blue-300',
+                            label: 'text-xs',
+                          }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <Icon className="w-3.5 h-3.5 text-blue-600" />
+                            <span className="font-medium">{f.label}</span>
+                          </div>
+                        </Checkbox>
+                      );
+                    })}
+                  </CheckboxGroup>
+                </div>
               </div>
             </ModalBody>
             <ModalFooter>

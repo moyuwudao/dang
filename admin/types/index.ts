@@ -71,6 +71,15 @@ export enum ApiKeyScope {
   ALL = 'all',
 }
 
+// 5 个可测试的功能类型（与后端 TestableFeature 对齐）
+export type SupportedFeature =
+  | 'textAnalysis'
+  | 'speechTranscribe'
+  | 'speechRealtime'
+  | 'speechOffline'
+  | 'imageRecognition'
+  | 'all';
+
 export interface ApiKey {
   id: string;
   provider: ApiKeyProvider;
@@ -82,6 +91,8 @@ export interface ApiKey {
   baseUrl?: string;
   status: ApiKeyStatus;
   scopes?: ApiKeyScope[];
+  // 该 API 支持的功能列表（用于套餐编辑页面按功能过滤）
+  supportedFeatures?: SupportedFeature[];
   rateLimitPerMin: number;
   maxConcurrentRequests: number;
   dailyQuota: number;

@@ -96,13 +96,25 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
             padding: const EdgeInsets.all(16),
             children: [
               _buildCurrentPlanCard(context, subscriptionState, l10n),
+              // 多套餐时显示切换 UI
+              if (subscriptionState.subscriptions.length > 1) ...[
+                const SizedBox(height: 12),
+                _buildSubscriptionSwitcher(context, ref, subscriptionState),
+              ],
               const SizedBox(height: 24),
               Text(l10n.quotaDetails, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               _buildQuotaCard(context, subscriptionState, l10n),
               const SizedBox(height: 24),
               const Text('API 配置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              const Text(
+                '当前套餐分配的 API 配置、模型和消耗系数',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              _buildDefaultConfigsCard(context, subscriptionState),
+              const SizedBox(height: 12),
               _buildApiPoliciesCard(context, subscriptionState, l10n),
               const SizedBox(height: 100),
             ],
@@ -110,6 +122,147 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
         ),
       ),
     );
+  }
+
+  // 多套餐切换 UI
+  Widget _buildSubscriptionSwitcher(BuildContext context, WidgetRef ref, SubscriptionState state) {
+    final activeId = state.activeSubscriptionId ?? state.subscriptions.first.subscriptionId;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: state.subscriptions.map((sub) {
+        final isActive = sub.subscriptionId == activeId;
+        return ChoiceChip(
+          label: Text(
+            sub.planName,
+            style: TextStyle(
+              color: isActive ? Colors.white : AppColors.textPrimary,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+            ),
+          ),
+          selected: isActive,
+          onSelected: (selected) async {
+            if (selected) {
+              await ref.read(subscriptionNotifierProvider.notifier).switchSubscription(sub.subscriptionId);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('已切换至「${sub.planName}」')),
+                );
+              }
+            }
+          },
+          selectedColor: AppColors.primary,
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(
+              color: isActive ? AppColors.primary : AppColors.divider,
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // 套餐分配的各功能默认 API
+  Widget _buildDefaultConfigsCard(BuildContext context, SubscriptionState state) {
+    final configs = state.defaultConfigs;
+    if (configs.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '当前套餐未配置功能默认 API',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: configs.map((c) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${_getFunctionTypeName(c.functionType)}:',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    c.modelPattern,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _getFunctionTypeName(String functionType) {
+    switch (functionType) {
+      case 'textAnalysis':
+        return '文本分析';
+      case 'speechTranscribe':
+        return '语言转写';
+      case 'speechRealtime':
+        return '实时语音转写';
+      case 'speechOffline':
+        return '离线语音转写';
+      case 'imageRecognition':
+        return '图像识别';
+      case 'transcribe':
+        return '实时转写';
+      case 'transcribeFile':
+        return '文件转写';
+      case 'summary':
+        return '摘要';
+      case 'translate':
+        return '翻译';
+      case 'mindMap':
+        return '思维导图';
+      case 'image':
+        return '图像识别';
+      default:
+        return functionType;
+    }
   }
 
   Widget _buildCurrentPlanCard(BuildContext context, SubscriptionState state, AppLocalizations l10n) {
@@ -260,6 +413,8 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
     }
 
     final providerNames = {
+      'alibabaQwen': '通义千问',
+      'alibabaQwenVl': '通义千问VL',
       'qwen': '通义千问',
       'deepseek': 'DeepSeek',
       'openai': 'OpenAI',
@@ -270,21 +425,30 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
     };
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.divider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ...state.apiPolicies.map((policy) {
+            final modelName = policy.model ?? policy.modelPattern ?? '';
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Container(
+                    width: 4,
+                    height: 32,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: policy.isAllowed ? AppColors.primary : Colors.grey,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,17 +456,18 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
                         Text(
                           providerNames[policy.provider] ?? policy.provider,
                           style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (policy.modelPattern != null)
+                        if (modelName.isNotEmpty)
                           Text(
-                            '模型: ${policy.modelPattern}',
+                            modelName,
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: AppColors.textSecondary,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                       ],
                     ),
@@ -311,14 +476,20 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: policy.isAllowed
-                          ? AppColors.primary.withOpacity(0.1)
+                          ? (policy.multiplier > 1.0
+                              ? AppColors.warning.withOpacity(0.1)
+                              : AppColors.primary.withOpacity(0.1))
                           : Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      policy.isAllowed ? '${policy.multiplier}x' : '禁用',
+                      policy.isAllowed
+                          ? '${_formatMultiplier(policy.multiplier)}x'
+                          : '禁用',
                       style: TextStyle(
-                        color: policy.isAllowed ? AppColors.primary : Colors.red,
+                        color: policy.isAllowed
+                            ? (policy.multiplier > 1.0 ? AppColors.warning : AppColors.primary)
+                            : Colors.red,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -330,14 +501,16 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
           }).toList(),
           const SizedBox(height: 8),
           const Text(
-            '消耗倍数：每次调用消耗的配额单位倍数',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
+            '消耗倍数：每次调用消耗的 Token 倍数（>1 表示加价模型）',
+            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
           ),
         ],
       ),
     );
+  }
+
+  String _formatMultiplier(double m) {
+    if (m == m.toInt()) return m.toInt().toString();
+    return m.toStringAsFixed(1);
   }
 }

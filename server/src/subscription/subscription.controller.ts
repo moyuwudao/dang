@@ -47,4 +47,11 @@ export class SubscriptionController {
   async getRechargeRecords(@Req() req) {
     return this.subscriptionService.getRechargeRecords(req.user.sub);
   }
+
+  // 切换套餐：返回指定 subscriptionId 的套餐详情
+  @Get('switch/:subscriptionId')
+  @UseGuards(JwtAuthGuard)
+  async switchSubscription(@Req() req, @Param('subscriptionId') subscriptionId: string) {
+    return this.subscriptionService.getSubscriptionById(req.user.sub, subscriptionId);
+  }
 }

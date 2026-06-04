@@ -7,11 +7,13 @@ import 'secure_storage_service.dart';
 import 'app_logger.dart';
 
 /// 云端默认配置同步服务
-/// 
+///
 /// 设计原则：
-/// 1. 云端配置条目（ApiConfigEntry）由 multi_api_config_screen.dart 动态加载，不存储在 MultiApiConfig 中
-/// 2. 只存储分配关系（functionAssignments），告诉系统哪个场景使用哪个云端模型
-/// 3. 云端配置的实际内容（API Key、模型名称等）从 SecureStorage 和 subscription 实时获取
+/// 1. 云端配置条目（ApiConfigEntry）持久化到 MultiApiConfig.configs 中，isCloudConfig=true
+///    - API Key/baseUrl 仍从 SecureStorage 读，敏感信息不入 storage
+///    - 持久化后 multi_api_config_screen 可直接读取，无需每次 dynamic load
+/// 2. functionAssignments 存储分配关系（场景→云端模型）
+/// 3. 关闭云端AI时清空所有 isCloudConfig 条目和分配
 class CloudConfigSyncService {
   /// 功能类型映射：服务端 -> 客户端
   static final Map<String, ApiFunctionType> _functionTypeMap = {
@@ -22,10 +24,134 @@ class CloudConfigSyncService {
     'image_recognition': ApiFunctionType.image,
   };
 
+  /// 从 SecureStorage 读取云端 API Key 与 baseUrl（不入 storage 的敏感信息）
+  static Future<({String? apiKey, String? baseUrl})> _readCloudSecrets() async {
+    final cloudConfigJson = await SecureStorageService().read('cloud_api_config');
+    if (cloudConfigJson == null) return (apiKey: null, baseUrl: null);
+    try {
+      final cloudData = jsonDecode(cloudConfigJson) as Map<String, dynamic>;
+      return (
+        apiKey: cloudData['apiKey'] as String?,
+        baseUrl: cloudData['baseUrl'] as String?,
+      );
+    } catch (_) {
+      return (apiKey: null, baseUrl: null);
+    }
+  }
+
+  /// 把 apiPolicies 同步为本地 MultiApiConfig 中的云端条目
+  ///
+  /// 行为：
+  /// - 把当前 isCloudConfig=true 的旧条目全部移除
+  /// - 按 apiPolicies 生成新的云端条目并追加
+  /// - 保留本地（isCloudConfig=false）条目不动
+  /// - API Key/baseUrl 不入 storage（仍由 SecureStorage 提供，运行时由 multi_api_config_screen 注入）
+  ///
+  /// 适用于"手动配置"分支：仅同步可用 API，不动场景分配
+  static Future<CloudSyncResult> syncApiPolicies({
+    required List<ApiPolicy> apiPolicies,
+  }) async {
+    try {
+      AppLogger().i('CloudSync', '开始同步 ${apiPolicies.length} 个云端 API Policy');
+
+      final multiConfig = await StorageService.getMultiApiConfig();
+      final now = DateTime.now();
+
+      // 1. 保留本地配置（移除任何旧的云端配置条目）
+      final localConfigs = multiConfig.configs
+          .where((c) => !c.isCloudConfig)
+          .toList();
+
+      // 2. 按 apiPolicies 生成云端条目骨架（不存 API Key）
+      // 反向索引：modelPattern → [ApiFunctionType, ...]
+      final modelToFunctions = <String, Set<ApiFunctionType>>{};
+      for (final dc in defaultConfigsList) {
+        if (dc.modelPattern.isEmpty) continue;
+        final ft = _mapFunctionTypeFromDefaultConfig(dc.functionType);
+        if (ft == null) continue;
+        modelToFunctions.putIfAbsent(dc.modelPattern, () => {}).add(ft);
+      }
+
+      final newCloudEntries = <ApiConfigEntry>[];
+      final seenModels = <String>{};
+      for (final policy in apiPolicies) {
+        if (policy.isAllowed == false) continue;
+        final providerName = policy.provider;
+        final modelPattern = policy.modelPattern ?? '';
+        // 优先用 policy.model，否则从 modelPattern 解析
+        final modelName = (policy.model?.isNotEmpty ?? false)
+            ? policy.model!
+            : modelPattern.split(':').last;
+        if (providerName.isEmpty || modelName.isEmpty) continue;
+        if (seenModels.contains(modelName)) continue;
+        seenModels.add(modelName);
+
+        final providerEnum = AiProvider.values.firstWhere(
+          (p) => p.name.toLowerCase() == providerName.toLowerCase(),
+          orElse: () => AiProvider.openAI,
+        );
+        final providerConfig = AiModelConfig.getConfig(providerEnum);
+        final displayName = '${providerConfig.displayName} $modelName';
+
+        // 功能列表：优先用套餐 defaultConfigs 推导，否则用 providerSupportsFunction 兜底
+        final mappedFromPlan = modelToFunctions[modelName] ?? modelToFunctions[modelPattern];
+        final List<ApiFunctionType> compatibleFunctions;
+        if (mappedFromPlan != null && mappedFromPlan.isNotEmpty) {
+          compatibleFunctions = mappedFromPlan.toList();
+        } else {
+          compatibleFunctions = ApiFunctionType.values
+              .where((f) => AiModelConfig.providerSupportsFunction(providerEnum, f))
+              .toList();
+        }
+
+        newCloudEntries.add(ApiConfigEntry(
+          id: 'cloud_${providerName}_$modelName',
+          name: displayName,
+          provider: providerEnum,
+          apiKey: '', // 不存 API Key，运行时由 multi-api 页面注入
+          baseUrl: providerConfig.baseUrl,
+          model: modelName,
+          functions: compatibleFunctions,
+          isActive: true,
+          isCloudConfig: true,
+          cloudMultiplier: policy.multiplier,
+          createdAt: now,
+          updatedAt: now,
+        ));
+      }
+
+      // 3. 合并：本地配置 + 新云端条目
+      final mergedConfigs = [...localConfigs, ...newCloudEntries];
+      final newConfig = MultiApiConfig(
+        configs: mergedConfigs,
+        functionAssignments: multiConfig.functionAssignments, // 保留原分配不动
+        defaultConfigId: localConfigs.isNotEmpty ? localConfigs.first.id : null,
+      );
+      await StorageService.saveMultiApiConfig(newConfig);
+
+      AppLogger().i('CloudSync',
+          'ApiPolicy 同步完成: 新增 ${newCloudEntries.length} 个云端条目，本地保留 ${localConfigs.length} 个');
+
+      return CloudSyncResult(
+        success: true,
+        syncedCount: newCloudEntries.length,
+        message: '已同步 ${newCloudEntries.length} 个套餐可用 API',
+      );
+    } catch (e) {
+      AppLogger().e('CloudSync', 'ApiPolicy 同步失败: $e');
+      return CloudSyncResult(
+        success: false,
+        syncedCount: 0,
+        message: 'ApiPolicy 同步失败: $e',
+      );
+    }
+  }
+
   /// 将云端默认配置同步到 MultiApiConfig
   ///
-  /// 只同步分配关系，不存储云端配置条目
-  /// 云端配置条目由 multi_api_config_screen.dart 动态加载
+  /// 流程：
+  /// 1. 先调 [syncApiPolicies] 把 apiPolicies 持久化为本地云端条目
+  /// 2. 再把 defaultConfigs 应用到 functionAssignments（场景分配）
   static Future<CloudSyncResult> syncCloudDefaults({
     required List<DefaultConfig> defaultConfigs,
     required List<ApiPolicy> apiPolicies,
@@ -33,18 +159,9 @@ class CloudConfigSyncService {
     try {
       AppLogger().i('CloudSync', '开始同步云端默认配置，共 ${defaultConfigs.length} 个场景');
 
-      // 1. 加载现有的 MultiApiConfig
-      final multiConfig = await StorageService.getMultiApiConfig();
-
-      // 2. 从 SecureStorage 获取云端 API Key 配置
-      final cloudConfigJson = await SecureStorageService().read('cloud_api_config');
-      String? cloudApiKey;
-      if (cloudConfigJson != null) {
-        final cloudData = jsonDecode(cloudConfigJson) as Map<String, dynamic>;
-        cloudApiKey = cloudData['apiKey'] as String?;
-      }
-
-      if (cloudApiKey == null || cloudApiKey.isEmpty) {
+      // 0. 必须有 cloudApiKey
+      final secrets = await _readCloudSecrets();
+      if (secrets.apiKey == null || secrets.apiKey!.isEmpty) {
         AppLogger().w('CloudSync', '云端 API Key 未配置，无法同步');
         return const CloudSyncResult(
           success: false,
@@ -53,14 +170,14 @@ class CloudConfigSyncService {
         );
       }
 
-      // 3. 只保留本地配置（移除任何旧的云端配置条目）
-      final localConfigs = multiConfig.configs
-          .where((c) => !c.isCloudConfig)
-          .toList();
-      AppLogger().i('CloudSync', '保留 ${localConfigs.length} 个本地配置');
+      // 1. 先把 apiPolicies 持久化为云端条目
+      final policiesResult = await syncApiPolicies(apiPolicies: apiPolicies);
+      if (!policiesResult.success) {
+        return policiesResult;
+      }
 
-      // 4. 为每个 defaultConfig 创建分配关系
-      // 使用 modelPattern 作为 configId，与 multi_api_config_screen.dart 保持一致
+      // 2. 在已同步云端条目的基础上，应用 defaultConfigs 到 functionAssignments
+      final multiConfig = await StorageService.getMultiApiConfig();
       final newAssignments = <ApiFunctionAssignment>[];
 
       for (final defaultConfig in defaultConfigs) {
@@ -76,28 +193,22 @@ class CloudConfigSyncService {
           AppLogger().w('CloudSync', '无效的 modelPattern: ${defaultConfig.modelPattern}');
           continue;
         }
-
         final providerName = parts[0];
         final modelName = parts.sublist(1).join(':');
-
-        // 使用与 multi_api_config_screen.dart 相同的 configId 格式
+        // 与 syncApiPolicies 保持一致的 configId
         final configId = 'cloud_${providerName}_$modelName';
-        
+
         newAssignments.add(ApiFunctionAssignment(
           functionType: functionType,
           configId: configId,
         ));
-
         AppLogger().i('CloudSync',
             '创建云端分配: ${defaultConfig.functionType} -> $configId');
       }
 
-      // 5. 合并分配关系：云端配置优先，本地配置作为回退
+      // 3. 合并分配关系：云端配置优先，本地配置作为回退
       final mergedAssignments = <ApiFunctionAssignment>[];
-      final allFunctionTypes = ApiFunctionType.values;
-
-      for (final ft in allFunctionTypes) {
-        // 优先使用云端分配的 configId
+      for (final ft in ApiFunctionType.values) {
         final cloudAssignment = newAssignments.firstWhere(
           (a) => a.functionType == ft,
           orElse: () => const ApiFunctionAssignment(
@@ -105,7 +216,6 @@ class CloudConfigSyncService {
             configId: null,
           ),
         );
-
         if (cloudAssignment.configId != null) {
           mergedAssignments.add(cloudAssignment);
         } else {
@@ -123,13 +233,12 @@ class CloudConfigSyncService {
         }
       }
 
-      // 6. 保存新的 MultiApiConfig（只包含本地配置 + 分配关系）
+      // 4. 保存新分配（云端条目已在上一步保存，这里只覆盖 assignments）
       final newConfig = MultiApiConfig(
-        configs: localConfigs,
+        configs: multiConfig.configs,
         functionAssignments: mergedAssignments,
-        defaultConfigId: localConfigs.isNotEmpty ? localConfigs.first.id : null,
+        defaultConfigId: multiConfig.defaultConfigId,
       );
-
       await StorageService.saveMultiApiConfig(newConfig);
 
       AppLogger().i('CloudSync',
@@ -138,7 +247,8 @@ class CloudConfigSyncService {
       return CloudSyncResult(
         success: true,
         syncedCount: newAssignments.length,
-        message: '已成功同步 ${newAssignments.length} 个场景的云端配置',
+        message:
+            '已同步 ${newAssignments.length} 个场景默认 + ${policiesResult.syncedCount} 个可用 API',
       );
     } catch (e) {
       AppLogger().e('CloudSync', '同步失败: $e');
@@ -151,19 +261,20 @@ class CloudConfigSyncService {
   }
 
   /// 清除所有云端配置（关闭云端AI时调用）
+  ///
+  /// 从 MultiApiConfig.configs 移除所有 isCloudConfig=true 的条目，
+  /// 并清理指向云端条目的 functionAssignments
   static Future<void> clearCloudConfigs() async {
     try {
       final multiConfig = await StorageService.getMultiApiConfig();
 
-      // 1. 过滤掉所有云端配置条目，只保留本地配置
+      // 1. 仅保留本地配置
       final localConfigs = multiConfig.configs
           .where((c) => !c.isCloudConfig)
           .toList();
 
-      // 2. 获取本地配置的ID集合
+      // 2. 仅保留指向本地配置的分配
       final localConfigIds = localConfigs.map((c) => c.id).toSet();
-
-      // 3. 过滤掉云端配置的分配（只保留指向本地配置的分配）
       final localAssignments = multiConfig.functionAssignments
           .where((a) => a.configId != null && localConfigIds.contains(a.configId))
           .toList();
@@ -173,7 +284,6 @@ class CloudConfigSyncService {
         functionAssignments: localAssignments,
         defaultConfigId: localConfigs.isNotEmpty ? localConfigs.first.id : null,
       );
-
       await StorageService.saveMultiApiConfig(newConfig);
       AppLogger().i('CloudSync', '已清除所有云端配置，保留 ${localConfigs.length} 个本地配置');
     } catch (e) {
@@ -194,3 +304,4 @@ class CloudSyncResult {
     required this.message,
   });
 }
+

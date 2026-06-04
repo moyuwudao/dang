@@ -685,19 +685,31 @@ class AccountCenterTab extends ConsumerWidget {
           );
         }
       case CloudSyncAction.manual:
-        // Enable but don't sync, guide user to manually configure
+        // 手动配置：仅同步套餐内可用 API 到手机端，场景分配由用户自行配置
         await ref.read(cloudApiEnabledProvider.notifier).setEnabled(true);
+        final syncResult = await CloudConfigSyncService.syncApiPolicies(
+          apiPolicies: subscriptionState?.apiPolicies ?? [],
+        );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cloud AI enabled, please go to API config management to set models manually'),
+            SnackBar(
+              content: Text(syncResult.success
+                  ? 'Cloud AI enabled, ${syncResult.message}'
+                  : 'Sync failed: ${syncResult.message}'),
             ),
           );
-          // Navigate to API config management
+          // 跳转到 API 配置管理，由用户自行配置场景分配
           context.push('/settings/multi-api');
         }
       case CloudSyncAction.cancel:
-        // Cancel, do nothing
+        // 取消：关闭云端 AI 开关，不执行任何同步
+        await ref.read(cloudApiEnabledProvider.notifier).setEnabled(false);
+        await CloudConfigSyncService.clearCloudConfigs();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已取消云端同步，云端AI服务保持关闭')),
+          );
+        }
         break;
     }
   }
@@ -921,72 +933,144 @@ class _CloudSyncDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return AlertDialog(
       icon: const Icon(Icons.cloud_sync, color: AppColors.primary, size: 32),
-      title: const Text('Sync Cloud AI Config'),
+      title: const Text('打开云端API'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'After enabling Cloud AI service, the system will use the models allocated by the cloud to replace the corresponding scenario configurations in the API configuration management.',
+            '请选择云端API的同步方式：',
             style: TextStyle(fontSize: 14),
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'Cloud default models:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          const SizedBox(height: 12),
+          // 三个选项说明
+          _buildOptionItem(
+            icon: Icons.auto_fix_high,
+            color: AppColors.primary,
+            title: '按云端默认配置执行',
+            desc: '将套餐内各功能默认API + 套餐内可用API 同步到手机端',
           ),
           const SizedBox(height: 8),
-          ...defaultConfigs.map((config) => Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              children: [
-                const Icon(Icons.check_circle, size: 16, color: AppColors.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${_getFunctionTypeName(config.functionType)}: ${config.modelPattern}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-          )),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.info_outline, size: 16, color: Colors.orange),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'If you want to keep some local configurations, please select "Manual Setup" to go to the API configuration management page.',
-                    style: TextStyle(fontSize: 12, color: Colors.orange),
-                  ),
-                ),
-              ],
-            ),
+          _buildOptionItem(
+            icon: Icons.tune,
+            color: AppColors.secondary,
+            title: '手动配置',
+            desc: '仅将套餐内可用API 同步到手机端，场景分配由用户自行配置',
           ),
+          const SizedBox(height: 8),
+          _buildOptionItem(
+            icon: Icons.close,
+            color: Colors.grey,
+            title: '取消',
+            desc: '不执行同步，也不打开云端API开关',
+          ),
+          const SizedBox(height: 12),
+          if (defaultConfigs.isNotEmpty) ...[
+            const Divider(),
+            const SizedBox(height: 8),
+            const Text(
+              '套餐内可用功能:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            ...defaultConfigs.map((config) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${_getFunctionTypeName(config.functionType)}: ${config.modelPattern}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
         ],
       ),
+      actionsAlignment: MainAxisAlignment.stretch,
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, CloudSyncAction.cancel),
-          child: const Text('Cancel'),
+        // 按钮竖排：每个按钮 100% 宽度，文字不会被截断
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, CloudSyncAction.sync),
+            icon: const Icon(Icons.cloud_sync, size: 18),
+            label: const Text(
+              '按云端默认配置执行',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
         ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, CloudSyncAction.manual),
-          child: const Text('Manual Setup'),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.pop(context, CloudSyncAction.manual),
+            icon: const Icon(Icons.tune, size: 18),
+            label: const Text(
+              '手动配置',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.secondary,
+              side: const BorderSide(color: AppColors.secondary),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
         ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, CloudSyncAction.sync),
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-          child: const Text('Confirm Sync'),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: () => Navigator.pop(context, CloudSyncAction.cancel),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey[700],
+              padding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+            child: const Text('取消', style: TextStyle(fontSize: 14)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOptionItem({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String desc,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              Text(
+                desc,
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -994,16 +1078,36 @@ class _CloudSyncDialog extends StatelessWidget {
 
   String _getFunctionTypeName(String functionType) {
     switch (functionType) {
-      case 'text_analysis':
-        return 'Text Analysis';
+      case 'textAnalysis':
+        return '文本分析';
+      case 'speechTranscribe':
+        return '语言转写';
+      case 'speechRealtime':
+        return '实时语音转写';
+      case 'speechOffline':
+        return '离线语音转写';
+      case 'imageRecognition':
+        return '图像识别';
+      // 兼容旧 enum
+      case 'transcribe':
+        return '实时转写';
+      case 'transcribeFile':
+        return '文件转写';
+      case 'summary':
+        return '摘要';
+      case 'translate':
+        return '翻译';
+      case 'mindMap':
+        return '思维导图';
+      case 'image':
+        return '图像识别';
+      // 英文 → 中文兜底
       case 'voice_transcription':
-        return 'Voice Transcription';
+        return '语言转写';
       case 'realtime_transcription':
-        return 'Realtime Transcription';
+        return '实时语音转写';
       case 'offline_transcription':
-        return 'Offline Transcription';
-      case 'image_recognition':
-        return 'Image Recognition';
+        return '离线语音转写';
       default:
         return functionType;
     }

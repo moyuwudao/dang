@@ -96,7 +96,9 @@ export const apiKeyAPI = {
   getApiKeyStats: () => api.get('/admin/api-keys/stats').then(r => r.data),
   createApiKey: (data: any) => api.post('/admin/api-keys', data).then(r => r.data),
   batchCreateApiKeys: (keys: any[]) => api.post('/admin/api-keys/batch', { keys }).then(r => r.data),
-  testApiKey: (id: string) => api.post(`/admin/api-keys/${id}/test`).then(r => r.data),
+  // feature: 'textAnalysis' | 'speechTranscribe' | 'speechRealtime' | 'speechOffline' | 'imageRecognition' | 'connectivity'
+  testApiKey: (id: string, data?: { feature?: string; testText?: string; testAudioUrl?: string; testImageUrl?: string }) =>
+    api.post(`/admin/api-keys/${id}/test`, data || {}).then(r => r.data),
   updateApiKey: (id: string, data: any) => api.put(`/admin/api-keys/${id}`, data).then(r => r.data),
   deleteApiKey: (id: string) => api.delete(`/admin/api-keys/${id}`).then(r => r.data),
 };

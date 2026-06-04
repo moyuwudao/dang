@@ -6,7 +6,7 @@ import { MonitorService } from '../monitor/monitor.service';
 import { MetricsService } from '../monitor/metrics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
-import { CreateApiKeyDto } from '../api-key/dto';
+import { CreateApiKeyDto, TestApiKeyDto } from '../api-key/dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -274,8 +274,8 @@ export class AdminController {
   }
 
   @Post('api-keys/:id/test')
-  async testApiKey(@Param('id') id: string) {
-    const result = await this.apiKeyService.testApiKey(id);
+  async testApiKey(@Param('id') id: string, @Body() dto?: TestApiKeyDto) {
+    const result = await this.apiKeyService.testApiKey(id, dto);
     return result;
   }
 

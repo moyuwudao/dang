@@ -3,7 +3,7 @@ import { ApiKeyService } from './api-key.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { RateLimitInterceptor } from './interceptors/rate-limit.interceptor';
-import { CreateApiKeyDto } from './dto';
+import { CreateApiKeyDto, TestApiKeyDto } from './dto';
 
 @Controller('api-key')
 export class ApiKeyController {
@@ -87,7 +87,7 @@ export class ApiKeyController {
 
   @Post('admin/:id/test')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async testApiKey(@Param('id') id: string) {
-    return this.apiKeyService.testApiKey(id);
+  async testApiKey(@Param('id') id: string, @Body() dto?: TestApiKeyDto) {
+    return this.apiKeyService.testApiKey(id, dto);
   }
 }

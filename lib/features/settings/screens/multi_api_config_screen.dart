@@ -85,7 +85,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       if (authState == null || !authState.isLoggedIn) {
         return [];
       }
-      
+
       // 安全校验 2：云端AI开关必须开启
       final cloudEnabled = ref.read(cloudApiEnabledProvider).valueOrNull ?? false;
       if (!cloudEnabled) {
@@ -95,6 +95,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       // 安全校验 3：获取订阅状态和可用模型
       final subscriptionState = ref.read(subscriptionNotifierProvider).valueOrNull;
       final apiPolicies = subscriptionState?.apiPolicies ?? [];
+      final defaultConfigs = subscriptionState?.defaultConfigs ?? [];
       if (apiPolicies.isEmpty) return [];
 
       // 安全校验 4：从 SecureStorage 获取 API Key
@@ -107,27 +108,48 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       final now = DateTime.now();
       final entries = <ApiConfigEntry>[];
 
-      // 使用 apiPolicies 创建云端配置条目（显示所有可用模型）
+      // 反向索引：modelPattern → [functionType, ...]
+      // 用于从套餐 defaultConfigs 推导该模型支持的功能
+      final modelToFunctions = <String, Set<ApiFunctionType>>{};
+      for (final dc in defaultConfigs) {
+        if (dc.modelPattern.isEmpty) continue;
+        final ft = _mapFunctionType(dc.functionType);
+        if (ft == null) continue;
+        modelToFunctions.putIfAbsent(dc.modelPattern, () => {}).add(ft);
+      }
+
+      // 使用 apiPolicies 创建云端配置条目（按 model 去重）
+      final seenModels = <String>{};
       for (final policy in apiPolicies) {
+        if (policy.isAllowed == false) continue;
+        // 优先用 policy.model，否则从 modelPattern 解析
+        final modelName = (policy.model?.isNotEmpty ?? false)
+            ? policy.model!
+            : (policy.modelPattern ?? '').split(':').last;
+        if (modelName.isEmpty) continue;
+        if (seenModels.contains(modelName)) continue;
+        seenModels.add(modelName);
+
         final providerName = policy.provider;
-        final modelPattern = policy.modelPattern ?? '';
-        final modelName = policy.model ?? modelPattern.split(':').last;
-
-        if (providerName.isEmpty || modelPattern.isEmpty) continue;
-
         final providerEnum = AiProvider.values.firstWhere(
           (p) => p.name.toLowerCase() == providerName.toLowerCase(),
           orElse: () => AiProvider.openAI,
         );
         final providerConfig = AiModelConfig.getConfig(providerEnum);
 
-        // 显示名称：provider + model（不显示默认标注）
+        // 显示名称：provider + model
         final displayName = '${providerConfig.displayName} $modelName';
 
-        // 获取该模型支持的功能列表
-        final compatibleFunctions = ApiFunctionType.values
-            .where((f) => AiModelConfig.providerSupportsFunction(providerEnum, f))
-            .toList();
+        // 功能列表：优先用套餐 defaultConfigs 推导，否则用 providerSupportsFunction 兜底
+        Set<ApiFunctionType> compatibleFunctions;
+        final mappedFromPlan = modelToFunctions[modelName] ?? modelToFunctions[policy.modelPattern ?? ''];
+        if (mappedFromPlan != null && mappedFromPlan.isNotEmpty) {
+          compatibleFunctions = mappedFromPlan;
+        } else {
+          compatibleFunctions = ApiFunctionType.values
+              .where((f) => AiModelConfig.providerSupportsFunction(providerEnum, f))
+              .toSet();
+        }
 
         entries.add(ApiConfigEntry(
           id: 'cloud_${providerName}_$modelName',
@@ -136,7 +158,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
           apiKey: apiKey,
           baseUrl: cloudData['baseUrl'] as String? ?? providerConfig.baseUrl,
           model: modelName,
-          functions: compatibleFunctions,
+          functions: compatibleFunctions.toList(),
           isActive: true,
           isCloudConfig: true,
           cloudMultiplier: policy.multiplier,
@@ -148,6 +170,35 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       return entries;
     } catch (_) {
       return [];
+    }
+  }
+
+  // 将套餐的 functionType 映射为 ApiFunctionType
+  ApiFunctionType? _mapFunctionType(String functionType) {
+    switch (functionType) {
+      case 'textAnalysis':
+        return ApiFunctionType.textAnalysis;
+      case 'speechTranscribe':
+        return ApiFunctionType.speechTranscribe;
+      case 'speechRealtime':
+        return ApiFunctionType.speechRealtime;
+      case 'speechOffline':
+        return ApiFunctionType.speechOffline;
+      case 'imageRecognition':
+        return ApiFunctionType.imageRecognition;
+      // 兼容旧 enum
+      case 'summary':
+      case 'translate':
+      case 'mindMap':
+        return ApiFunctionType.textAnalysis;
+      case 'transcribe':
+        return ApiFunctionType.speechRealtime;
+      case 'transcribeFile':
+        return ApiFunctionType.speechOffline;
+      case 'image':
+        return ApiFunctionType.imageRecognition;
+      default:
+        return null;
     }
   }
 

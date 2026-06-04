@@ -95,6 +95,11 @@ export class ApiKey {
   @Column({ name: 'allowed_ip_ranges', nullable: true })
   allowedIpRanges: string;
 
+  // 该 API 支持的功能列表（多选）
+  // 可选值: textAnalysis | speechTranscribe | speechRealtime | speechOffline | imageRecognition
+  @Column('jsonb', { name: 'supported_features', default: () => "'[]'::jsonb" })
+  supportedFeatures: string[];
+
   @CreateDateColumn()
   createdAt: Date;
 

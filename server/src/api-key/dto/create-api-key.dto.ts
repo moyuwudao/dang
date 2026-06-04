@@ -58,4 +58,11 @@ export class CreateApiKeyDto {
   @IsString()
   @IsOptional()
   allowedIpRanges?: string;
+
+  // 该 API 支持的功能列表（新）
+  // 可选值: textAnalysis | speechTranscribe | speechRealtime | speechOffline | imageRecognition
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  supportedFeatures?: string[];
 }
