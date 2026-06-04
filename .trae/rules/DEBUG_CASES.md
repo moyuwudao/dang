@@ -19,6 +19,9 @@ description: 错误案例集锦 - 记录项目中遇到的典型问题及解决�
 | 8 | API Key 分配不均问题 | 高 | ✅ 已解决 |
 | 9 | rsync --delete 误删 WSL 端签名配置 | 高 | ✅ 已解决 |
 | 10 | PowerShell 把 `$(date ...)` 误解析为 `$(Get-Date ...)` | 中 | ✅ 已解决 |
+| 11 | TypeORM 实体 snake_case 与 DB camelCase schema 不匹配 | 高 | ✅ 已解决 |
+| 12 | Admin passwordHash 字段 hash 写入截断（bcrypt 12 轮应 60 字符） | 中 | ⚠️ 临时解决 |
+| 13 | WSL 端 `/mnt/d/` 文件缓存延迟（write 后立即执行报 No such file） | 低 | ✅ 已识别 |
 
 ---
 
@@ -656,10 +659,149 @@ Get-Item "d:\trae_projects\dang\changji_app_20260602_2255.apk" | Select-Object N
 | 日期 | 案例 | 更新内容 |
 |-----|------|---------|
 | 2026-06-02 | 案例 9-10 | 新增：rsync --delete 误删 WSL 端签名配置（key.properties）、PowerShell 把 `$(date ...)` 误解析为 `$(Get-Date ...)` |
+| 2026-06-04 | 案例 11-13 | 新增：TypeORM 实体 snake_case 与 DB camelCase schema 不匹配（导致分配套餐 500）、Admin passwordHash 字段 hash 写入截断（临时解决）、WSL 端 `/mnt/d/` 文件缓存延迟 |
 | 2026-06-02 | 案例 7-8 | 新增：SSH 路径解析错误、API Key 分配不均问题 |
 | 2026-05-30 | 案例 5-6 | 新增：PM2 路径不匹配问题、数据库表结构变更同步问题 |
 | 2026-05-25 | - | 安全修复：playwright 测试加 --timeout=60000；nginx reload 前加 nginx -t 验证 |
 | 2026-05-23 | 案例 1-4 | 初始版本 |
+
+---
+
+*本文件记录项目中遇到的典型错误案例，便于快速定位和解决类似问题。*
+
+---
+
+## 案例 11：TypeORM 实体 snake_case 与 DB camelCase schema 不匹配（导致 500 错误）
+
+**问题描述**：
+- 阿里云 ECS 后端，调用 `/api/v1/admin/users/:userId/subscribe` 分配套餐接口返回 500
+- 错误日志：`column s.user_id does not exist`
+- 同样导致 `/api/v1/admin/users` 列表接口 500
+
+**错误日志**：
+```
+[Nest] ERROR [ExceptionsHandler] QueryFailedError: column s.user_id does not exist
+    at AdminService.getUsers (.../admin.service.ts:72:3)
+    at AdminService.assignPlanToUser (.../admin.service.ts:343:13)
+```
+
+**根本原因**：
+- `subscriptions` 表实际列名是 camelCase：`userId`, `planId`, `startedAt`, `expiresAt`, `totalQuota`, `usedQuota`
+- TypeORM 实体 `Subscription` 的 `@Column` 全部用了 snake_case `name: 'user_id'` 等
+- TypeORM 0.2.x 在 SELECT/INSERT/UPDATE 时会按 `name` 指定的列名生成 SQL
+- 但 DB 中不存在 `user_id` 列，只有 `userId`，导致所有订阅相关的写入/读取失败
+- **影响面**：所有 subscription 写入/读取、含 subscriptions 关联的查询（如 getUsers）
+
+**关键诊断**：
+```sql
+-- 1. 看 DB 实际列名
+\d subscriptions
+-- 输出：userId, planId, startedAt, expiresAt, totalQuota, usedQuota
+--        （不是 user_id, plan_id 等 snake_case）
+
+-- 2. 实体 vs DB 不一致
+-- 实体：@Column({ name: 'user_id' }) userId: string
+-- DB：userId  (camelCase)
+```
+
+**解决方案**：
+1. 修正 TypeORM 实体，与 DB 实际列名一致：
+```typescript
+// 修改前
+@Column({ name: 'user_id' }) userId: string;
+@Column({ name: 'plan_id' }) planId: string;
+@Column({ name: 'token_quota', default: 0 }) tokenQuota: number;
+@Column({ name: 'used_tokens', default: 0 }) usedTokens: number;
+@Column({ name: 'balance_tokens', default: 0 }) balanceTokens: number;
+@Column({ name: 'started_at', type: 'timestamp' }) startedAt: Date;
+@Column({ name: 'expires_at', type: 'timestamp' }) expiresAt: Date;
+
+// 修改后（去除 name 映射，typeorm 默认用属性名）
+@Column() userId: string;
+@Column() planId: string;
+@Column({ default: 0 }) totalQuota: number;  // 重命名 tokenQuota→totalQuota
+@Column({ default: 0 }) usedQuota: number;    // 重命名 usedTokens→usedQuota
+// 移除 balanceTokens（DB 无此列，实际在 user_token_balances 表）
+@Column({ type: 'timestamp' }) startedAt: Date;
+@Column({ type: 'timestamp' }) expiresAt: Date;
+```
+
+2. 同步修复所有 service 中引用旧字段名的代码：
+- `admin.service.ts` `assignPlanToUser`：`tokenQuota` → `totalQuota`, `usedTokens` → `usedQuota`, 移除 `balanceTokens`
+- `subscription.service.ts` `assignSubscription` 和 trial 路径：同上
+- 注意：API 响应字段名可保持 `tokenQuota/usedTokens` 不变以兼容前端，只改实体内部字段名
+
+**预防措施**：
+- ⚠️ 创建新实体时先用 `\d <table>` 确认 DB 实际列名
+- ⚠️ 不要假设列名就是 snake_case，**必须以 DB 实际为准**
+- ⚠️ TypeORM 0.2.x `name` 是用来映射不同命名风格的，**必须与 DB 严格一致**
+- ⚠️ 任何含 `leftJoinAndSelect` + `@ManyToOne` 的查询，列名错就会 500
+
+**影响文件**：
+- [subscription.entity.ts](server/src/subscription/entities/subscription.entity.ts) - 实体字段重命名
+- [admin.service.ts](server/src/admin/admin.service.ts) - 字段引用同步
+- [subscription.service.ts](server/src/subscription/subscription.service.ts) - 字段引用同步
+
+**部署验证**：
+- 编译产物含 `Subscription.prototype, "userId"`, `"totalQuota"`, `"usedQuota"`
+- pm2 状态=online, 重启=0
+- API 验证：分配套餐 HTTP 201, 返回 userPhone + totalQuota 字段
+
+---
+
+## 案例 12：Admin passwordHash 字段 hash 写入截断（临时解决）
+
+**问题描述**：
+- 重置 admin 密码后，登录仍然 401
+- DB 中 passwordHash 长度只有 43 字符，但 bcrypt 12 轮 hash 应为 60 字符
+- 后续 bcrypt.compareSync 失败
+
+**根本原因**：
+- typeorm 0.2 的 `@Column()` 不指定长度时，默认 VARCHAR(255)
+- 但实际写入时某种原因被截断到 43 字符（具体原因未完全确认）
+- 可能是 typeorm 0.2 旧版本 bug 或 PG 客户端字符串长度限制
+
+**临时解决方案**：
+- 用 pg 客户端直连，绕过 typeorm：
+```javascript
+const r = await client.query({
+  text: 'UPDATE users SET "passwordHash" = $1 WHERE role = $2 RETURNING phone, LENGTH("passwordHash")',
+  values: [hash, 'admin']
+});
+```
+- 这样 hash 完整 60 字符写入成功
+
+**永久方案**（待实施）：
+- 在 User 实体中显式指定 `length: 255` 或改为 `@Column('text')`
+- 或者用 `@Column('text')` 完全无长度限制
+- 添加定期检查：所有 user 的 passwordHash 长度都应该是 60
+
+**预防**：
+- ⚠️ 任何 bcrypt/crypt hash 字段，TypeORM 实体必须用 `@Column('text')` 或 `@Column({ length: 255 })`
+- ⚠️ 重置密码后必须验证 `LENGTH(passwordHash) = 60`，否则登录会失败
+
+---
+
+## 案例 13：WSL 端 `/mnt/d/` 文件缓存延迟
+
+**问题描述**：
+- WSL bash 中刚 Write 的脚本，立即执行 `bash /mnt/d/.../xxx.sh` 报 "No such file or directory"
+- 但 `ls -la` 能看到文件
+- 几秒后再执行又正常
+
+**根本原因**：
+- WSL 的 9P 文件系统（WSLDrvFS）有元数据缓存
+- 跨系统写入（Windows → WSL）后，WSL 端 metadata 更新有延迟
+- 表现为：文件存在但 bash 看不到
+
+**解决方案**：
+- 执行前加 `sleep 1~3` 等待
+- 或在 wsl bash 中执行 `sync` 强制同步
+- 或在 PowerShell 端用 `cmd /c` 调用
+
+**预防**：
+- ⚠️ 涉及 `/mnt/d/` 路径的脚本执行时，前面加 `sleep 2`
+- ⚠️ 复杂命令链需要脚本化的，必须分步 sleep 等待
 
 ---
 
