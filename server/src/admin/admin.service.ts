@@ -190,9 +190,11 @@ export class AdminService {
     return this.planService.deletePlan(planId);
   }
 
-  // 订阅列表
+  // 订阅列表（WEB端问题2修复：关联users表返回userPhone）
   async getSubscriptions(page = 1, limit = 20, status?: string) {
     const qb = this.subscriptionRepo.createQueryBuilder('s')
+      .leftJoin('users', 'u', 'u.id = s."userId"')
+      .addSelect(['u.phone AS "userPhone"', 'u.nickname AS "userNickname"'])
       .orderBy('s.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -201,21 +203,33 @@ export class AdminService {
       qb.where('s.status = :status', { status });
     }
 
-    const [subscriptions, total] = await qb.getManyAndCount();
+    // 同时取 count（用entity方式不带raw）
+    const countQb = this.subscriptionRepo.createQueryBuilder('s');
+    if (status) {
+      countQb.where('s.status = :status', { status });
+    }
+    const total = await countQb.getCount();
+
+    const raws = await qb.getRawMany();
+
+    // 把raw行的userPhone/userNickname转成entity格式
+    const items = raws.map((r: any) => ({
+      id: r.s_id,
+      userId: r.s_userId,
+      userPhone: r.userPhone || null,
+      userNickname: r.userNickname || null,
+      planId: r.s_planId,
+      status: r.s_status,
+      startedAt: r.s_startedAt,
+      expiresAt: r.s_expiresAt,
+      tokenQuota: r.s_tokenQuota,
+      usedTokens: r.s_usedTokens,
+      balanceTokens: r.s_balanceTokens,
+      createdAt: r.s_createdAt,
+    }));
 
     return {
-      items: subscriptions.map(s => ({
-        id: s.id,
-        userId: s.userId,
-        planId: s.planId,
-        status: s.status,
-        startedAt: s.startedAt,
-        expiresAt: s.expiresAt,
-        tokenQuota: s.tokenQuota,
-        usedTokens: s.usedTokens,
-        balanceTokens: s.balanceTokens,
-        createdAt: s.createdAt,
-      })),
+      items,
       total,
       page,
       totalPages: Math.ceil(total / limit),
