@@ -329,15 +329,15 @@ export class AdminService {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
 
+    // 修复 schema mismatch: Subscription 实体字段名调整（tokenQuota→totalQuota, usedTokens→usedQuota, 移除 balanceTokens）
     const subscription = this.subscriptionRepo.create({
       userId,
       planId,
       status: 'active',
       startedAt: now,
       expiresAt,
-      tokenQuota: plan.tokenQuota || 0,
-      usedTokens: 0,
-      balanceTokens: plan.tokenQuota || 0,
+      totalQuota: plan.tokenQuota || 0,
+      usedQuota: 0,
       type: plan.type || 'monthly',
     });
 
@@ -353,8 +353,9 @@ export class AdminService {
       status: 'active',
       startedAt: now,
       expiresAt,
-      tokenQuota: plan.tokenQuota || 0,
-      usedTokens: 0,
+      // 修复 schema mismatch: Subscription 实体字段名调整（tokenQuota→totalQuota, usedTokens→usedQuota）
+      totalQuota: plan.tokenQuota || 0,
+      usedQuota: 0,
     };
   }
 

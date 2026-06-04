@@ -98,8 +98,9 @@ export class SubscriptionService {
         planName: plan?.name || '未知套餐',
         status: subscription.status,
         expiresAt: subscription.expiresAt,
-        tokenQuota: subscription.tokenQuota,
-        usedTokens: subscription.usedTokens,
+        // 修复 schema mismatch: Subscription 实体字段名调整（tokenQuota→totalQuota, usedTokens→usedQuota）
+        totalQuota: subscription.totalQuota,
+        usedQuota: subscription.usedQuota,
         balanceTokens: tokenBalance?.balanceTokens || 0,
         freeTokensRemaining: tokenBalance?.freeTokensRemaining || 0,
         // 修复异常6
@@ -140,15 +141,15 @@ export class SubscriptionService {
       { status: 'expired' },
     );
 
+    // 修复 schema mismatch: Subscription 实体字段名调整（tokenQuota→totalQuota, usedTokens→usedQuota, 移除 balanceTokens）
     const subscription = this.subscriptionRepository.create({
       userId,
       planId,
       status: 'active',
       startedAt: now,
       expiresAt,
-      tokenQuota: plan.tokenQuota || 0,
-      usedTokens: 0,
-      balanceTokens: plan.tokenQuota || 0,
+      totalQuota: plan.tokenQuota || 0,
+      usedQuota: 0,
       type: plan.type || 'monthly',
     });
 
@@ -306,15 +307,15 @@ export class SubscriptionService {
       await this.planRepository.save(trialPlan);
     }
 
+    // 修复 schema mismatch: Subscription 实体字段名调整（tokenQuota→totalQuota, usedTokens→usedQuota, 移除 balanceTokens）
     const subscription = this.subscriptionRepository.create({
       userId,
       planId: trialData.planId,
       status: 'active',
       startedAt: new Date(),
       expiresAt: trialData.expiresAt,
-      tokenQuota: trialData.totalQuota,
-      usedTokens: trialData.usedQuota,
-      balanceTokens: trialData.totalQuota - trialData.usedQuota,
+      totalQuota: trialData.totalQuota,
+      usedQuota: trialData.usedQuota,
       type: 'monthly',
     });
 
