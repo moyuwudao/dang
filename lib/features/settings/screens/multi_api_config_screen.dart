@@ -177,26 +177,26 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   ApiFunctionType? _mapFunctionType(String functionType) {
     switch (functionType) {
       case 'textAnalysis':
-        return ApiFunctionType.textAnalysis;
+        return ApiFunctionType.text;
       case 'speechTranscribe':
-        return ApiFunctionType.speechTranscribe;
+        return ApiFunctionType.voice;
       case 'speechRealtime':
-        return ApiFunctionType.speechRealtime;
+        return ApiFunctionType.voiceRealtime;
       case 'speechOffline':
-        return ApiFunctionType.speechOffline;
+        return ApiFunctionType.offlineVoice;
       case 'imageRecognition':
-        return ApiFunctionType.imageRecognition;
+        return ApiFunctionType.image;
       // 兼容旧 enum
       case 'summary':
       case 'translate':
       case 'mindMap':
-        return ApiFunctionType.textAnalysis;
+        return ApiFunctionType.text;
       case 'transcribe':
-        return ApiFunctionType.speechRealtime;
+        return ApiFunctionType.voiceRealtime;
       case 'transcribeFile':
-        return ApiFunctionType.speechOffline;
+        return ApiFunctionType.offlineVoice;
       case 'image':
-        return ApiFunctionType.imageRecognition;
+        return ApiFunctionType.image;
       default:
         return null;
     }

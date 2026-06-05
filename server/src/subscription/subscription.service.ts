@@ -54,7 +54,23 @@ export class SubscriptionService {
       .map(([functionType, modelPattern]) => ({ functionType, modelPattern }));
   }
 
+  // 从 allowedModels 派生 apiPolicies（fallback 方案）
+  // 原因：套餐已勾选 API 但未显式配置 apiPolicies 时，手机端应展示与云端编辑页「已勾选」一致的列表
+  // 与 getDefaultApiPolicies() 不同——后者是硬编码的 9 个具体模型，与云端 apiKeys 列表不同源
+  private deriveApiPoliciesFromAllowedModels(plan: any) {
+    const allowedModels = Array.isArray(plan?.allowedModels) ? plan.allowedModels : [];
+    return allowedModels.map((m: string) => ({
+      provider: 'alibabaQwen', // 兜底 provider（管理员可在 WEB 端配置覆盖）
+      model: String(m),
+      modelPattern: String(m),
+      multiplier: 1.0,
+      isAllowed: true,
+    }));
+  }
+
   // 提取套餐分配的 API（去重 + 仅 isAllowed）
+  // 优先级：plan.apiPolicies（显式配置）> plan.allowedModels（已勾选 API 派生）> 默认列表
+  // 关键：fallback 必须与云端编辑页展示的「已勾选 API」一致，避免手机端出现「多出的 API」
   private pickApiPolicies(plan: any) {
     if (Array.isArray(plan?.apiPolicies) && plan.apiPolicies.length > 0) {
       return plan.apiPolicies
@@ -67,7 +83,14 @@ export class SubscriptionService {
           isAllowed: p.isAllowed !== false,
         }));
     }
-    return this.getDefaultApiPolicies();
+    // 第二优先级：从 allowedModels 派生（与云端编辑页"已勾选"列表一致）
+    const derived = this.deriveApiPoliciesFromAllowedModels(plan);
+    if (derived.length > 0) {
+      return derived;
+    }
+    // 兜底：套餐完全没配置（既无 apiPolicies 也无 allowedModels）时返回空数组
+    // 不再用 getDefaultApiPolicies()——那些是硬编码的 9 个具体模型，与云端 apiKeys 不同源
+    return [];
   }
 
   async getSubscription(userId: string) {

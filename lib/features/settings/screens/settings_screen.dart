@@ -689,6 +689,7 @@ class AccountCenterTab extends ConsumerWidget {
         await ref.read(cloudApiEnabledProvider.notifier).setEnabled(true);
         final syncResult = await CloudConfigSyncService.syncApiPolicies(
           apiPolicies: subscriptionState?.apiPolicies ?? [],
+          defaultConfigs: subscriptionState?.defaultConfigs ?? const [],
         );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -934,64 +935,89 @@ class _CloudSyncDialog extends StatelessWidget {
     return AlertDialog(
       icon: const Icon(Icons.cloud_sync, color: AppColors.primary, size: 32),
       title: const Text('打开云端API'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '请选择云端API的同步方式：',
-            style: TextStyle(fontSize: 14),
-          ),
-          const SizedBox(height: 12),
-          // 三个选项说明
-          _buildOptionItem(
-            icon: Icons.auto_fix_high,
-            color: AppColors.primary,
-            title: '按云端默认配置执行',
-            desc: '将套餐内各功能默认API + 套餐内可用API 同步到手机端',
-          ),
-          const SizedBox(height: 8),
-          _buildOptionItem(
-            icon: Icons.tune,
-            color: AppColors.secondary,
-            title: '手动配置',
-            desc: '仅将套餐内可用API 同步到手机端，场景分配由用户自行配置',
-          ),
-          const SizedBox(height: 8),
-          _buildOptionItem(
-            icon: Icons.close,
-            color: Colors.grey,
-            title: '取消',
-            desc: '不执行同步，也不打开云端API开关',
-          ),
-          const SizedBox(height: 12),
-          if (defaultConfigs.isNotEmpty) ...[
-            const Divider(),
-            const SizedBox(height: 8),
-            const Text(
-              '套餐内可用功能:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            ...defaultConfigs.map((config) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, size: 14, color: AppColors.primary),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '${_getFunctionTypeName(config.functionType)}: ${config.modelPattern}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ],
+      // Issue 2 修复：content 用 scrollable + 限制最大高度，避免按钮和功能列表重叠
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 460),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '请选择云端API的同步方式：',
+                style: TextStyle(fontSize: 14),
               ),
-            )),
-          ],
-        ],
+              const SizedBox(height: 12),
+              // 三个选项说明
+              _buildOptionItem(
+                icon: Icons.auto_fix_high,
+                color: AppColors.primary,
+                title: '按云端默认配置执行',
+                desc: '将套餐内各功能默认API + 套餐内可用API 同步到手机端',
+              ),
+              const SizedBox(height: 8),
+              _buildOptionItem(
+                icon: Icons.tune,
+                color: AppColors.secondary,
+                title: '手动配置',
+                desc: '仅将套餐内可用API 同步到手机端，场景分配由用户自行配置',
+              ),
+              const SizedBox(height: 8),
+              _buildOptionItem(
+                icon: Icons.close,
+                color: Colors.grey,
+                title: '取消',
+                desc: '不执行同步，也不打开云端API开关',
+              ),
+              // Issue 2 修复：用 ExpansionTile 折叠套餐内可用功能列表，避免占用过多空间
+              if (defaultConfigs.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Divider(),
+                Theme(
+                  // 去掉默认的分割线 padding，让折叠区域更紧凑
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: const EdgeInsets.only(bottom: 4),
+                    title: const Text(
+                      '套餐内可用功能',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${defaultConfigs.length} 个功能（点击展开）',
+                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                    initiallyExpanded: false,
+                    children: defaultConfigs.map((config) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4, left: 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle, size: 14, color: AppColors.primary),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '${_getFunctionTypeName(config.functionType)}: ${config.modelPattern}',
+                                style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
-      actionsAlignment: MainAxisAlignment.stretch,
+      actionsAlignment: MainAxisAlignment.end,
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
         // 按钮竖排：每个按钮 100% 宽度，文字不会被截断

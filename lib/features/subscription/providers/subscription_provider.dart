@@ -112,6 +112,9 @@ class SubscriptionState {
   final List<PlanSubscription> subscriptions;
   // 当前激活的 subscriptionId（多套餐时供切换）
   final String? activeSubscriptionId;
+  // 套餐配额（服务端 /subscription 返回）
+  final int totalQuota;
+  final int usedQuota;
 
   const SubscriptionState({
     this.isActive = false,
@@ -128,6 +131,8 @@ class SubscriptionState {
     this.defaultConfigs = const [],
     this.subscriptions = const [],
     this.activeSubscriptionId,
+    this.totalQuota = 0,
+    this.usedQuota = 0,
   });
 
   SubscriptionState copyWith({
@@ -140,6 +145,8 @@ class SubscriptionState {
     List<DefaultConfig>? defaultConfigs,
     List<PlanSubscription>? subscriptions,
     String? activeSubscriptionId,
+    int? totalQuota,
+    int? usedQuota,
   }) {
     return SubscriptionState(
       isActive: isActive ?? this.isActive,
@@ -151,6 +158,8 @@ class SubscriptionState {
       defaultConfigs: defaultConfigs ?? this.defaultConfigs,
       subscriptions: subscriptions ?? this.subscriptions,
       activeSubscriptionId: activeSubscriptionId ?? this.activeSubscriptionId,
+      totalQuota: totalQuota ?? this.totalQuota,
+      usedQuota: usedQuota ?? this.usedQuota,
     );
   }
 
@@ -225,6 +234,8 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         defaultConfigs: defaultConfigs,
         subscriptions: subscriptions,
         activeSubscriptionId: data['subscriptionId']?.toString(),
+        totalQuota: _parseInt(data['totalQuota']),
+        usedQuota: _parseInt(data['usedQuota']),
       );
     } catch (e) {
       return const SubscriptionState();
@@ -232,13 +243,13 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
   }
 
   Future<void> fetchSubscription() async {
-    state = const AsyncLoading().copyWithPrevious(state);
+    state = const AsyncLoading<SubscriptionState>().copyWithPrevious(state);
     state = await AsyncValue.guard(() => _fetchSubscriptionInternal());
   }
 
   // 切换套餐
   Future<void> switchSubscription(String subscriptionId) async {
-    state = const AsyncLoading().copyWithPrevious(state);
+    state = const AsyncLoading<SubscriptionState>().copyWithPrevious(state);
     state = await AsyncValue.guard(() => _fetchSubscriptionInternal(subscriptionId: subscriptionId));
   }
 

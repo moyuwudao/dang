@@ -17,6 +17,20 @@ import 'app_logger.dart';
 class CloudConfigSyncService {
   /// 功能类型映射：服务端 -> 客户端
   static final Map<String, ApiFunctionType> _functionTypeMap = {
+    // 服务端 camelCase 形式（套餐 defaultConfigs 当前使用）
+    'textAnalysis': ApiFunctionType.text,
+    'speechTranscribe': ApiFunctionType.voice,
+    'speechRealtime': ApiFunctionType.voiceRealtime,
+    'speechOffline': ApiFunctionType.offlineVoice,
+    'imageRecognition': ApiFunctionType.image,
+    // 旧 enum 形式
+    'summary': ApiFunctionType.text,
+    'translate': ApiFunctionType.text,
+    'mindMap': ApiFunctionType.text,
+    'transcribe': ApiFunctionType.voiceRealtime,
+    'transcribeFile': ApiFunctionType.offlineVoice,
+    'image': ApiFunctionType.image,
+    // snake_case 形式
     'text_analysis': ApiFunctionType.text,
     'voice_transcription': ApiFunctionType.voice,
     'realtime_transcription': ApiFunctionType.voiceRealtime,
@@ -50,6 +64,7 @@ class CloudConfigSyncService {
   /// 适用于"手动配置"分支：仅同步可用 API，不动场景分配
   static Future<CloudSyncResult> syncApiPolicies({
     required List<ApiPolicy> apiPolicies,
+    List<DefaultConfig> defaultConfigs = const [],
   }) async {
     try {
       AppLogger().i('CloudSync', '开始同步 ${apiPolicies.length} 个云端 API Policy');
@@ -65,9 +80,9 @@ class CloudConfigSyncService {
       // 2. 按 apiPolicies 生成云端条目骨架（不存 API Key）
       // 反向索引：modelPattern → [ApiFunctionType, ...]
       final modelToFunctions = <String, Set<ApiFunctionType>>{};
-      for (final dc in defaultConfigsList) {
+      for (final dc in defaultConfigs) {
         if (dc.modelPattern.isEmpty) continue;
-        final ft = _mapFunctionTypeFromDefaultConfig(dc.functionType);
+        final ft = _functionTypeMap[dc.functionType];
         if (ft == null) continue;
         modelToFunctions.putIfAbsent(dc.modelPattern, () => {}).add(ft);
       }
@@ -171,7 +186,10 @@ class CloudConfigSyncService {
       }
 
       // 1. 先把 apiPolicies 持久化为云端条目
-      final policiesResult = await syncApiPolicies(apiPolicies: apiPolicies);
+      final policiesResult = await syncApiPolicies(
+        apiPolicies: apiPolicies,
+        defaultConfigs: defaultConfigs,
+      );
       if (!policiesResult.success) {
         return policiesResult;
       }

@@ -349,9 +349,9 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'Token 余额',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -386,9 +386,83 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
               ),
             ],
           ),
+          // Issue 1 修复：显示云端套餐的 Token 配额（来自 /subscription 接口的 totalQuota/usedQuota）
+          if (state.totalQuota > 0) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.cloud_outlined, size: 16, color: AppColors.primary),
+                    const SizedBox(width: 6),
+                    const Text(
+                      '套餐配额',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '剩余 ${state.totalQuota - state.usedQuota} / ${state.totalQuota} Tokens',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: state.totalQuota > 0
+                    ? state.usedQuota / state.totalQuota
+                    : 0.0,
+                backgroundColor: AppColors.divider,
+                valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                minHeight: 8,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '已用 ${state.usedQuota} / 总计 ${state.totalQuota} Tokens（来源：云端套餐）',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+            // 套餐配额失效时间
+            if (state.expiresAt != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.schedule, size: 12, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    '失效时间：${_formatDateTime(state.expiresAt!)}',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ],
       ),
     );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   Widget _buildApiPoliciesCard(BuildContext context, SubscriptionState state, AppLocalizations l10n) {
@@ -424,6 +498,14 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
       'all': '全部',
     };
 
+    // Issue 3 修复：从当前选中的套餐获取 apiPolicies（多套餐时），确保与云端一致
+    final currentSub = state.currentSubscription;
+    final policies = currentSub?.apiPolicies.isNotEmpty == true
+        ? currentSub!.apiPolicies
+        : state.apiPolicies;
+    final planName = currentSub?.planName ?? state.planName ?? '当前套餐';
+    final planId = currentSub?.planId ?? state.planId ?? 'unknown';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -434,7 +516,33 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ...state.apiPolicies.map((policy) {
+          // Issue 3 修复：显示数据来源标签，告知用户 API 信息来自云端套餐
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.cloud_outlined, size: 12, color: AppColors.primary),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    '来源：云端套餐「$planName」(${policies.length} 个 API)',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...policies.map((policy) {
             final modelName = policy.model ?? policy.modelPattern ?? '';
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
