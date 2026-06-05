@@ -25,24 +25,31 @@ export class SubscriptionService {
     private planService: PlanService,
   ) {}
 
-  // 默认 API 策略（套餐未配置时使用，按 Token 计费模式下，所有登录用户都能用所有模型）
-  // 注意：套餐已配置 apiPolicies 时优先用套餐配置
-  private getDefaultApiPolicies() {
-    return [
-      // 实时语音转写
-      { provider: 'alibabaQwen', modelPattern: 'qwen-asr-realtime', model: 'qwen-asr-realtime', multiplier: 1.0, isAllowed: true },
-      { provider: 'alibabaQwen', modelPattern: 'qwen-asr-realtime-8k', model: 'qwen-asr-realtime-8k', multiplier: 1.0, isAllowed: true },
-      { provider: 'alibabaQwen', modelPattern: 'qwen-asr-realtime-16k', model: 'qwen-asr-realtime-16k', multiplier: 1.2, isAllowed: true },
-      // 文件转写
-      { provider: 'alibabaQwen', modelPattern: 'qwen-asr', model: 'qwen-asr', multiplier: 1.0, isAllowed: true },
-      { provider: 'alibabaQwen', modelPattern: 'paraformer-v2', model: 'paraformer-v2', multiplier: 1.0, isAllowed: true },
-      // 文本分析（总结/翻译/思维导图）
-      { provider: 'alibabaQwen', modelPattern: 'qwen-turbo', model: 'qwen-turbo', multiplier: 0.5, isAllowed: true },
-      { provider: 'alibabaQwen', modelPattern: 'qwen-plus', model: 'qwen-plus', multiplier: 1.0, isAllowed: true },
-      { provider: 'alibabaQwen', modelPattern: 'qwen-max', model: 'qwen-max', multiplier: 2.0, isAllowed: true },
-      // 图像识别
-      { provider: 'alibabaQwen', modelPattern: 'qwen-vl-plus', model: 'qwen-vl-plus', multiplier: 1.5, isAllowed: true },
-    ];
+  // 提取套餐分配的 API
+  // 优先级：plan.allowedModels（云端「已勾选 API」权威列表） > plan.apiPolicies（兜底） > 空数组
+  // 关键：必须与云端套餐编辑页展示的「已勾选 API」一致，避免手机端出现「多出的 API」
+  // 不再提供 getDefaultApiPolicies() 硬编码兜底——9 个具体旧模型（qwen-asr-realtime 等）与云端不同源，
+  // 无订阅/无 plan 时直接返回空数组，让客户端展示「暂无 API 配置」
+  private pickApiPolicies(plan: any): any[] {
+    const allowedModels = Array.isArray(plan?.allowedModels) ? plan.allowedModels : [];
+    // 最高优先级：云端 admin 在「可用 API」勾选的列表（与编辑页 UI 一致）
+    if (allowedModels.length > 0) {
+      return this.deriveApiPoliciesFromPlan(plan);
+    }
+    // 第二优先级：套餐只配置了 apiPolicies（没有 allowedModels）时，直接用它
+    if (Array.isArray(plan?.apiPolicies) && plan.apiPolicies.length > 0) {
+      return plan.apiPolicies
+        .filter((p: any) => p && p.isAllowed !== false)
+        .map((p: any) => ({
+          provider: String(p.provider || ''),
+          model: p.model ? String(p.model) : (p.modelPattern ? String(p.modelPattern).split(':').pop() : ''),
+          modelPattern: p.modelPattern ? String(p.modelPattern) : (p.model ? String(p.model) : ''),
+          multiplier: typeof p.multiplier === 'number' ? p.multiplier : Number(p.multiplier || 1),
+          isAllowed: p.isAllowed !== false,
+        }));
+    }
+    // 都为空：返回空数组（与无订阅行为保持一致，避免展示云端不存在的旧模型）
+    return [];
   }
 
   // 将套餐的 defaultConfigs Record 转成 defaultConfigs 数组
@@ -117,7 +124,7 @@ export class SubscriptionService {
     });
 
     if (subscriptions.length === 0) {
-      // 免费版
+      // 免费版：无订阅，无云端 API 配置可展示
       return {
         code: 200,
         message: 'success',
@@ -130,7 +137,8 @@ export class SubscriptionService {
           usedTokens: 0,
           balanceTokens: tokenBalance?.balanceTokens || 0,
           freeTokensRemaining: tokenBalance?.freeTokensRemaining || 500,
-          apiPolicies: this.getDefaultApiPolicies(),
+          // 修复 Issue 3：无订阅时不展示硬编码的 9 个旧模型，与云端不一致
+          apiPolicies: [],
           defaultConfigs: this.buildDefaultConfigsArray({}),
           // 新增：多订阅列表
           subscriptions: [],
@@ -175,7 +183,8 @@ export class SubscriptionService {
         balanceTokens: tokenBalance?.balanceTokens || 0,
         freeTokensRemaining: tokenBalance?.freeTokensRemaining || 0,
         // 从套餐读 defaultConfigs + apiPolicies
-        apiPolicies: planData ? this.pickApiPolicies(planData) : this.getDefaultApiPolicies(),
+        // 修复 Issue 3：planData 缺失时不再回退到 getDefaultApiPolicies()，与无订阅行为保持一致
+        apiPolicies: planData ? this.pickApiPolicies(planData) : [],
         defaultConfigs: planData ? this.buildDefaultConfigsArray(planData.defaultConfigs) : [],
         // 新增：多套餐列表
         subscriptions: allSubscriptions,
@@ -226,7 +235,8 @@ export class SubscriptionService {
         usedQuota: subscription.usedQuota,
         balanceTokens: tokenBalance?.balanceTokens || 0,
         freeTokensRemaining: tokenBalance?.freeTokensRemaining || 0,
-        apiPolicies: planData ? this.pickApiPolicies(planData) : this.getDefaultApiPolicies(),
+        // 修复 Issue 3：planData 缺失时不再回退到 getDefaultApiPolicies()，与无订阅行为保持一致
+        apiPolicies: planData ? this.pickApiPolicies(planData) : [],
         defaultConfigs: planData ? this.buildDefaultConfigsArray(planData.defaultConfigs) : [],
         allowedModels: planData?.allowedModels || [],
       },
