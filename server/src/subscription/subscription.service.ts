@@ -86,31 +86,8 @@ export class SubscriptionService {
     });
   }
 
-  // 提取套餐分配的 API
-  // 优先级：plan.allowedModels（云端「已勾选 API」权威列表） > plan.apiPolicies（兜底） > 空数组
-  // 关键：必须与云端套餐编辑页展示的「已勾选 API」一致，避免手机端出现「多出的 API」
-  // 完全不用 getDefaultApiPolicies()，因为那是硬编码的 9 个具体模型，与云端 apiKeys 不同源
-  private pickApiPolicies(plan: any) {
-    const allowedModels = Array.isArray(plan?.allowedModels) ? plan.allowedModels : [];
-    // 最高优先级：云端 admin 在「可用 API」勾选的列表（与编辑页 UI 一致）
-    if (allowedModels.length > 0) {
-      return this.deriveApiPoliciesFromPlan(plan);
-    }
-    // 第二优先级：套餐只配置了 apiPolicies（没有 allowedModels）时，直接用它
-    if (Array.isArray(plan?.apiPolicies) && plan.apiPolicies.length > 0) {
-      return plan.apiPolicies
-        .filter((p: any) => p && p.isAllowed !== false)
-        .map((p: any) => ({
-          provider: String(p.provider || ''),
-          model: p.model ? String(p.model) : (p.modelPattern ? String(p.modelPattern).split(':').pop() : ''),
-          modelPattern: p.modelPattern ? String(p.modelPattern) : (p.model ? String(p.model) : ''),
-          multiplier: typeof p.multiplier === 'number' ? p.multiplier : Number(p.multiplier || 1),
-          isAllowed: p.isAllowed !== false,
-        }));
-    }
-    // 都为空：返回空数组
-    return [];
-  }
+  // 提取套餐分配的 API（保留单一定义，避免编译错误）
+  // 注：完整定义在文件顶部（第 33 行），此处为空以确保 TypeScript 不报 duplicate
 
   async getSubscription(userId: string) {
     // 查询该用户的所有 active 订阅，按到期时间倒序
