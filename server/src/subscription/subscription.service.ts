@@ -411,10 +411,11 @@ export class SubscriptionService {
       code: 200,
       message: 'success',
       data: {
-        balanceTokens: balance.balanceTokens,
-        freeTokensRemaining: balance.freeTokensRemaining,
-        totalTokens: balance.totalTokens,
-        usedTokens: balance.usedTokens,
+        // PostgreSQL numeric 类型序列化为字符串，需转为数字
+        balanceTokens: Number(balance.balanceTokens) || 0,
+        freeTokensRemaining: Number(balance.freeTokensRemaining) || 0,
+        totalTokens: Number(balance.totalTokens) || 0,
+        usedTokens: Number(balance.usedTokens) || 0,
       },
     };
   }

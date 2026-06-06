@@ -117,13 +117,17 @@ class TranscriptionService {
     }
 
     // 计费检查（Token余额预估）
-    if (_billingService != null) {
+    // 仅云端配置检查余额，本地 API Key 不消耗平台额度
+    if (_billingService != null && _httpClient.isCloudConfig) {
+      final audioDurationMinutes = await _getAudioDuration(audioFilePath);
+      final multiplier = _httpClient.currentMultiplier;
       final canUse = await _billingService!.canUseFeature(
         FeatureType.transcription,
-        1, // 预估1分钟 = 1200 Token
+        audioDurationMinutes,
+        multiplier: multiplier,
       );
       if (!canUse) {
-        throw Exception('Token余额不足，请充值后再试');
+        throw Exception('Token余额不足，请充值后再试（需要约 ${(audioDurationMinutes * 1200 * multiplier).ceil()} tokens）');
       }
     }
 
@@ -371,6 +375,22 @@ class TranscriptionService {
     String? model,
     void Function(String step, String detail)? onProgress,
   }) async {
+    // 修复 Issue 1：重新转写也需要余额检查
+    if (_billingService != null) {
+      final audioDurationMinutes = await _getAudioDuration(audioFilePath);
+      final multiplier = _httpClient.currentMultiplier;
+      final selectedChunkRatio = chunkIndices.length / 10; // 估算选中段落比例
+      final estimatedMinutes = audioDurationMinutes * selectedChunkRatio;
+      final canUse = await _billingService!.canUseFeature(
+        FeatureType.transcription,
+        estimatedMinutes,
+        multiplier: multiplier,
+      );
+      if (!canUse) {
+        throw Exception('Token余额不足，请充值后再试（需要约 ${(estimatedMinutes * 1200 * multiplier).ceil()} tokens）');
+      }
+    }
+
     if (!isConfigured) {
       throw Exception('API未配置，请先在设置中配置API Key');
     }

@@ -11,7 +11,11 @@ class HttpClient {
   String? _apiKey;
   String? _appId;
   String? _accessKeySecret;
+  // 修复 Issue 2：记录当前模型的 multiplier（来自云端 apiPolicies 或本地 baseCoefficient）
+  // 用于 TextAnalysisService 等计费检查时按真实系数预估消耗
+  double _currentMultiplier = 1.0;
   bool _isConfigured = false;
+  bool _isCloudConfig = false;
 
   HttpClient() {
     _dio = Dio(
@@ -30,6 +34,9 @@ class HttpClient {
   String? get apiKey => _apiKey;
   String? get appId => _appId;
   String? get accessKeySecret => _accessKeySecret;
+  /// 修复 Issue 2：当前模型的计费系数（DEEPSEEK 0.5x、QWEN-Max 3x 等）
+  double get currentMultiplier => _currentMultiplier;
+  bool get isCloudConfig => _isCloudConfig;
   Dio get dio => _dio;
 
   String get configInfo {
@@ -43,11 +50,15 @@ class HttpClient {
     String? customBaseUrl,
     String? appId,
     String? accessKeySecret,
+    double multiplier = 1.0,
+    bool isCloudConfig = true,
   }) {
     _currentConfig = config;
     _apiKey = apiKey;
     _appId = appId;
     _accessKeySecret = accessKeySecret;
+    _currentMultiplier = multiplier;
+    _isCloudConfig = isCloudConfig;
     _isConfigured = true;
     final baseUrl = customBaseUrl ?? config.baseUrl;
 

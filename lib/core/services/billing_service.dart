@@ -85,11 +85,17 @@ class TokenBalance {
   });
 
   factory TokenBalance.fromJson(Map<String, dynamic> json) {
+    // PostgreSQL numeric 类型可能返回字符串（如 "500.0000"），需兼容
+    int parseNum(dynamic v) {
+      if (v is num) return v.toInt();
+      if (v is String) return double.tryParse(v)?.toInt() ?? 0;
+      return 0;
+    }
     return TokenBalance(
-      balanceTokens: (json['balanceTokens'] as num?)?.toInt() ?? 0,
-      freeTokensRemaining: (json['freeTokensRemaining'] as num?)?.toInt() ?? 0,
-      totalTokens: (json['totalTokens'] as num?)?.toInt() ?? 0,
-      usedTokens: (json['usedTokens'] as num?)?.toInt() ?? 0,
+      balanceTokens: parseNum(json['balanceTokens']),
+      freeTokensRemaining: parseNum(json['freeTokensRemaining']),
+      totalTokens: parseNum(json['totalTokens']),
+      usedTokens: parseNum(json['usedTokens']),
     );
   }
 
@@ -159,10 +165,13 @@ class BillingService {
     _balanceCacheTime = null;
   }
 
-  Future<bool> canUseFeature(FeatureType type, double amount) async {
+  /// 修复 Issue 2：canUseFeature 增加 multiplier 参数
+  /// DEEPSEEK 系数 0.5x（便宜 50%），如果按 1.0x 算消耗会高估，导致"余额不足"
+  /// 调用方应传入当前模型的 multiplier（来自云端 apiPolicies 或本地 baseCoefficient）
+  Future<bool> canUseFeature(FeatureType type, double amount, {double multiplier = 1.0}) async {
     try {
       final balance = await getTokenBalance();
-      final estimatedTokens = _estimateTokens(type, amount);
+      final estimatedTokens = (_estimateTokens(type, amount) * multiplier).ceil();
       return balance.hasEnough(estimatedTokens);
     } catch (e) {
       return false;

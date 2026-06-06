@@ -5,6 +5,7 @@ import '../models/ai_model_config.dart';
 import '../models/api_config.dart';
 import 'api_service.dart';
 import 'app_logger.dart';
+import 'cloud_api_service.dart';
 import 'secure_storage_service.dart';
 import 'storage_service.dart';
 import '../../features/auth/providers/auth_provider.dart';
@@ -36,15 +37,35 @@ class ApiConfigResolver {
     if (multiConfig != null) {
       final assigned = multiConfig.getConfigForFunction(functionType);
       if (assigned != null && assigned.isActive) {
-        return ResolvedApiConfig(
-          provider: assigned.provider,
-          apiKey: assigned.apiKey,
-          baseUrl: assigned.baseUrl,
-          model: assigned.model,
-          appId: assigned.appId,
-          accessKeySecret: assigned.accessKeySecret,
-          source: assigned.isCloudConfig ? ConfigSource.cloud : ConfigSource.local,
-        );
+        // 修复 Issue 3：云端条目的 apiKey 可能为空（provider不匹配时未注入）
+        // 如果 apiKey 为空，尝试懒加载获取对应 provider 的 Key
+        String apiKey = assigned.apiKey;
+        String? baseUrl = assigned.baseUrl;
+        String? model = assigned.model;
+        if (apiKey.isEmpty && assigned.isCloudConfig) {
+          final entryProviderName = assigned.provider.name;
+          final fetched = await _fetchProviderApiKey(entryProviderName);
+          if (fetched != null) {
+            apiKey = fetched['apiKey'] as String;
+            baseUrl = fetched['baseUrl'] as String? ?? baseUrl;
+            model = fetched['model'] as String? ?? model;
+            AppLogger().i('ApiConfigResolver',
+                '懒加载成功: provider=$entryProviderName, model=$model');
+          }
+        }
+        // 如果仍然为空，跳过此分配，让后续逻辑处理
+        if (apiKey.isNotEmpty) {
+          return ResolvedApiConfig(
+            provider: assigned.provider,
+            apiKey: apiKey,
+            baseUrl: baseUrl,
+            model: model,
+            appId: assigned.appId,
+            accessKeySecret: assigned.accessKeySecret,
+            source: assigned.isCloudConfig ? ConfigSource.cloud : ConfigSource.local,
+            multiplier: assigned.isCloudConfig ? assigned.cloudMultiplier : 1.0,
+          );
+        }
       }
     }
 
@@ -108,6 +129,10 @@ class ApiConfigResolver {
           customBaseUrl: resolved.baseUrl,
           appId: resolved.appId,
           accessKeySecret: resolved.accessKeySecret,
+          // 修复 Issue 3：将解析到的 multiplier 传入 HttpClient，确保计费检查正确
+          multiplier: resolved.multiplier,
+          // 修复：本地 Key 不检查余额，云端 Key 才检查
+          isCloudConfig: resolved.source == ConfigSource.cloud,
         );
 
     AppLogger().i('ApiConfigResolver',
@@ -132,6 +157,23 @@ class ApiConfigResolver {
       if (jsonStr == null || jsonStr.isEmpty) return null;
       return Map<String, dynamic>.from(const JsonDecoder().convert(jsonStr));
     } catch (_) {
+      return null;
+    }
+  }
+
+  /// 从服务器获取指定 provider 的 API Key（懒加载）
+  /// 修复 Issue 3：当云端配置需要特定 provider 但当前没有对应 Key 时，实时获取
+  Future<Map<String, dynamic>?> _fetchProviderApiKey(String provider) async {
+    try {
+      final response = await CloudApiService.instance.get('/api-key?provider=$provider');
+      final data = response.data['data'] as Map<String, dynamic>?;
+      if (data != null && data['apiKey'] != null) {
+        AppLogger().i('ApiConfigResolver', '懒加载获取 $provider Key 成功');
+        return data;
+      }
+      return null;
+    } catch (e) {
+      AppLogger().w('ApiConfigResolver', '懒加载获取 $provider Key 失败: $e');
       return null;
     }
   }
@@ -170,6 +212,7 @@ class ResolvedApiConfig {
   final String? appId;
   final String? accessKeySecret;
   final ConfigSource source;
+  final double multiplier; // 修复 Issue 3：携带模型的消耗系数，用于计费检查
 
   const ResolvedApiConfig({
     required this.provider,
@@ -179,6 +222,7 @@ class ResolvedApiConfig {
     this.appId,
     this.accessKeySecret,
     required this.source,
+    this.multiplier = 1.0,
   });
 }
 

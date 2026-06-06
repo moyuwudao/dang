@@ -56,6 +56,8 @@ class ApiService {
     String? customBaseUrl,
     String? appId,
     String? accessKeySecret,
+    double multiplier = 1.0,
+    bool isCloudConfig = true,
   }) {
     _httpClient.configure(
       apiKey: apiKey,
@@ -63,6 +65,8 @@ class ApiService {
       customBaseUrl: customBaseUrl,
       appId: appId,
       accessKeySecret: accessKeySecret,
+      multiplier: multiplier,
+      isCloudConfig: isCloudConfig,
     );
   }
 
@@ -71,6 +75,8 @@ class ApiService {
     final apiKey = data['apiKey'] as String?;
     final baseUrl = data['baseUrl'] as String?;
     final model = data['model'] as String?;
+    // 修复 Issue 2：从云端数据取 multiplier
+    final multiplier = (data['multiplier'] as num?)?.toDouble() ?? 1.0;
 
     if (provider == null || apiKey == null) {
       AppLogger().w('ApiService', '缺少 provider 或 apiKey');
@@ -83,11 +89,12 @@ class ApiService {
       return;
     }
 
-    // 配置运行时 HttpClient
+    // 配置运行时 HttpClient（传递 multiplier）
     configure(
       apiKey: apiKey,
       config: providerConfig,
       customBaseUrl: baseUrl,
+      multiplier: multiplier,
     );
 
     // 云端配置独立存储到 SecureStorage，不覆盖本地配置
@@ -96,6 +103,7 @@ class ApiService {
       'apiKey': apiKey,
       'baseUrl': baseUrl,
       'model': model ?? providerConfig.defaultModel,
+      'multiplier': multiplier,
       'updatedAt': DateTime.now().toIso8601String(),
     });
     await SecureStorageService().write('cloud_api_config', cloudConfigJson);
@@ -113,6 +121,8 @@ class ApiService {
       final provider = data['provider'] as String?;
       final apiKey = data['apiKey'] as String?;
       final baseUrl = data['baseUrl'] as String?;
+      // 修复 Issue 2：读取云端 multiplier
+      final multiplier = (data['multiplier'] as num?)?.toDouble() ?? 1.0;
 
       if (provider == null || apiKey == null) return false;
 
@@ -123,9 +133,10 @@ class ApiService {
         apiKey: apiKey,
         config: providerConfig,
         customBaseUrl: baseUrl,
+        multiplier: multiplier,
       );
 
-      AppLogger().i('ApiService', '已加载云端 API 配置: provider=$provider');
+      AppLogger().i('ApiService', '已加载云端 API 配置: provider=$provider, multiplier=$multiplier');
       return true;
     } catch (e) {
       AppLogger().w('ApiService', '加载云端 API 配置失败: $e');

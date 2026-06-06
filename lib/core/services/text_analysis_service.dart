@@ -21,10 +21,15 @@ class TextAnalysisService {
     }
 
     // 计费检查（Token余额预估）
-    if (_billingService != null) {
+    // 仅云端配置检查余额，本地 API Key 不消耗平台额度
+    if (_billingService != null && _httpClient.isCloudConfig) {
+      // 修复 Issue 2：使用 _httpClient.currentMultiplier（来自云端 apiPolicies）
+      // 避免高 multiplier 模型（如 QWEN-Max 3x）低估消耗，或低 multiplier 模型（如 DEEPSEEK 0.5x）高估
+      final multiplier = _httpClient.currentMultiplier;
       final canUse = await _billingService!.canUseFeature(
         FeatureType.textAnalysis,
         text.length / 1000,
+        multiplier: multiplier,
       );
       if (!canUse) {
         throw Exception('Token余额不足，请充值后再试');
@@ -86,10 +91,14 @@ class TextAnalysisService {
     }
 
     // 计费检查（Token余额预估）
-    if (_billingService != null) {
+    // 仅云端配置检查余额，本地 API Key 不消耗平台额度
+    if (_billingService != null && _httpClient.isCloudConfig) {
+      // 修复 Issue 2：使用 _httpClient.currentMultiplier（来自云端 apiPolicies）
+      final multiplier = _httpClient.currentMultiplier;
       final canUse = await _billingService!.canUseFeature(
         FeatureType.textAnalysis,
         text.length / 1000,
+        multiplier: multiplier,
       );
       if (!canUse) {
         throw Exception('Token余额不足，请充值后再试');
@@ -151,10 +160,14 @@ class TextAnalysisService {
     }
 
     // 计费检查（Token余额预估）
-    if (_billingService != null) {
+    // 仅云端配置检查余额，本地 API Key 不消耗平台额度
+    if (_billingService != null && _httpClient.isCloudConfig) {
+      // 修复 Issue 2：使用 _httpClient.currentMultiplier
+      final multiplier = _httpClient.currentMultiplier;
       final canUse = await _billingService!.canUseFeature(
         FeatureType.aiChat,
         prompt.length / 1000,
+        multiplier: multiplier,
       );
       if (!canUse) {
         throw Exception('Token余额不足，请充值后再试');
@@ -215,10 +228,14 @@ class TextAnalysisService {
     }
 
     // 计费检查（Token余额预估）
-    if (_billingService != null) {
+    // 仅云端配置检查余额，本地 API Key 不消耗平台额度
+    if (_billingService != null && _httpClient.isCloudConfig) {
+      // 修复 Issue 2：使用 _httpClient.currentMultiplier
+      final multiplier = _httpClient.currentMultiplier;
       final canUse = await _billingService!.canUseFeature(
         FeatureType.aiChat,
         (prompt.length + systemPrompt.length) / 1000,
+        multiplier: multiplier,
       );
       if (!canUse) {
         throw Exception('Token余额不足，请充值后再试');
