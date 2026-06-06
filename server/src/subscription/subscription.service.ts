@@ -8,6 +8,7 @@ import { RechargeRecord } from './entities/recharge-record.entity';
 import { ApiUsageLog } from './entities/api-usage-log.entity';
 import { CreatePlanDto, RechargeDto, RefundDto } from './dto';
 import { PlanService } from '../plan/plan.service';
+import { TokenBillingService } from './services/token-billing.service';
 
 @Injectable()
 export class SubscriptionService {
@@ -23,6 +24,7 @@ export class SubscriptionService {
     @InjectRepository(ApiUsageLog)
     private apiUsageLogRepository: Repository<ApiUsageLog>,
     private planService: PlanService,
+    private tokenBillingService: TokenBillingService,
   ) {}
 
   // 提取套餐分配的 API
@@ -53,12 +55,31 @@ export class SubscriptionService {
   }
 
   // 将套餐的 defaultConfigs Record 转成 defaultConfigs 数组
-  // 入参：{ textAnalysis: 'qwen-max', ... } → [{ functionType: 'textAnalysis', modelPattern: 'qwen-max' }, ...]
-  private buildDefaultConfigsArray(defaultConfigs: Record<string, string> | undefined | null) {
+  // 入参：{ textAnalysis: 'qwen-max', ... }
+  // 出参：[{ functionType: 'textAnalysis', modelPattern: 'provider:model' }, ...]
+  // 关键：modelPattern 必须带 provider 前缀，APK 端 syncCloudDefaults 按 ':' 解析
+  private buildDefaultConfigsArray(
+    defaultConfigs: Record<string, string> | undefined | null,
+    apiPolicies: any[] = [],
+  ) {
     if (!defaultConfigs || typeof defaultConfigs !== 'object') return [];
+    // 建立 model -> provider 索引，用于补全 provider 前缀
+    const providerByModel = new Map<string, string>();
+    for (const p of apiPolicies) {
+      const model = p?.model || p?.modelPattern;
+      if (model) {
+        providerByModel.set(String(model), String(p.provider || 'alibabaQwen'));
+      }
+    }
     return Object.entries(defaultConfigs)
       .filter(([k, v]) => !!k && !!v)
-      .map(([functionType, modelPattern]) => ({ functionType, modelPattern }));
+      .map(([functionType, modelValue]) => {
+        // modelValue 可能已有 provider 前缀，也可能只是 model 名称
+        const modelPattern = modelValue.includes(':')
+          ? modelValue
+          : `${providerByModel.get(modelValue) || 'alibabaQwen'}:${modelValue}`;
+        return { functionType, modelPattern };
+      });
   }
 
   // 从 allowedModels + apiPolicies 派生最终 API 列表
@@ -138,9 +159,12 @@ export class SubscriptionService {
         subscriptionId: sub.id,
         planId: sub.planId,
         planName: subPlanData.name,
-        expiresAt: sub.expiresAt,
+        // 修复 Issue 1：实时按当前 plan.durationDays 重新计算 expiresAt
+        // 避免 admin 修改 durationDays 后，已订阅用户的过期时间不更新
+        expiresAt: this.computeExpiresAt(sub.startedAt, subPlanData.durationDays, sub.expiresAt),
+        startedAt: sub.startedAt,
         status: sub.status,
-        defaultConfigs: this.buildDefaultConfigsArray(subPlanData.defaultConfigs),
+        defaultConfigs: this.buildDefaultConfigsArray(subPlanData.defaultConfigs, subPlanData.apiPolicies),
         apiPolicies: this.pickApiPolicies(subPlanData),
         allowedModels: subPlanData.allowedModels || [],
       });
@@ -154,7 +178,8 @@ export class SubscriptionService {
         planId: activeSub.planId,
         planName: planData?.name || '未知套餐',
         status: activeSub.status,
-        expiresAt: activeSub.expiresAt,
+        // 修复 Issue 1：实时按当前 plan.durationDays 重新计算 expiresAt
+        expiresAt: this.computeExpiresAt(activeSub.startedAt, planData?.durationDays, activeSub.expiresAt),
         totalQuota: activeSub.totalQuota,
         usedQuota: activeSub.usedQuota,
         balanceTokens: tokenBalance?.balanceTokens || 0,
@@ -162,11 +187,23 @@ export class SubscriptionService {
         // 从套餐读 defaultConfigs + apiPolicies
         // 修复 Issue 3：planData 缺失时不再回退到 getDefaultApiPolicies()，与无订阅行为保持一致
         apiPolicies: planData ? this.pickApiPolicies(planData) : [],
-        defaultConfigs: planData ? this.buildDefaultConfigsArray(planData.defaultConfigs) : [],
+        defaultConfigs: planData ? this.buildDefaultConfigsArray(planData.defaultConfigs, planData.apiPolicies) : [],
         // 新增：多套餐列表
         subscriptions: allSubscriptions,
       },
     };
+  }
+
+  /**
+   * 修复 Issue 1：实时计算 expiresAt
+   * 优先按 plan.durationDays 重新计算（响应 admin 修改套餐时长后立即生效）
+   * 若 plan 没传（plan 已被删除），回退到原订阅记录里的 expiresAt
+   */
+  private computeExpiresAt(startedAt: Date, planDurationDays: number | undefined, fallback: Date): Date {
+    if (!startedAt || !planDurationDays || planDurationDays <= 0) {
+      return fallback;
+    }
+    return new Date(new Date(startedAt).getTime() + planDurationDays * 24 * 60 * 60 * 1000);
   }
 
   // 规范 plan 数据（与 PlanService 行为一致）
@@ -207,14 +244,15 @@ export class SubscriptionService {
         planId: subscription.planId,
         planName: planData?.name || '未知套餐',
         status: subscription.status,
-        expiresAt: subscription.expiresAt,
+        // 修复 Issue 1：实时按当前 plan.durationDays 重新计算 expiresAt
+        expiresAt: this.computeExpiresAt(subscription.startedAt, planData?.durationDays, subscription.expiresAt),
         totalQuota: subscription.totalQuota,
         usedQuota: subscription.usedQuota,
         balanceTokens: tokenBalance?.balanceTokens || 0,
         freeTokensRemaining: tokenBalance?.freeTokensRemaining || 0,
         // 修复 Issue 3：planData 缺失时不再回退到 getDefaultApiPolicies()，与无订阅行为保持一致
         apiPolicies: planData ? this.pickApiPolicies(planData) : [],
-        defaultConfigs: planData ? this.buildDefaultConfigsArray(planData.defaultConfigs) : [],
+        defaultConfigs: planData ? this.buildDefaultConfigsArray(planData.defaultConfigs, planData.apiPolicies) : [],
         allowedModels: planData?.allowedModels || [],
       },
     };
@@ -366,18 +404,17 @@ export class SubscriptionService {
 
   // 获取用户Token余额
   async getBalance(userId: string) {
-    const tokenBalance = await this.userTokenBalanceRepository.findOne({
-      where: { userId },
-    });
+    // 使用 tokenBillingService.getOrCreateBalance 确保新用户自动获得免费额度
+    const balance = await this.tokenBillingService.getOrCreateBalance(userId);
 
     return {
       code: 200,
       message: 'success',
       data: {
-        balanceTokens: tokenBalance?.balanceTokens || 0,
-        freeTokensRemaining: tokenBalance?.freeTokensRemaining || 0,
-        totalTokens: tokenBalance?.totalTokens || 0,
-        usedTokens: tokenBalance?.usedTokens || 0,
+        balanceTokens: balance.balanceTokens,
+        freeTokensRemaining: balance.freeTokensRemaining,
+        totalTokens: balance.totalTokens,
+        usedTokens: balance.usedTokens,
       },
     };
   }
