@@ -65,6 +65,7 @@ class RealtimeTranscriptionService {
       Uri.parse(wsUrl),
       headers: {
         'Authorization': 'Bearer ${_httpClient.apiKey}',
+        'OpenAI-Beta': 'realtime=v1',
         'user-agent': 'changji-app/1.0',
       },
     );

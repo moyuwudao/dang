@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/models/ai_model_config.dart';
 import '../../../core/models/api_config.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/app_logger.dart';
+import '../../../core/services/cloud_api_service.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/services/storage_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -65,17 +67,80 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
   Future<void> _loadConfig() async {
     final localConfig = await StorageService.getMultiApiConfig();
 
-    // 加载云端配置（已包含登录状态校验，未登录返回空）
-    final cloudEntries = await _loadCloudConfigEntries();
-
-    // 合并：本地配置 + 云端配置
-    final allConfigs = [...localConfig.configs, ...cloudEntries];
+    // 修复 Issue 2：cloud_config_sync_service 已经把云端条目（isCloudConfig=true）
+    // 写进 StorageService，_loadConfig 只需要为这些条目补 apiKey（从 SecureStorage 注入）
+    // 不再调用 _loadCloudConfigEntries 重新生成（否则会和已有的云端条目重复）
+    final allConfigs = <ApiConfigEntry>[];
+    for (final e in localConfig.configs) {
+      if (e.isCloudConfig) {
+        // 云端条目：从 SecureStorage 注入 apiKey
+        final injected = await _injectCloudApiKey(e);
+        allConfigs.add(injected);
+      } else {
+        allConfigs.add(e);
+      }
+    }
     final mergedConfig = localConfig.copyWith(configs: allConfigs);
 
     setState(() {
       _config = mergedConfig;
       _isLoading = false;
     });
+  }
+
+  /// 为云端条目注入 apiKey（从服务器按 provider 获取）
+  /// 修复：不再依赖 cloud_api_config（只存一个 provider 的 Key），
+  /// 而是按条目的 provider 从服务器获取对应的 Key
+  Future<ApiConfigEntry> _injectCloudApiKey(ApiConfigEntry e) async {
+    try {
+      final authState = ref.read(authNotifierProvider).valueOrNull;
+      if (authState == null || !authState.isLoggedIn) return e;
+
+      final cloudEnabled = ref.read(cloudApiEnabledProvider).valueOrNull ?? false;
+      if (!cloudEnabled) return e;
+
+      // 如果已有 apiKey，直接返回
+      if (e.apiKey.isNotEmpty) return e;
+
+      // 按条目的 provider 从服务器获取 Key
+      final providerName = _providerToString(e.provider);
+      try {
+        final response = await CloudApiService.instance.get('/api-key?provider=$providerName');
+        final data = response.data['data'] as Map<String, dynamic>?;
+        if (data != null && data['apiKey'] != null) {
+          AppLogger().i('MultiApiConfig', '注入 $providerName Key 成功');
+          return e.copyWith(
+            apiKey: data['apiKey'] as String,
+            baseUrl: data['baseUrl'] as String? ?? e.baseUrl,
+            model: (data['model'] as String?) ?? e.model,
+          );
+        }
+      } catch (err) {
+        AppLogger().w('MultiApiConfig', '注入 $providerName Key 失败: $err');
+      }
+
+      return e;
+    } catch (_) {
+      return e;
+    }
+  }
+
+  /// 将 AiProvider 枚举转为小写字符串（用于和 cloud_api_config.provider 比较）
+  String _providerToString(AiProvider p) {
+    switch (p) {
+      case AiProvider.openAI: return 'openai';
+      case AiProvider.claude: return 'anthropic';
+      case AiProvider.gemini: return 'gemini';
+      case AiProvider.deepSeek: return 'deepseek';
+      case AiProvider.qwen: return 'qwen';
+      case AiProvider.tingwu: return 'tingwu';
+      case AiProvider.ernie: return 'ernie';
+      case AiProvider.zhipu: return 'zhipu';
+      case AiProvider.kimi: return 'kimi';
+      case AiProvider.spark: return 'spark';
+      case AiProvider.grok: return 'grok';
+      case AiProvider.custom: return 'custom';
+    }
   }
 
   Future<List<ApiConfigEntry>> _loadCloudConfigEntries() async {
@@ -151,12 +216,22 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
               .toSet();
         }
 
+        // 修复：只给与 cloud_api_config 中 provider 匹配的条目赋 apiKey
+        // 不匹配的条目 apiKey 留空，由 ApiConfigResolver 的懒加载机制获取对应 provider 的 Key
+        final cloudProvider = cloudData['provider'] as String?;
+        final isProviderMatch = cloudProvider != null &&
+            cloudProvider.toLowerCase() == providerName.toLowerCase();
+        final entryApiKey = isProviderMatch ? apiKey : '';
+        final entryBaseUrl = isProviderMatch
+            ? (cloudData['baseUrl'] as String? ?? providerConfig.baseUrl)
+            : providerConfig.baseUrl;
+
         entries.add(ApiConfigEntry(
           id: 'cloud_${providerName}_$modelName',
           name: displayName,
           provider: providerEnum,
-          apiKey: apiKey,
-          baseUrl: cloudData['baseUrl'] as String? ?? providerConfig.baseUrl,
+          apiKey: entryApiKey,
+          baseUrl: entryBaseUrl,
           model: modelName,
           functions: compatibleFunctions.toList(),
           isActive: true,
@@ -806,6 +881,43 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
 
   Future<void> _testConfig(ApiConfigEntry config) async {
     final l10n = AppLocalizations.of(context)!;
+
+    // 修复：云端配置的 apiKey 可能为空（provider 不匹配时未注入）
+    // 测试前先尝试懒加载获取对应 provider 的 Key
+    String testApiKey = config.apiKey;
+    String? testBaseUrl = config.baseUrl;
+    if (testApiKey.isEmpty && config.isCloudConfig) {
+      try {
+        final providerName = _providerToString(config.provider);
+        final response = await CloudApiService.instance.get('/api-key?provider=$providerName');
+        final data = response.data['data'] as Map<String, dynamic>?;
+        if (data != null && data['apiKey'] != null) {
+          testApiKey = data['apiKey'] as String;
+          testBaseUrl = data['baseUrl'] as String? ?? testBaseUrl;
+          AppLogger().i('MultiApiConfig', '测试前懒加载 $providerName Key 成功');
+        } else {
+          if (mounted) {
+            Navigator.pop(context); // 关闭 loading dialog（如果已打开）
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Row(children: [
+                  const Icon(Icons.error, color: AppColors.error),
+                  const SizedBox(width: 8),
+                  Text(l10n.connectionFailed),
+                ]),
+                content: Text('无法获取 ${config.provider.name} 的 API Key，请确认服务器已配置该 Provider 的 Key'),
+                actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.confirm))],
+              ),
+            );
+          }
+          return;
+        }
+      } catch (e) {
+        AppLogger().w('MultiApiConfig', '测试前懒加载失败: $e');
+      }
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -823,7 +935,7 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
     try {
       final dio = Dio(
         BaseOptions(
-          baseUrl: config.baseUrl ??
+          baseUrl: testBaseUrl ??
               (config.isCustomProvider
                   ? ''
                   : AiModelConfig.getConfig(config.provider).baseUrl),
@@ -833,21 +945,21 @@ class _MultiApiConfigScreenState extends ConsumerState<MultiApiConfigScreen> {
       );
 
       if (config.provider != AiProvider.tingwu) {
-        dio.options.headers['Authorization'] = 'Bearer ${config.apiKey}';
+        dio.options.headers['Authorization'] = 'Bearer $testApiKey';
       }
 
       Response response;
       if (config.provider == AiProvider.gemini) {
         response = await dio.get(
           '/models',
-          queryParameters: {'key': config.apiKey},
+          queryParameters: {'key': testApiKey},
         );
       } else if (config.provider == AiProvider.tingwu) {
         if (config.accessKeySecret == null || config.accessKeySecret!.isEmpty) {
           throw Exception('通义听悟需要 AccessKey Secret 进行签名');
         }
         final signer = AliyunSigner(
-          accessKeyId: config.apiKey,
+          accessKeyId: testApiKey,
           accessKeySecret: config.accessKeySecret!,
         );
         final path = '/openapi/tingwu/v2/tasks';

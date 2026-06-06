@@ -260,6 +260,7 @@ class HttpClient {
     _appId = null;
     _accessKeySecret = null;
     _isConfigured = false;
+    _isCloudConfig = false;
     _dio.options.baseUrl = '';
     _dio.options.headers = {};
   }

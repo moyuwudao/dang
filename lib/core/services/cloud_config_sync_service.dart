@@ -5,6 +5,7 @@ import '../../features/subscription/providers/subscription_provider.dart';
 import 'storage_service.dart';
 import 'secure_storage_service.dart';
 import 'app_logger.dart';
+import 'cloud_api_service.dart';
 
 /// 云端默认配置同步服务
 ///
@@ -89,6 +90,9 @@ class CloudConfigSyncService {
 
       final newCloudEntries = <ApiConfigEntry>[];
       final seenModels = <String>{};
+      // 按 provider 批量获取 API Key，避免每个条目单独请求
+      final providerKeyCache = <String, ({String apiKey, String? baseUrl, String? model})>{};
+
       for (final policy in apiPolicies) {
         if (policy.isAllowed == false) continue;
         final providerName = policy.provider;
@@ -119,13 +123,40 @@ class CloudConfigSyncService {
               .toList();
         }
 
+        // 按 provider 获取 API Key（缓存，同一 provider 只请求一次）
+        String entryApiKey = '';
+        String? entryBaseUrl;
+        String? entryModel;
+        if (!providerKeyCache.containsKey(providerName)) {
+          try {
+            final response = await CloudApiService.instance.get('/api-key?provider=$providerName');
+            final data = response.data['data'] as Map<String, dynamic>?;
+            if (data != null && data['apiKey'] != null) {
+              providerKeyCache[providerName] = (
+                apiKey: data['apiKey'] as String,
+                baseUrl: data['baseUrl'] as String?,
+                model: data['model'] as String?,
+              );
+              AppLogger().i('CloudSync', '获取 $providerName Key 成功');
+            }
+          } catch (e) {
+            AppLogger().w('CloudSync', '获取 $providerName Key 失败: $e');
+          }
+        }
+        final cached = providerKeyCache[providerName];
+        if (cached != null) {
+          entryApiKey = cached.apiKey;
+          entryBaseUrl = cached.baseUrl;
+          entryModel = cached.model;
+        }
+
         newCloudEntries.add(ApiConfigEntry(
           id: 'cloud_${providerName}_$modelName',
           name: displayName,
           provider: providerEnum,
-          apiKey: '', // 不存 API Key，运行时由 multi-api 页面注入
-          baseUrl: providerConfig.baseUrl,
-          model: modelName,
+          apiKey: entryApiKey,
+          baseUrl: entryBaseUrl ?? providerConfig.baseUrl,
+          model: entryModel ?? modelName,
           functions: compatibleFunctions,
           isActive: true,
           isCloudConfig: true,
@@ -293,9 +324,22 @@ class CloudConfigSyncService {
 
       // 2. 仅保留指向本地配置的分配
       final localConfigIds = localConfigs.map((c) => c.id).toSet();
-      final localAssignments = multiConfig.functionAssignments
-          .where((a) => a.configId != null && localConfigIds.contains(a.configId))
-          .toList();
+      // 修复 Issue 3：保留所有 function 类型的分配，把指向 cloud_xxx 的回退到本地默认 configId
+      // 这样关闭云端AI后，ApiConfigResolver 仍能按场景找到本地配置（不会全部走 fallback）
+      final localAssignments = <ApiFunctionAssignment>[];
+      for (final assignment in multiConfig.functionAssignments) {
+        if (assignment.configId != null && localConfigIds.contains(assignment.configId)) {
+          // 已经指向本地配置 → 保留
+          localAssignments.add(assignment);
+        } else if (localConfigs.isNotEmpty) {
+          // 指向云端配置（或失效）→ 回退到本地第一个条目
+          localAssignments.add(ApiFunctionAssignment(
+            functionType: assignment.functionType,
+            configId: localConfigs.first.id,
+          ));
+        }
+        // 本地无配置时，该功能分配保持 null
+      }
 
       final newConfig = MultiApiConfig(
         configs: localConfigs,
