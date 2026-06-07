@@ -145,6 +145,7 @@ export class TokenBillingService {
       promptTokens: metadata.promptTokens || 0,
       completionTokens: metadata.completionTokens || 0,
       tokenConsumed,
+      quotaConsumed: tokenConsumed, // 计费消耗量 = tokenConsumed
       apiCoefficient: coefficient,
       costYuan,
       createdAt: new Date(),

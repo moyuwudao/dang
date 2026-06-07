@@ -23,6 +23,9 @@ export class ApiUsageLog {
   @Column({ name: 'token_consumed', default: 0 })
   tokenConsumed: number;
 
+  @Column({ name: 'quota_consumed', default: 0 })
+  quotaConsumed: number;
+
   @Column({ name: 'api_coefficient', type: 'decimal', precision: 10, scale: 4, default: 1.0 })
   apiCoefficient: number;
 
