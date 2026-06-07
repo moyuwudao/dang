@@ -30,25 +30,32 @@ export class ApiKeyService {
     private readonly redisService: RedisService,
   ) {}
 
-  async getApiKey(userId: string) {
+  async getApiKey(userId: string, preferredProvider?: string) {
+    // 修复 Issue 3：支持按 preferredProvider 过滤，确保用户能获取到套餐中配置的特定模型 Key
+    // 例如套餐配置了 DEEPSEEK + QWEN，用户调用文本分析时需要 DEEPSEEK Key
+
     // 1. 先查Redis缓存用户的分配关系
     const cachedKeyId = await this.redisService.get(`${this.USER_KEY_CACHE_PREFIX}${userId}`);
 
     if (cachedKeyId) {
       const cachedKey = await this.getKeyFromCacheOrDb(cachedKeyId);
       if (cachedKey && this.isKeyAvailable(cachedKey)) {
-        const decryptedKey = CryptoUtil.decrypt(cachedKey.apiKeyEncrypted);
-        return {
-          code: 200,
-          message: 'success',
-          data: {
-            provider: cachedKey.provider,
-            apiKey: decryptedKey,
-            model: cachedKey.model,
-            rateLimitPerMin: cachedKey.rateLimitPerMin,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          },
-        };
+        // 如果有 preferredProvider 要求，检查缓存的 Key 是否匹配
+        if (!preferredProvider || cachedKey.provider === preferredProvider) {
+          const decryptedKey = CryptoUtil.decrypt(cachedKey.apiKeyEncrypted);
+          return {
+            code: 200,
+            message: 'success',
+            data: {
+              provider: cachedKey.provider,
+              apiKey: decryptedKey,
+              model: cachedKey.model,
+              rateLimitPerMin: cachedKey.rateLimitPerMin,
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            },
+          };
+        }
+        // 不匹配则继续查找/分配
       }
     }
 
@@ -64,30 +71,34 @@ export class ApiKeyService {
       });
 
       if (apiKey && this.isKeyAvailable(apiKey)) {
-        // 缓存用户分配关系
-        await this.redisService.set(
-          `${this.USER_KEY_CACHE_PREFIX}${userId}`,
-          apiKey.id,
-          this.CACHE_TTL,
-        );
+        // 如果有 preferredProvider 要求，检查是否匹配
+        if (!preferredProvider || apiKey.provider === preferredProvider) {
+          // 缓存用户分配关系
+          await this.redisService.set(
+            `${this.USER_KEY_CACHE_PREFIX}${userId}`,
+            apiKey.id,
+            this.CACHE_TTL,
+          );
 
-        const decryptedKey = CryptoUtil.decrypt(apiKey.apiKeyEncrypted);
-        return {
-          code: 200,
-          message: 'success',
-          data: {
-            provider: apiKey.provider,
-            apiKey: decryptedKey,
-            model: apiKey.model,
-            rateLimitPerMin: apiKey.rateLimitPerMin,
-            expiresAt: existingAssignment.expiresAt,
-          },
-        };
+          const decryptedKey = CryptoUtil.decrypt(apiKey.apiKeyEncrypted);
+          return {
+            code: 200,
+            message: 'success',
+            data: {
+              provider: apiKey.provider,
+              apiKey: decryptedKey,
+              model: apiKey.model,
+              rateLimitPerMin: apiKey.rateLimitPerMin,
+              expiresAt: existingAssignment.expiresAt,
+            },
+          };
+        }
+        // 不匹配则继续分配新的
       }
     }
 
-    // 3. 分配新Key（带负载均衡）
-    return this.assignNewKey(userId);
+    // 3. 分配新Key（带负载均衡，支持按 provider 过滤）
+    return this.assignNewKey(userId, preferredProvider);
   }
 
   async refreshApiKey(userId: string) {
@@ -555,7 +566,8 @@ export class ApiKeyService {
             }),
           );
           if (r.status === 200 && r.data?.balance_infos) {
-            const total = r.data.balance_infos.reduce((s: number, b: any) => s + (parseFloat(b.balance) || 0), 0);
+            // 修复：DEEPSEEK 余额字段是 total_balance 不是 balance
+            const total = r.data.balance_infos.reduce((s: number, b: any) => s + (parseFloat(b.total_balance) || 0), 0);
             return {
               provider: 'deepseek',
               currency: 'CNY',
@@ -712,19 +724,31 @@ export class ApiKeyService {
   // 检查Key是否可用（配额+健康状态）
   private isKeyAvailable(key: ApiKey): boolean {
     if (key.status !== ApiKeyStatus.ACTIVE) return false;
-    if (key.lastHealthCheckStatus !== 'healthy') return false;
+    // 修复：允许 'healthy' 和 'degraded'（API可用但有警告，如余额低）
+    // 只有 'unhealthy' 或 null/undefined 才视为不可用
+    if (key.lastHealthCheckStatus === 'unhealthy') return false;
     if (key.dailyUsage >= key.dailyQuota) return false;
     if (key.expiresAt && key.expiresAt < new Date()) return false;
     return true;
   }
 
   // 核心：带负载均衡的Key分配
-  private async assignNewKey(userId: string) {
+  // 修复 Issue 3：支持按 preferredProvider 过滤，确保分配指定提供商的 Key
+  private async assignNewKey(userId: string, preferredProvider?: string) {
     // 1. 获取所有活跃且健康的Key（带缓存）
     const activeKeys = await this.getActiveKeysWithCache();
 
-    // 2. 过滤可用Key（配额预检）
-    const availableKeys = activeKeys.filter(key => this.isKeyAvailable(key));
+    // 2. 过滤可用Key（配额预检 + provider 过滤）
+    let availableKeys = activeKeys.filter(key => this.isKeyAvailable(key));
+    
+    // 如果有 preferredProvider，优先过滤匹配 provider 的 Key
+    if (preferredProvider) {
+      const providerMatchedKeys = availableKeys.filter(key => key.provider === preferredProvider);
+      if (providerMatchedKeys.length > 0) {
+        availableKeys = providerMatchedKeys;
+      }
+      // 如果没有匹配的，回退到所有可用 Key（避免完全无法分配）
+    }
 
     if (availableKeys.length === 0) {
       throw new ForbiddenException('API Key 池已耗尽，请联系管理员');

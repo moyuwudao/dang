@@ -16,6 +16,9 @@ class HttpClient {
   double _currentMultiplier = 1.0;
   bool _isConfigured = false;
   bool _isCloudConfig = false;
+  // 使用量报告回调（由外部设置，避免循环依赖）
+  void Function({required String provider, required String model,
+    required int promptTokens, required int completionTokens})? onUsageReport;
 
   HttpClient() {
     _dio = Dio(
@@ -231,13 +234,163 @@ class HttpClient {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     Options? options,
-  }) {
-    return _dio.post(
+  }) async {
+    final response = await _dio.post(
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
     );
+
+    // 自动从 /chat/completions 响应中提取 usage 并报告计费
+    _tryReportUsage(path, response.data, data);
+
+    return response;
+  }
+
+  /// 从 API 响应中提取 usage 并触发计费报告回调
+  ///
+  /// 支持的路径：
+  ///   /chat/completions  → OpenAI/DeepSeek/Qwen 等，响应含 usage 字段
+  ///   /messages          → Claude，响应无 usage，需估算
+  ///   :generateContent   → Gemini，响应无 usage，需估算
+  ///   /audio/transcriptions → Whisper，响应无 usage，需估算
+  void _tryReportUsage(String path, dynamic responseData, dynamic requestData) {
+    if (!_isCloudConfig || onUsageReport == null) return;
+    try {
+      // 匹配所有 AI API 路径
+      final isAiPath = path.contains('/chat/completions') ||
+          path.contains('/messages') ||
+          path.contains(':generateContent') ||
+          path.contains('/audio/transcriptions');
+      if (!isAiPath) return;
+      if (responseData is! Map) return;
+
+      int promptTokens = 0;
+      int completionTokens = 0;
+
+      // 优先从响应中提取实际 usage（OpenAI/DeepSeek/Qwen chat）
+      final usage = responseData['usage'] as Map<String, dynamic>?;
+      if (usage != null) {
+        promptTokens = (usage['prompt_tokens'] as num?)?.toInt() ?? 0;
+        completionTokens = (usage['completion_tokens'] as num?)?.toInt() ?? 0;
+      }
+
+      // 无 usage 字段时，从响应内容估算 Token（~4 字符/Token）
+      if (promptTokens + completionTokens <= 0) {
+        completionTokens = _estimateTokensFromResponse(responseData);
+        promptTokens = _estimateTokensFromRequest(requestData);
+      }
+
+      if (promptTokens + completionTokens <= 0) return;
+
+      // 从请求中提取 model
+      String model = '';
+      if (requestData is Map<String, dynamic>) {
+        model = requestData['model'] as String? ?? '';
+      }
+      // 从响应中提取 model（更准确）
+      model = (responseData['model'] as String?) ?? model;
+
+      final provider = _currentConfig?.name ?? 'unknown';
+      onUsageReport!(
+        provider: provider,
+        model: model,
+        promptTokens: promptTokens,
+        completionTokens: completionTokens,
+      );
+    } catch (e) {
+      AppLogger().w('HttpClient', '提取usage失败: $e');
+    }
+  }
+
+  /// 从响应内容估算 Token 数（~4 字符/Token）
+  int _estimateTokensFromResponse(Map responseData) {
+    String text = '';
+
+    // OpenAI 格式: choices[0].message.content
+    final choices = responseData['choices'] as List?;
+    if (choices != null && choices.isNotEmpty) {
+      final message = (choices[0] as Map?)?['message'] as Map?;
+      text = message?['content'] as String? ?? '';
+    }
+
+    // Claude 格式: content[0].text
+    if (text.isEmpty) {
+      final content = responseData['content'] as List?;
+      if (content != null && content.isNotEmpty) {
+        text = (content[0] as Map?)?['text'] as String? ?? '';
+      }
+    }
+
+    // Gemini 格式: candidates[0].content.parts[0].text
+    if (text.isEmpty) {
+      final candidates = responseData['candidates'] as List?;
+      if (candidates != null && candidates.isNotEmpty) {
+        final parts = ((candidates[0] as Map?)?['content'] as Map?)?['parts'] as List?;
+        if (parts != null && parts.isNotEmpty) {
+          text = (parts[0] as Map?)?['text'] as String? ?? '';
+        }
+      }
+    }
+
+    // Whisper 格式: text
+    if (text.isEmpty) {
+      text = responseData['text'] as String? ?? '';
+    }
+
+    return (text.length / 4).ceil();
+  }
+
+  /// 从请求内容估算 prompt Token 数（~4 字符/Token）
+  int _estimateTokensFromRequest(dynamic requestData) {
+    if (requestData is! Map<String, dynamic>) return 0;
+
+    // chat/completions 格式: messages[].content
+    final messages = requestData['messages'] as List?;
+    if (messages != null) {
+      int totalChars = 0;
+      for (final msg in messages) {
+        if (msg is Map) {
+          final content = msg['content'];
+          if (content is String) {
+            totalChars += content.length;
+          } else if (content is List) {
+            // 多模态消息（如图片识别）
+            for (final part in content) {
+              if (part is Map) {
+                final text = part['text'];
+                if (text is String) totalChars += text.length;
+              }
+            }
+          }
+        }
+      }
+      return (totalChars / 4).ceil();
+    }
+
+    // Claude /messages 格式: 同上
+    // Gemini :generateContent 格式: contents[].parts[].text
+    final contents = requestData['contents'] as List?;
+    if (contents != null) {
+      int totalChars = 0;
+      for (final content in contents) {
+        if (content is Map) {
+          final parts = content['parts'] as List?;
+          if (parts != null) {
+            for (final part in parts) {
+              if (part is Map) {
+                final text = part['text'];
+                if (text is String) totalChars += text.length;
+              }
+            }
+          }
+        }
+      }
+      return (totalChars / 4).ceil();
+    }
+
+    return 0;
   }
 
   Future<Response<T>> postStream<T>(

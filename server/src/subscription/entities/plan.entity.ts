@@ -26,6 +26,22 @@ export class Plan {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  // 是否为推荐套餐（admin 套餐编辑可勾选，APK 端 Store 卡片显示"推荐"徽章）
+  @Column({ name: 'isRecommended', default: false })
+  isRecommended: boolean;
+
+  // 配额类型与配额值（按套餐自定义维度计量，例如 minutes / tokens）
+  @Column({ name: 'quotaType', default: 'minutes' })
+  quotaType: string;
+
+  @Column({ name: 'quotaValue', nullable: true })
+  quotaValue: number;
+
+  // 套餐特性列表（云端录入，APK 端 Store 卡片展示为卖点）
+  // DB 中以 text 存储（逗号分隔或 JSON 字符串），业务层自行 parse
+  @Column('text', { name: 'features', nullable: true })
+  features: string;
+
   // 兼容历史：原 simple-array 在 PG 中存为 text，但 TypeORM 0.3.x update 时会强制数组化导致 malformed array literal
   // 改为 text 类型，业务层自行 join/split
   @Column('text', { name: 'allowed_models', nullable: true })

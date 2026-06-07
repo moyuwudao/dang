@@ -27,6 +27,7 @@ import '../features/settings/screens/tool_ai_config_screen.dart';
 import '../features/statistics/screens/api_analysis_screen.dart';
 import '../features/settings/screens/recycle_bin_screen.dart';
 import '../features/settings/screens/log_screen.dart';
+import '../features/settings/screens/usage_stats_screen.dart';
 import '../features/workbench/screens/workbench_screen.dart';
 import '../features/workbench/screens/tool_display_settings_screen.dart';
 import '../features/workbench/screens/tool_data_confirm_screen.dart';
@@ -72,6 +73,7 @@ enum AppRoute {
   subscriptionStore,
   subscriptionMine,
   subscriptionOrders,
+  usageStats,
 }
 
 Page _fadeTransitionPage(Widget child, GoRouterState state) {
@@ -349,6 +351,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoute.logs.name,
         pageBuilder: (context, state) =>
             _slideLeftTransitionPage(const LogScreen(), state),
+      ),
+      GoRoute(
+        path: '/settings/usage',
+        name: AppRoute.usageStats.name,
+        pageBuilder: (context, state) =>
+            _slideLeftTransitionPage(const UsageStatsScreen(), state),
       ),
       _toolRoute('/smart-todo', toolConfigs['smart_todo']!),
       _toolRoute('/meeting-minutes', toolConfigs['meeting_minutes']!),

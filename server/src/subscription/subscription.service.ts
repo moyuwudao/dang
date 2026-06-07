@@ -133,9 +133,12 @@ export class SubscriptionService {
           expiresAt: null,
           tokenQuota: 0,
           usedTokens: 0,
+          totalQuota: 0,
+          usedQuota: 0,
+          quotaRemaining: 0,
           balanceTokens: tokenBalance?.balanceTokens || 0,
-          freeTokensRemaining: tokenBalance?.freeTokensRemaining || 500,
-          // 修复 Issue 3：无订阅时不展示硬编码的 9 个旧模型，与云端不一致
+          freeTokensRemaining: 0, // 无订阅时无免费额度，需购买套餐
+          // 修复 Issue 3：无订阅时不展示硬编码的旧模型，与云端不一致
           apiPolicies: [],
           defaultConfigs: this.buildDefaultConfigsArray({}),
           // 新增：多订阅列表
@@ -182,8 +185,12 @@ export class SubscriptionService {
         expiresAt: this.computeExpiresAt(activeSub.startedAt, planData?.durationDays, activeSub.expiresAt),
         totalQuota: activeSub.totalQuota,
         usedQuota: activeSub.usedQuota,
-        balanceTokens: tokenBalance?.balanceTokens || 0,
-        freeTokensRemaining: tokenBalance?.freeTokensRemaining || 0,
+        quotaRemaining: activeSub.totalQuota - activeSub.usedQuota,
+        // 充值包余额
+        rechargeBalance: Number(tokenBalance?.balanceTokens) || 0,
+        // 兼容旧字段
+        balanceTokens: Number(tokenBalance?.balanceTokens) || 0,
+        freeTokensRemaining: Number(tokenBalance?.freeTokensRemaining) || 0,
         // 从套餐读 defaultConfigs + apiPolicies
         // 修复 Issue 3：planData 缺失时不再回退到 getDefaultApiPolicies()，与无订阅行为保持一致
         apiPolicies: planData ? this.pickApiPolicies(planData) : [],
@@ -303,8 +310,9 @@ export class SubscriptionService {
 
     await this.subscriptionRepository.save(subscription);
 
-    // 如果是月度套餐，将Token配额充值到用户余额
-    if (plan.type === 'monthly' && plan.tokenQuota) {
+    // 月度套餐：Token配额存储在 subscriptions.totalQuota，不再充值到 balanceTokens
+    // 充值包(recharge)：Token充值到 balanceTokens
+    if (plan.type === 'recharge' && plan.tokenQuota) {
       let balance = await this.userTokenBalanceRepository.findOne({ where: { userId } });
       if (!balance) {
         balance = this.userTokenBalanceRepository.create({
@@ -312,7 +320,7 @@ export class SubscriptionService {
           totalTokens: plan.tokenQuota,
           usedTokens: 0,
           balanceTokens: plan.tokenQuota,
-          freeTokensRemaining: 500,
+          freeTokensRemaining: 0,
         });
       } else {
         balance.totalTokens += plan.tokenQuota;
@@ -373,7 +381,7 @@ export class SubscriptionService {
         totalTokens: tokens,
         usedTokens: 0,
         balanceTokens: tokens,
-        freeTokensRemaining: 500,
+        freeTokensRemaining: 0,
       });
     } else {
       balance.totalTokens += tokens;
@@ -402,20 +410,39 @@ export class SubscriptionService {
     };
   }
 
-  // 获取用户Token余额
+  // 获取用户Token配额和余额
   async getBalance(userId: string) {
-    // 使用 tokenBillingService.getOrCreateBalance 确保新用户自动获得免费额度
     const balance = await this.tokenBillingService.getOrCreateBalance(userId);
+
+    // 汇总月度套餐配额
+    const activeSubscriptions = await this.subscriptionRepository.find({
+      where: { userId, status: 'active' },
+    });
+
+    let totalQuota = 0;
+    let usedQuota = 0;
+    for (const sub of activeSubscriptions) {
+      const plan = await this.planRepository.findOne({ where: { id: sub.planId } });
+      if (plan && plan.type === 'monthly') {
+        totalQuota += sub.totalQuota;
+        usedQuota += sub.usedQuota;
+      }
+    }
 
     return {
       code: 200,
       message: 'success',
       data: {
-        // PostgreSQL numeric 类型序列化为字符串，需转为数字
+        // 套餐配额（主）
+        totalQuota,
+        usedQuota,
+        quotaRemaining: totalQuota - usedQuota,
+        // 充值包余额（补充）
+        rechargeBalance: Number(balance.balanceTokens) || 0,
+        // 兼容旧字段
         balanceTokens: Number(balance.balanceTokens) || 0,
         freeTokensRemaining: Number(balance.freeTokensRemaining) || 0,
         totalTokens: Number(balance.totalTokens) || 0,
-        usedTokens: Number(balance.usedTokens) || 0,
       },
     };
   }

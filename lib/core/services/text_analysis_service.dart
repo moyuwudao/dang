@@ -32,7 +32,7 @@ class TextAnalysisService {
         multiplier: multiplier,
       );
       if (!canUse) {
-        throw Exception('Token余额不足，请充值后再试');
+        throw Exception('套餐配额不足，请充值后再试');
       }
     }
 
@@ -101,7 +101,7 @@ class TextAnalysisService {
         multiplier: multiplier,
       );
       if (!canUse) {
-        throw Exception('Token余额不足，请充值后再试');
+        throw Exception('套餐配额不足，请充值后再试');
       }
     }
 
@@ -170,7 +170,7 @@ class TextAnalysisService {
         multiplier: multiplier,
       );
       if (!canUse) {
-        throw Exception('Token余额不足，请充值后再试');
+        throw Exception('套餐配额不足，请充值后再试');
       }
     }
 
@@ -238,7 +238,7 @@ class TextAnalysisService {
         multiplier: multiplier,
       );
       if (!canUse) {
-        throw Exception('Token余额不足，请充值后再试');
+        throw Exception('套餐配额不足，请充值后再试');
       }
     }
 

@@ -157,20 +157,22 @@ class DailyUsageNotifier extends StateNotifier<DailyUsageState> {
     }
   }
 
-  /// 从 Pool 列表同步当日数据
+  /// 从 Pool 列表同步当日数据（合并模式，不覆盖 recordCall 记录的数据）
   void syncFromPools(List<ApiKeyPool> pools) {
-    final today = <String, UsageRecord>{};
+    final poolData = <String, UsageRecord>{};
     for (final pool in pools) {
       for (final key in pool.keys) {
         if (key.dailyUsage == 0 && key.successCount == 0 && key.errorCount == 0) {
           continue;
         }
         final record = UsageRecord.fromKeyEntry(key, pool);
-        today[record.keyId] = record;
+        poolData[record.keyId] = record;
       }
     }
+    // 合并：poolData 覆盖同 keyId 的旧数据，但保留 recordCall 写入的非 pool 数据
+    final merged = <String, UsageRecord>{...state.today, ...poolData};
     state = state.copyWith(
-      today: today,
+      today: merged,
       lastSyncedAt: DateTime.now(),
     );
   }
@@ -181,6 +183,7 @@ class DailyUsageNotifier extends StateNotifier<DailyUsageState> {
     required String keyId,
     required int tokensConsumed,
     required bool isSuccess,
+    String providerName = '',
   }) {
     final existing = state.today[keyId];
     final updated = (existing ??
@@ -188,7 +191,7 @@ class DailyUsageNotifier extends StateNotifier<DailyUsageState> {
               id: keyId,
               keyId: keyId,
               poolId: poolId,
-              providerName: '',
+              providerName: providerName,
               date: _todayDate(),
             ))
         .copyWith(

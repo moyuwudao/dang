@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../providers/subscription_provider.dart';
@@ -96,6 +97,11 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
             padding: const EdgeInsets.all(16),
             children: [
               _buildCurrentPlanCard(context, subscriptionState, l10n),
+              // 套餐特性卖点（云端录入，对齐 Store 卡片）
+              if ((subscriptionState.currentSubscription?.features ?? const []).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildFeaturesCard(context, subscriptionState),
+              ],
               // 多套餐时显示切换 UI
               if (subscriptionState.subscriptions.length > 1) ...[
                 const SizedBox(height: 12),
@@ -116,10 +122,83 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
               _buildDefaultConfigsCard(context, subscriptionState),
               const SizedBox(height: 12),
               _buildApiPoliciesCard(context, subscriptionState, l10n),
+              // 用量统计入口
+              const SizedBox(height: 24),
+              Card(
+                elevation: 1,
+                child: ListTile(
+                  leading: const Icon(Icons.bar_chart, color: AppColors.primary),
+                  title: const Text('用量统计', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('查看云端计费和本地用量详情'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/settings/usage'),
+                ),
+              ),
               const SizedBox(height: 100),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // 套餐特性卖点卡片（云端录入，对齐 Store 卡片）
+  Widget _buildFeaturesCard(BuildContext context, SubscriptionState state) {
+    final features = state.currentSubscription?.features ?? const [];
+    final planName = state.currentSubscription?.planName ?? state.planName ?? '当前套餐';
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.star_outline, size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              const Text(
+                '套餐特性',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '来源：$planName',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...features.map((f) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.check_circle,
+                      color: AppColors.success,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        f,
+                        style: const TextStyle(fontSize: 13, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
       ),
     );
   }
@@ -330,10 +409,12 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
   }
 
   Widget _buildQuotaCard(BuildContext context, SubscriptionState state, AppLocalizations l10n) {
-    final totalTokens = state.tokenBalance.totalTokens;
-    final usedTokens = state.tokenBalance.usedTokens;
-    final progress = totalTokens > 0
-        ? usedTokens / totalTokens
+    final quotaRemaining = state.tokenBalance.quotaRemaining;
+    final totalQuota = state.tokenBalance.totalQuota;
+    final usedQuota = state.tokenBalance.usedQuota;
+    final rechargeBalance = state.tokenBalance.rechargeBalance;
+    final progress = totalQuota > 0
+        ? usedQuota / totalQuota
         : 0.0;
 
     return Container(
@@ -349,15 +430,21 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Token 余额',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  const Text(
+                    '套餐配额',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
               Text(
-                '${state.tokenBalance.balanceTokens} Tokens',
+                '$quotaRemaining Tokens',
                 style: const TextStyle(
                   color: AppColors.success,
                   fontWeight: FontWeight.bold,
@@ -366,28 +453,38 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
             ],
           ),
           const SizedBox(height: 16),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: AppColors.divider,
-            valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '已用 $usedTokens / 总计 $totalTokens Tokens',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
+          if (totalQuota > 0) ...[
+            LinearProgressIndicator(
+              value: progress,
+              backgroundColor: AppColors.divider,
+              valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '已用 $usedQuota / 总计 $totalQuota Tokens',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
                 ),
+              ],
+            ),
+          ] else ...[
+            const Text(
+              '暂无套餐配额，请购买套餐',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
               ),
-            ],
-          ),
-          // Issue 1 修复：显示云端套餐的 Token 配额（来自 /subscription 接口的 totalQuota/usedQuota）
-          if (state.totalQuota > 0) ...[
+            ),
+          ],
+          // 充值包余额
+          if (rechargeBalance > 0) ...[
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 12),
@@ -396,10 +493,10 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.cloud_outlined, size: 16, color: AppColors.primary),
+                    const Icon(Icons.add_card, size: 16, color: AppColors.warning),
                     const SizedBox(width: 6),
                     const Text(
-                      '套餐配额',
+                      '充值包余额',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -408,52 +505,32 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
                   ],
                 ),
                 Text(
-                  '剩余 ${state.totalQuota - state.usedQuota} / ${state.totalQuota} Tokens',
+                  '$rechargeBalance Tokens',
                   style: const TextStyle(
-                    color: AppColors.primary,
+                    color: AppColors.warning,
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
                 ),
               ],
             ),
+          ],
+          // 套餐失效时间
+          if (state.expiresAt != null) ...[
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: state.totalQuota > 0
-                    ? state.usedQuota / state.totalQuota
-                    : 0.0,
-                backgroundColor: AppColors.divider,
-                valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-                minHeight: 8,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '已用 ${state.usedQuota} / 总计 ${state.totalQuota} Tokens（来源：云端套餐）',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-              ),
-            ),
-            // 套餐配额失效时间
-            if (state.expiresAt != null) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(Icons.schedule, size: 12, color: AppColors.textSecondary),
-                  const SizedBox(width: 4),
-                  Text(
-                    '失效时间：${_formatDateTime(state.expiresAt!)}',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
+            Row(
+              children: [
+                const Icon(Icons.schedule, size: 14, color: AppColors.textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  '到期时间：${_formatDateTime(state.expiresAt!)}',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ],
         ],
       ),
@@ -461,8 +538,11 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
   }
 
   String _formatDateTime(DateTime dt) {
+    // 修复：服务器返回的 expiresAt 是 UTC ISO 字符串（如 2026-07-06T10:00:00.000Z），
+    // dt.year/month/day/hour/minute 是设备本地时区字段，会导致跨时区用户看到不同时间。
+    // 这里改用 dt 的 UTC 字段直接展示，与云端存储的 UTC 时刻一致。
     return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} (UTC)';
   }
 
   Widget _buildApiPoliciesCard(BuildContext context, SubscriptionState state, AppLocalizations l10n) {

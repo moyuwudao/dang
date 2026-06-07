@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, UseGuards, UseInterceptors, Req, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, UseGuards, UseInterceptors, Req, Body, Param, Query } from '@nestjs/common';
 import { ApiKeyService } from './api-key.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
@@ -12,8 +12,10 @@ export class ApiKeyController {
   @Get()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(RateLimitInterceptor)
-  async getApiKey(@Req() req) {
-    return this.apiKeyService.getApiKey(req.user.sub);
+  async getApiKey(@Req() req, @Query('provider') provider?: string) {
+    // 修复 Issue 3：支持按 provider 查询特定类型的 API Key
+    // 例如 ?provider=deepseek 获取 DEEPSEEK 的 Key
+    return this.apiKeyService.getApiKey(req.user.sub, provider);
   }
 
   @Post('refresh')

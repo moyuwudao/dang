@@ -128,24 +128,27 @@ export class AdminService {
 
     await this.userRepo.save(user);
 
-    // 初始化用户Token余额
+    // 初始化用户Token余额（充值包余额，初始为0）
     const balance = this.userTokenBalanceRepo.create({
       userId: user.id,
       totalTokens: 0,
       usedTokens: 0,
       balanceTokens: 0,
-      freeTokensRemaining: 500,
+      freeTokensRemaining: 0,
     });
     await this.userTokenBalanceRepo.save(balance);
 
-    // 创建新手体验订阅
+    // 创建新手体验订阅（从 plans 表读取实际配额和有效期）
+    const trialPlan = await this.planService.getPlanById('trial');
+    const trialQuota = trialPlan?.tokenQuota || 100000;
+    const trialDays = trialPlan?.durationDays || 15;
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
 
     await this.subscriptionService.createTrialSubscription(user.id, {
       planId: 'trial',
-      planName: '新手体验包',
-      totalQuota: 100,
+      planName: trialPlan?.name || '新手体验包',
+      totalQuota: trialQuota,
       usedQuota: 0,
       expiresAt,
     });
@@ -450,7 +453,7 @@ export class AdminService {
         totalTokens: amount,
         usedTokens: 0,
         balanceTokens: amount,
-        freeTokensRemaining: 500,
+        freeTokensRemaining: 0,
       });
     } else {
       balance.balanceTokens += amount;

@@ -9,6 +9,7 @@ import 'package:web_socket_channel/io.dart';
 import '../models/ai_model_config.dart';
 import '../models/realtime_transcription_result.dart';
 import 'app_logger.dart';
+import 'billing_service.dart';
 import 'http_client.dart';
 import 'secure_storage_service.dart';
 import 'transcription_service.dart';
@@ -17,12 +18,13 @@ import 'text_analysis_service.dart';
 import 'image_recognition_service.dart';
 import 'stats_service.dart';
 import 'storage_service.dart';
+import '../../features/settings/providers/daily_usage_provider.dart';
 
 final sharedHttpClientProvider = Provider<HttpClient>((ref) => HttpClient());
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   final sharedClient = ref.read(sharedHttpClientProvider);
-  return ApiService._shared(sharedClient);
+  return ApiService._shared(sharedClient, ref);
 });
 
 class ApiService {
@@ -31,20 +33,69 @@ class ApiService {
   final RealtimeTranscriptionService _realtimeTranscriptionService;
   final TextAnalysisService _textAnalysisService;
   final ImageRecognitionService _imageRecognitionService;
+  final BillingService _billingService = BillingService();
+  final Ref? _ref;
 
   ApiService()
       : _httpClient = HttpClient(),
         _transcriptionService = TranscriptionService(),
         _realtimeTranscriptionService = RealtimeTranscriptionService(),
         _textAnalysisService = TextAnalysisService(),
-        _imageRecognitionService = ImageRecognitionService();
+        _imageRecognitionService = ImageRecognitionService(),
+        _ref = null {
+    _setupUsageReport();
+  }
 
-  ApiService._shared(HttpClient sharedClient)
+  ApiService._shared(HttpClient sharedClient, [this._ref])
       : _httpClient = sharedClient,
         _transcriptionService = TranscriptionService(httpClient: sharedClient),
         _realtimeTranscriptionService = RealtimeTranscriptionService(httpClient: sharedClient),
         _textAnalysisService = TextAnalysisService(httpClient: sharedClient),
-        _imageRecognitionService = ImageRecognitionService(httpClient: sharedClient);
+        _imageRecognitionService = ImageRecognitionService(httpClient: sharedClient) {
+    _setupUsageReport();
+  }
+
+  /// 设置 HttpClient 的使用量报告回调
+  /// 同时更新：1) 云端计费  2) 本地统计
+  void _setupUsageReport() {
+    _httpClient.onUsageReport = ({
+      required String provider,
+      required String model,
+      required int promptTokens,
+      required int completionTokens,
+    }) {
+      // 1. 云端计费
+      _billingService.reportUsage(
+        provider: provider,
+        model: model,
+        promptTokens: promptTokens,
+        completionTokens: completionTokens,
+      );
+
+      // 2. 本地统计（DailyUsageNotifier）
+      _recordLocalUsage(provider, model, promptTokens, completionTokens);
+    };
+  }
+
+  /// 记录本地使用量统计
+  void _recordLocalUsage(String provider, String model, int promptTokens, int completionTokens) {
+    try {
+      if (_ref == null) return;
+      final totalTokens = promptTokens + completionTokens;
+      // 使用 provider 作为 poolId 和 keyId 的简化标识
+      // DailyUsageNotifier.recordCall 需要 poolId/keyId，这里用 provider 代替
+      final notifier = _ref!.read(dailyUsageProvider.notifier);
+      notifier.recordCall(
+        poolId: _httpClient.isCloudConfig ? 'cloud_$provider' : 'local_$provider',
+        keyId: '${provider}_${model}',
+        tokensConsumed: totalTokens,
+        isSuccess: true,
+        providerName: _httpClient.isCloudConfig ? '云端 $provider' : '本地 $provider',
+      );
+    } catch (e) {
+      AppLogger().w('ApiService', '记录本地统计失败: $e');
+    }
+  }
 
   bool get isConfigured => _httpClient.isConfigured;
   AiModelConfig? get currentConfig => _httpClient.currentConfig;

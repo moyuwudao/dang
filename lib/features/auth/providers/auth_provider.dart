@@ -6,6 +6,7 @@ import '../../../core/services/api_service.dart';
 import '../../../core/services/cloud_config_sync_service.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../settings/providers/settings_provider.dart';
+import '../../settings/providers/cloud_usage_provider.dart';
 import '../../subscription/providers/subscription_provider.dart';
 import '../models/user_model.dart';
 
@@ -57,11 +58,31 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       } catch (e) {
         AppLogger().e('Auth', '/auth/profile 失败: $e');
         await CloudApiService.instance.clearToken();
+        // Token 过期/无效时，强制清除所有云端 API 配置
+        await _forceCleanupCloudConfigs();
         return const AuthState();
       }
     }
     AppLogger().i('Auth', '未登录');
+    // 未登录状态，强制清除云端 API 存量
+    await _forceCleanupCloudConfigs();
     return const AuthState();
+  }
+
+  /// 强制清除所有云端 API 配置（未登录/Token失效时调用）
+  Future<void> _forceCleanupCloudConfigs() async {
+    try {
+      AppLogger().i('Auth', '未登录状态，强制清除云端API配置');
+      // 1. 清除 SecureStorage 中的云端数据
+      await SecureStorageService().delete('cloud_api_config');
+      await SecureStorageService().deleteCloudApiEnabled();
+      // 2. 清除 MultiApiConfig 中的云端条目
+      await CloudConfigSyncService.clearCloudConfigs();
+      // 3. 清除内存中的 API 配置
+      ref.read(apiServiceProvider).clear();
+    } catch (e) {
+      AppLogger().w('Auth', '清除云端API配置失败: $e');
+    }
   }
 
   Future<void> login({required String phone, required String password}) async {
@@ -236,6 +257,11 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     ref.invalidate(configuredProviderProvider);
     ref.invalidate(cloudApiEnabledProvider);
     ref.invalidate(subscriptionNotifierProvider);
+
+    // 6. 清除云端统计数据
+    try {
+      await ref.read(cloudUsageProvider.notifier).clear();
+    } catch (_) {}
 
     state = const AsyncData(AuthState());
   }

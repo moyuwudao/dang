@@ -200,6 +200,11 @@ class _SubscriptionStoreScreenState
 
   Widget _buildPlanCard(PlanModel plan, {required bool isSubscription}) {
     final isRecommended = plan.isRecommended;
+    final hasFeatures = plan.features.isNotEmpty;
+    final hasTokenQuota = plan.hasTokenQuota;
+    final hasDefaultConfigs = plan.defaultConfigs.isNotEmpty;
+    final hasApiPolicies = plan.apiPolicies.isNotEmpty;
+    final hasAllowedModels = plan.allowedModels.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -212,6 +217,7 @@ class _SubscriptionStoreScreenState
         ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isRecommended)
             Container(
@@ -227,7 +233,7 @@ class _SubscriptionStoreScreenState
               child: Text(
                 _l10n.recommended,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -238,89 +244,283 @@ class _SubscriptionStoreScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  plan.name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                // 套餐名 + 类型徽章
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: plan.type == 'recharge'
+                            ? Colors.orange.shade50
+                            : AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        plan.typeLabel,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: plan.type == 'recharge'
+                              ? Colors.orange.shade700
+                              : AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        plan.name,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  plan.description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
+                if (plan.description.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    plan.description,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 16),
+                // 价格 + 有效期
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '¥${plan.priceCents / 100}',
+                      '¥${plan.priceYuan}',
                       style: const TextStyle(
-                        fontSize: 32,
+                        fontSize: 30,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      isSubscription ? '/月' : '/${plan.durationDays}天',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        ' / ${plan.durationLabel}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                ...plan.features.map((feature) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            color: AppColors.success,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(feature),
-                        ],
+
+                // Token 配额
+                if (hasTokenQuota) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.2),
                       ),
-                    )),
-                // 可用模型
-                if (plan.allowedModels.isNotEmpty) ...[
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.token_outlined,
+                          size: 14,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Token 配额：${_formatTokenCount(plan.tokenQuota!)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // 特性卖点（云端录入，Store 卡片展示）
+                if (hasFeatures) ...[
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  ...plan.features.map((feature) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.check_circle,
+                              color: AppColors.success,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                feature,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+
+                // 功能默认 API（5 个）
+                if (hasDefaultConfigs) ...[
                   const SizedBox(height: 12),
                   const Divider(),
                   const SizedBox(height: 8),
-                  Text(
-                    '可用模型',
+                  const Text(
+                    '功能默认模型',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  ...plan.defaultConfigs.entries
+                      .where((e) => e.value.isNotEmpty)
+                      .map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _getFunctionIcon(e.key),
+                                  size: 14,
+                                  color: AppColors.textSecondary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${_functionLabel(e.key)}：',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    e.value,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
+                ],
+
+                // 允许的 API + 系数（>1 用 warning 颜色）
+                if (hasApiPolicies) ...[
+                  const SizedBox(height: 12),
+                  const Divider(),
                   const SizedBox(height: 8),
+                  const Text(
+                    '可用 API（含系数）',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ...plan.apiPolicies.map((p) {
+                    final multiplier = p.multiplier;
+                    final isHighCost = multiplier > 1.0;
+                    final isAllowed = p.isAllowed;
+                    final color = !isAllowed
+                        ? Colors.grey
+                        : isHighCost
+                            ? Colors.orange.shade700
+                            : AppColors.primary;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isAllowed ? Icons.check_circle : Icons.block,
+                            size: 12,
+                            color: color,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              p.model,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isAllowed ? AppColors.textPrimary : Colors.grey,
+                                decoration: isAllowed
+                                    ? null
+                                    : TextDecoration.lineThrough,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              isAllowed ? '${multiplier.toStringAsFixed(multiplier == multiplier.truncate() ? 0 : 2)}x' : '禁用',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: color,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ] else if (hasAllowedModels) ...[
+                  // 兼容老数据：只返回 allowedModels，没有 apiPolicies
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '可用模型',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 6,
+                    runSpacing: 6,
                     children: plan.allowedModels.map((model) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(4),
                           border: Border.all(
                             color: AppColors.primary.withOpacity(0.3),
                           ),
                         ),
                         child: Text(
                           model,
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: const TextStyle(
+                            fontSize: 11,
                             color: AppColors.primary,
                           ),
                         ),
@@ -328,10 +528,11 @@ class _SubscriptionStoreScreenState
                     }).toList(),
                   ),
                 ],
+
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 48,
                   child: ElevatedButton(
                     onPressed: () => _purchase(plan),
                     style: ElevatedButton.styleFrom(
@@ -345,7 +546,7 @@ class _SubscriptionStoreScreenState
                     ),
                     child: Text(
                       _l10n.buyNow,
-                      style: TextStyle(fontSize: 16),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -355,6 +556,51 @@ class _SubscriptionStoreScreenState
         ],
       ),
     );
+  }
+
+  /// 格式化 token 数为可读形式（100000 → 10万）
+  String _formatTokenCount(int count) {
+    if (count >= 10000) {
+      final v = count / 10000;
+      return '${v.toStringAsFixed(v == v.truncate() ? 0 : 1)}万';
+    }
+    return count.toString();
+  }
+
+  /// 功能类型显示文案
+  String _functionLabel(String key) {
+    switch (key) {
+      case 'textAnalysis':
+        return '文本分析';
+      case 'speechTranscribe':
+        return '音频转写';
+      case 'speechRealtime':
+        return '实时转写';
+      case 'speechOffline':
+        return '离线转写';
+      case 'imageRecognition':
+        return '图像识别';
+      default:
+        return key;
+    }
+  }
+
+  /// 功能类型图标
+  IconData _getFunctionIcon(String key) {
+    switch (key) {
+      case 'textAnalysis':
+        return Icons.text_fields;
+      case 'speechTranscribe':
+        return Icons.mic_none;
+      case 'speechRealtime':
+        return Icons.record_voice_over;
+      case 'speechOffline':
+        return Icons.audio_file;
+      case 'imageRecognition':
+        return Icons.image;
+      default:
+        return Icons.bolt;
+    }
   }
 
   void _purchase(PlanModel plan) {

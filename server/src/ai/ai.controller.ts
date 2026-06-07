@@ -39,4 +39,16 @@ export class AiController {
   ) {
     return this.aiService.getUsage(req.user.sub, startDate, endDate);
   }
+
+  @Post('report-usage')
+  @UseGuards(JwtAuthGuard)
+  async reportUsage(@Req() req, @Body() body: {
+    provider: string;
+    model: string;
+    promptTokens: number;
+    completionTokens: number;
+    featureType?: string;
+  }) {
+    return this.aiService.reportUsage(req.user.sub, body);
+  }
 }

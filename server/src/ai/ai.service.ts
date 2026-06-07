@@ -96,8 +96,8 @@ export class AiService {
           totalTokens,
           tokenConsumed: billingResult.tokenConsumed,
           costYuan: billingResult.costYuan,
-          balanceRemaining: billingResult.balanceRemaining,
-          freeTokensRemaining: billingResult.freeTokensRemaining,
+          quotaRemaining: billingResult.quotaRemaining,
+          rechargeRemaining: billingResult.rechargeRemaining,
         },
       };
     } catch (error) {
@@ -153,6 +153,8 @@ export class AiService {
           promptTokens: log.promptTokens,
           completionTokens: log.completionTokens,
           tokenConsumed: log.tokenConsumed,
+          apiCoefficient: log.apiCoefficient,
+          costYuan: log.costYuan,
           createdAt: log.createdAt,
         })),
       },
@@ -224,6 +226,44 @@ export class AiService {
       completionTokens: tokens,
     });
     return result.tokenConsumed || tokens;
+  }
+
+  /**
+   * 客户端报告 API 使用量（客户端直连 AI Provider 后调用）
+   * 触发计费：先扣套餐配额，再扣充值包余额
+   */
+  async reportUsage(userId: string, params: {
+    provider: string;
+    model: string;
+    promptTokens: number;
+    completionTokens: number;
+    featureType?: string;
+  }) {
+    const totalTokens = params.promptTokens + params.completionTokens;
+    if (totalTokens <= 0) {
+      return { code: 200, message: 'no tokens consumed', data: { tokenConsumed: 0 } };
+    }
+
+    // 执行计费
+    const billingResult = await this.tokenBillingService.consumeToken(userId, {
+      provider: params.provider,
+      model: params.model,
+      rawAmount: totalTokens,
+      promptTokens: params.promptTokens,
+      completionTokens: params.completionTokens,
+    });
+
+    return {
+      code: 200,
+      message: billingResult.success ? 'success' : billingResult.message,
+      data: {
+        tokenConsumed: billingResult.tokenConsumed,
+        costYuan: billingResult.costYuan,
+        quotaRemaining: billingResult.quotaRemaining,
+        rechargeRemaining: billingResult.rechargeRemaining,
+        success: billingResult.success,
+      },
+    };
   }
 
 }

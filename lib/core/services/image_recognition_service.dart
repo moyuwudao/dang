@@ -21,14 +21,17 @@ class ImageRecognitionService {
       throw Exception('API未配置，请先在设置中配置API Key');
     }
 
-    // 计费检查（Token余额预估）
-    if (_billingService != null) {
+    // 计费检查（仅云端Key检查，本地Key不检查余额）
+    if (_billingService != null && _httpClient.isCloudConfig) {
+      // 修复 Issue 2：使用 _httpClient.currentMultiplier
+      final multiplier = _httpClient.currentMultiplier;
       final canUse = await _billingService!.canUseFeature(
         FeatureType.imageRecognition,
         1, // 1张 = 2000 Token
+        multiplier: multiplier,
       );
       if (!canUse) {
-        throw Exception('Token余额不足，请充值后再试');
+        throw Exception('套餐配额不足，请购买套餐或充值');
       }
     }
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -99,36 +101,63 @@ class _ChangjiAppState extends ConsumerState<ChangjiApp> {
     AppLogger().i('App', '每日用量重置调度器已启动');
   }
 
-  /// 检测是否首次安装/重装，如果是则只清除云端相关数据
-  /// 原理：flutter_secure_storage 的数据在 APP 卸载后仍然保留（Android Keystore）
-  /// 因此需要在首次启动时检测并清理云端数据
-  /// 注意：本地登录状态和本地API配置保留，不清理
+  /// 启动时清理云端配置：未登录则清除，已登录则保留
+  ///
+  /// 核心逻辑：检查 SharedPreferences 中的 cloud_access_token
+  /// - 未登录（无 token）→ 清除所有云端配置条目和 SecureStorage 云端数据
+  /// - 已登录（有 token）→ 保留云端配置（登录时会从服务器自动同步）
+  ///
+  /// 这比版本标记更可靠，因为某些 Android 设备重装后 SharedPreferences 不被清除，
+  /// 导致版本标记仍存在，清理逻辑不触发。
   Future<void> _cleanupResidualCloudData() async {
     try {
-      const installFlagKey = 'app_installed_version';
       final prefs = await SharedPreferences.getInstance();
-      final lastVersion = prefs.getString(installFlagKey);
+      final hasToken = prefs.getString('cloud_access_token') != null;
 
-      // 获取当前版本（从 pubspec.yaml）
-      const currentVersion = '1.0.0'; // TODO: 从 package_info_plus 获取实际版本
+      if (!hasToken) {
+        // 未登录 → 清除所有云端配置
+        AppLogger().i('App', '未登录状态，清除云端配置数据');
 
-      if (lastVersion == null) {
-        // 首次安装或重装（无版本标记）
-        AppLogger().i('App', '检测到首次安装/重装，清除残留云端数据（保留本地配置和登录状态）');
-
-        // 只清除云端相关的 SecureStorage 数据
-        // 本地登录状态（cloud_access_token/refresh_token 在 SharedPreferences 中，重装后自动清除）
-        // 本地API配置（multi_api_config_v2 在 SharedPreferences 中，重装后自动清除）
-        // 但 flutter_secure_storage 的数据（cloud_api_config、cloud_api_enabled）会保留，需要手动清除
+        // 1. 清除 SecureStorage 中的云端数据（flutter_secure_storage 在卸载后仍保留）
         await SecureStorageService().delete('cloud_api_config');
         await SecureStorageService().deleteCloudApiEnabled();
 
-        // 标记已安装（重新写入版本标记）
-        await prefs.setString(installFlagKey, currentVersion);
-        AppLogger().i('App', '已清除残留云端数据并标记版本: $currentVersion');
+        // 2. 清除 SharedPreferences 中 multi_api_config_v2 的云端条目
+        try {
+          final multiConfigJson = await StorageService.getString('multi_api_config_v2');
+          if (multiConfigJson != null) {
+            final multiConfig = MultiApiConfig.fromJson(
+              jsonDecode(multiConfigJson) as Map<String, dynamic>,
+            );
+            final localConfigs = multiConfig.configs.where((c) => !c.isCloudConfig).toList();
+            final cloudCount = multiConfig.configs.length - localConfigs.length;
+
+            if (cloudCount > 0) {
+              final localAssignments = multiConfig.functionAssignments
+                  .where((a) {
+                    if (a.configId == null) return false;
+                    final config = multiConfig.getConfigById(a.configId!);
+                    return config != null && !config.isCloudConfig;
+                  })
+                  .toList();
+              final cleanedConfig = MultiApiConfig(
+                configs: localConfigs,
+                functionAssignments: localAssignments,
+                defaultConfigId: localConfigs.isNotEmpty ? localConfigs.first.id : null,
+              );
+              await StorageService.saveMultiApiConfig(cleanedConfig);
+              AppLogger().i('App', '已清除 $cloudCount 个云端配置条目');
+            }
+          }
+        } catch (e) {
+          await prefs.remove('multi_api_config_v2');
+          AppLogger().w('App', 'multi_api_config_v2 解析失败，已删除: $e');
+        }
+      } else {
+        AppLogger().i('App', '已登录状态，保留云端配置');
       }
     } catch (e) {
-      AppLogger().e('App', '清除残留云端数据失败: $e');
+      AppLogger().e('App', '清理云端配置失败: $e');
     }
   }
 

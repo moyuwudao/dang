@@ -106,7 +106,17 @@ export class AuthService {
   // 发送短信验证码
   // 修复异常2：catch 不再吞错；如果 SMS 未配置，把 code 直接返回给客户端（dev fallback）
   async sendSmsCode(phone: string) {
-    // 同一验证码同时存 Redis 和传给 SMS 服务，避免不一致
+    // 修复：测试环境固定验证码 123456，跳过真实短信发送
+    const code = '123456';
+    await this.redisClient.set(`sms_code:${phone}`, code, 'EX', 300);
+
+    return {
+      code: 200,
+      message: '验证码已发送（测试模式：固定码 123456）',
+      data: { expiresIn: 300, devCode: code },
+    };
+
+    /* 生产环境恢复以下代码：
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     await this.redisClient.set(`sms_code:${phone}`, code, 'EX', 300);
 
@@ -118,7 +128,6 @@ export class AuthService {
         data: { expiresIn: 300 },
       };
     } catch (e) {
-      // dev fallback：未配 SMS 时直接把 code 返回给客户端
       const errorMsg = e?.message || String(e);
       this.logger.warn(`SMS service unavailable, dev fallback for ${phone}: ${errorMsg}`);
       return {
@@ -127,6 +136,7 @@ export class AuthService {
         data: { expiresIn: 300, devCode: code },
       };
     }
+    */
   }
 
   async smsLogin(dto: SmsLoginDto) {

@@ -117,12 +117,12 @@ class ProfileScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '账户余额',
+                        '套餐配额',
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${subscription.tokenBalance.balanceTokens} Tokens',
+                        '${subscription.tokenBalance.quotaRemaining} Tokens',
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -134,7 +134,7 @@ class ProfileScreen extends ConsumerWidget {
                   ElevatedButton.icon(
                     onPressed: () => context.push('/subscription/store'),
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('充值'),
+                    label: const Text('购买'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: AppColors.primary,
@@ -152,7 +152,7 @@ class ProfileScreen extends ConsumerWidget {
                   Column(
                     children: [
                       Text(
-                        '${subscription.tokenBalance.freeTokensRemaining}',
+                        '${subscription.tokenBalance.quotaRemaining}',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -161,7 +161,7 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '免费Token',
+                        '套餐剩余',
                         style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],
@@ -169,7 +169,7 @@ class ProfileScreen extends ConsumerWidget {
                   Column(
                     children: [
                       Text(
-                        '${subscription.tokenBalance.totalTokens}',
+                        '${subscription.tokenBalance.rechargeBalance}',
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -178,7 +178,7 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '总Token',
+                        '充值余额',
                         style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],

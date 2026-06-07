@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/cloud_api_service.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/services/billing_service.dart';
+import '../../../core/services/cloud_config_sync_service.dart';
+import '../../../core/services/app_logger.dart';
 import '../models/plan_model.dart';
 
 class ApiPolicy {
@@ -63,6 +65,10 @@ class PlanSubscription {
   final List<DefaultConfig> defaultConfigs;
   final List<ApiPolicy> apiPolicies;
   final List<String> allowedModels;
+  // 套餐特性（云端录入，Mine 屏对齐展示）
+  final List<String> features;
+  // 是否推荐
+  final bool isRecommended;
 
   const PlanSubscription({
     required this.subscriptionId,
@@ -73,6 +79,8 @@ class PlanSubscription {
     this.defaultConfigs = const [],
     this.apiPolicies = const [],
     this.allowedModels = const [],
+    this.features = const [],
+    this.isRecommended = false,
   });
 
   factory PlanSubscription.fromJson(Map<String, dynamic> json) {
@@ -96,6 +104,11 @@ class PlanSubscription {
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      features: (json['features'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      isRecommended: json['isRecommended'] as bool? ?? false,
     );
   }
 }
@@ -195,6 +208,39 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       final response = await CloudApiService.instance.get(endpoint);
       final data = response.data['data'];
 
+      // 并行拉取套餐列表（用来给每个 subscription 注入 features 和 isRecommended）
+      // 仅当 /subscription 没有返回这些字段时才需要从 /subscription/plans 取
+      List<PlanModel> allPlans = const [];
+      try {
+        final plansResp = await CloudApiService.instance.get('/subscription/plans');
+        final List<dynamic> plansData = plansResp.data['data'];
+        allPlans = plansData.map((e) => PlanModel.fromJson(e)).toList();
+      } catch (_) {}
+
+      // 索引：planId -> PlanModel（用于补充 features/isRecommended）
+      final planById = {for (final p in allPlans) p.id: p};
+
+      List<PlanSubscription> _enrich(List<dynamic> raw) {
+        return raw.map((e) {
+          final sub = PlanSubscription.fromJson(e as Map<String, dynamic>);
+          final p = planById[sub.planId];
+          if (p == null) return sub;
+          // 补 features 和 isRecommended
+          return PlanSubscription(
+            subscriptionId: sub.subscriptionId,
+            planId: sub.planId,
+            planName: sub.planName,
+            expiresAt: sub.expiresAt,
+            status: sub.status,
+            defaultConfigs: sub.defaultConfigs,
+            apiPolicies: sub.apiPolicies,
+            allowedModels: sub.allowedModels,
+            features: p.features,
+            isRecommended: p.isRecommended,
+          );
+        }).toList();
+      }
+
       final policies = (data['apiPolicies'] as List<dynamic>?)
           ?.map((e) => ApiPolicy.fromJson(e))
           .toList() ?? [];
@@ -202,11 +248,15 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
           ?.map((e) => DefaultConfig.fromJson(e))
           .toList() ?? [];
 
-      // 多订阅列表
-      final subscriptions = (data['subscriptions'] as List<dynamic>?)
-              ?.map((e) => PlanSubscription.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [];
+      // 多订阅列表（若 /subscription 已含 features 则用之，否则用 /subscription/plans 补）
+      final rawSubs = data['subscriptions'] as List<dynamic>?;
+      final hasFeaturesInResp = (rawSubs?.isNotEmpty ?? false) &&
+          (rawSubs!.first as Map)['features'] != null;
+      final subscriptions = hasFeaturesInResp
+          ? rawSubs
+              .map((e) => PlanSubscription.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : _enrich(rawSubs ?? const []);
 
       TokenBalance tokenBalance;
       try {
@@ -245,12 +295,32 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
   Future<void> fetchSubscription() async {
     state = const AsyncLoading<SubscriptionState>().copyWithPrevious(state);
     state = await AsyncValue.guard(() => _fetchSubscriptionInternal());
+    _autoSyncCloudConfig();
   }
 
   // 切换套餐
   Future<void> switchSubscription(String subscriptionId) async {
     state = const AsyncLoading<SubscriptionState>().copyWithPrevious(state);
     state = await AsyncValue.guard(() => _fetchSubscriptionInternal(subscriptionId: subscriptionId));
+    _autoSyncCloudConfig();
+  }
+
+  /// 自动同步云端配置到本地 MultiApiConfig
+  /// 在 fetchSubscription / switchSubscription 成功后调用
+  void _autoSyncCloudConfig() {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    if (current.defaultConfigs.isEmpty && current.apiPolicies.isEmpty) return;
+
+    // 异步同步，不阻塞 UI
+    CloudConfigSyncService.syncCloudDefaults(
+      defaultConfigs: current.defaultConfigs,
+      apiPolicies: current.apiPolicies,
+    ).then((result) {
+      AppLogger().i('Subscription', '自动同步云端配置: ${result.message}');
+    }).catchError((e) {
+      AppLogger().w('Subscription', '自动同步云端配置失败: $e');
+    });
   }
 
   Future<void> refreshBalance() async {
@@ -272,15 +342,22 @@ final subscriptionNotifierProvider = AsyncNotifierProvider<SubscriptionNotifier,
 });
 
 final subscriptionPlansProvider = FutureProvider<List<PlanModel>>((ref) async {
-  final response = await CloudApiService.instance.get('/subscription/plans?type=subscription');
+  final response = await CloudApiService.instance.get('/subscription/plans?type=monthly');
   final List<dynamic> data = response.data['data'];
-  return data.map((e) => PlanModel.fromJson(e)).toList();
+  // 过滤掉下架套餐（isActive=false），保证 Store 列表只展示上架套餐
+  return data
+      .map((e) => PlanModel.fromJson(e))
+      .where((p) => p.isActive)
+      .toList();
 });
 
 final packagePlansProvider = FutureProvider<List<PlanModel>>((ref) async {
-  final response = await CloudApiService.instance.get('/subscription/plans?type=package');
+  final response = await CloudApiService.instance.get('/subscription/plans?type=recharge');
   final List<dynamic> data = response.data['data'];
-  return data.map((e) => PlanModel.fromJson(e)).toList();
+  return data
+      .map((e) => PlanModel.fromJson(e))
+      .where((p) => p.isActive)
+      .toList();
 });
 
 final userTokenBalanceProvider = FutureProvider<TokenBalance>((ref) async {

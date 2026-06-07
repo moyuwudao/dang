@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'cloud_api_service.dart';
+import 'app_logger.dart';
 
 final billingServiceProvider = Provider<BillingService>((ref) {
   return BillingService();
@@ -72,16 +73,26 @@ extension FeatureTypeExtension on FeatureType {
 }
 
 class TokenBalance {
-  final int balanceTokens;
-  final int freeTokensRemaining;
-  final int totalTokens;
-  final int usedTokens;
+  final int balanceTokens;        // 充值包余额
+  final int freeTokensRemaining;  // 免费余额（兼容旧字段，已弃用）
+  final int totalTokens;          // 累计总Token
+  final int usedTokens;           // 已使用Token
+  // 套餐配额（主）
+  final int totalQuota;           // 套餐总配额
+  final int usedQuota;            // 套餐已用配额
+  final int quotaRemaining;       // 套餐剩余配额
+  // 充值包余额（补充）
+  final int rechargeBalance;      // 充值包余额
 
   const TokenBalance({
     required this.balanceTokens,
     required this.freeTokensRemaining,
     required this.totalTokens,
     required this.usedTokens,
+    this.totalQuota = 0,
+    this.usedQuota = 0,
+    this.quotaRemaining = 0,
+    this.rechargeBalance = 0,
   });
 
   factory TokenBalance.fromJson(Map<String, dynamic> json) {
@@ -96,10 +107,15 @@ class TokenBalance {
       freeTokensRemaining: parseNum(json['freeTokensRemaining']),
       totalTokens: parseNum(json['totalTokens']),
       usedTokens: parseNum(json['usedTokens']),
+      totalQuota: parseNum(json['totalQuota']),
+      usedQuota: parseNum(json['usedQuota']),
+      quotaRemaining: parseNum(json['quotaRemaining']),
+      rechargeBalance: parseNum(json['rechargeBalance']),
     );
   }
 
-  int get totalAvailable => balanceTokens + freeTokensRemaining;
+  /// 总可用 = 套餐剩余配额 + 充值包余额
+  int get totalAvailable => quotaRemaining + rechargeBalance;
 
   bool hasEnough(int estimatedTokens) => totalAvailable >= estimatedTokens;
 }
@@ -218,6 +234,30 @@ class BillingService {
       return data.map((e) => RechargeRecord.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
       return [];
+    }
+  }
+
+  /// 向服务端报告 API 使用量（客户端直连 AI Provider 后调用）
+  /// 触发服务端计费：先扣套餐配额，再扣充值包余额
+  Future<void> reportUsage({
+    required String provider,
+    required String model,
+    required int promptTokens,
+    required int completionTokens,
+    String? featureType,
+  }) async {
+    try {
+      await CloudApiService.instance.post('/ai/report-usage', data: {
+        'provider': provider,
+        'model': model,
+        'promptTokens': promptTokens,
+        'completionTokens': completionTokens,
+        if (featureType != null) 'featureType': featureType,
+      });
+      clearBalanceCache();
+    } catch (e) {
+      // 报告失败不影响用户使用，仅记录日志
+      AppLogger().w('Billing', '报告使用量失败: $e');
     }
   }
 

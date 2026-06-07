@@ -127,7 +127,7 @@ class TranscriptionService {
         multiplier: multiplier,
       );
       if (!canUse) {
-        throw Exception('Token余额不足，请充值后再试（需要约 ${(audioDurationMinutes * 1200 * multiplier).ceil()} tokens）');
+        throw Exception('套餐配额不足，请充值后再试（需要约 ${(audioDurationMinutes * 1200 * multiplier).ceil()} tokens）');
       }
     }
 
@@ -387,7 +387,7 @@ class TranscriptionService {
         multiplier: multiplier,
       );
       if (!canUse) {
-        throw Exception('Token余额不足，请充值后再试（需要约 ${(estimatedMinutes * 1200 * multiplier).ceil()} tokens）');
+        throw Exception('套餐配额不足，请充值后再试（需要约 ${(estimatedMinutes * 1200 * multiplier).ceil()} tokens）');
       }
     }
 
@@ -705,6 +705,32 @@ class TranscriptionService {
       _log('Qwen ASR ERROR: Empty result. Full response: ${response.data}');
       throw Exception('转写返回空结果，请检查音频文件或稍后重试');
     }
+
+    // Qwen ASR 使用独立 Dio 实例，绕过了 HttpClient._tryReportUsage
+    // 需要手动报告使用量（云端 Key 才计费）
+    if (_httpClient.isCloudConfig && _httpClient.onUsageReport != null) {
+      try {
+        final usage = response.data['usage'] as Map<String, dynamic>?;
+        int promptTokens = (usage?['prompt_tokens'] as num?)?.toInt() ?? 0;
+        int completionTokens = (usage?['completion_tokens'] as num?)?.toInt() ?? 0;
+        // 无 usage 字段时，从结果文本长度估算
+        if (promptTokens + completionTokens <= 0) {
+          promptTokens = (base64Audio.length / 4).ceil(); // 音频数据估算
+          completionTokens = (text.length / 4).ceil();
+        }
+        final model = asrModel;
+        final provider = _httpClient.currentConfig?.name ?? 'qwen';
+        _httpClient.onUsageReport!(
+          provider: provider,
+          model: model,
+          promptTokens: promptTokens,
+          completionTokens: completionTokens,
+        );
+      } catch (e) {
+        _log('Qwen ASR: 报告使用量失败: $e');
+      }
+    }
+
     await StorageService.incrementUsageStat(
         _httpClient.currentConfig!.name, 'transcription',
         tokens: text.length);
