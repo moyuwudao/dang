@@ -574,6 +574,17 @@ class AccountCenterTab extends ConsumerWidget {
                 onTap: () => _showLogoutConfirm(context, ref),
               ),
             ],
+            // 用量统计（始终可见，未登录看本地统计，登录后看云端+本地）
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.bar_chart, color: AppColors.info),
+              title: const Text('用量统计'),
+              subtitle: Text(
+                authState.isLoggedIn ? '查看云端计费和本地用量' : '查看本地 API 用量',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/usage'),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -883,7 +894,7 @@ class AccountCenterTab extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Paid: ${state.tokenBalance.balanceTokens}  Free: ${state.tokenBalance.freeTokensRemaining}',
+            '配额: ${state.tokenBalance.quotaRemaining}  充值: ${state.tokenBalance.rechargeBalance}',
             style: const TextStyle(
               fontSize: 12,
               color: AppColors.textSecondary,

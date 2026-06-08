@@ -81,15 +81,22 @@ class _SubscriptionMineScreenState extends ConsumerState<SubscriptionMineScreen>
           error: (_, __) => ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _buildCurrentPlanCard(context, const SubscriptionState(), l10n),
-              const SizedBox(height: 24),
-              Text(l10n.quotaDetails, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              _buildQuotaCard(context, const SubscriptionState(), l10n),
-              const SizedBox(height: 24),
-              const Text('API 配置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              _buildApiPoliciesCard(context, const SubscriptionState(), l10n),
+              // API 失败时显示加载失败提示，而非"已失效"
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Icon(Icons.cloud_off, size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 16),
+                      Text(l10n.statusExpired, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      const Text('无法获取套餐信息，请检查网络或重新登录后下拉刷新', style: TextStyle(fontSize: 13, color: Colors.grey), textAlign: TextAlign.center),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 100),
             ],
           ),

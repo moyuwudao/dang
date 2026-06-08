@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/cloud_api_service.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/services/billing_service.dart';
@@ -36,6 +38,14 @@ class ApiPolicy {
       isAllowed: json['isAllowed'] ?? true,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'provider': provider,
+    'modelPattern': modelPattern,
+    'model': model,
+    'multiplier': multiplier,
+    'isAllowed': isAllowed,
+  };
 }
 
 class DefaultConfig {
@@ -185,9 +195,87 @@ class SubscriptionState {
       orElse: () => subscriptions.first,
     );
   }
+
+  /// 序列化为 JSON（用于本地缓存）
+  Map<String, dynamic> toJson() => {
+    'isActive': isActive,
+    'planId': planId,
+    'planName': planName,
+    'expiresAt': expiresAt?.toIso8601String(),
+    'tokenBalance': {
+      'balanceTokens': tokenBalance.balanceTokens,
+      'freeTokensRemaining': tokenBalance.freeTokensRemaining,
+      'totalTokens': tokenBalance.totalTokens,
+      'usedTokens': tokenBalance.usedTokens,
+      'totalQuota': tokenBalance.totalQuota,
+      'usedQuota': tokenBalance.usedQuota,
+      'quotaRemaining': tokenBalance.quotaRemaining,
+      'rechargeBalance': tokenBalance.rechargeBalance,
+    },
+    'apiPolicies': apiPolicies.map((p) => p.toJson()).toList(),
+    'defaultConfigs': defaultConfigs.map((c) => {'functionType': c.functionType, 'modelPattern': c.modelPattern}).toList(),
+    'subscriptions': subscriptions.map((s) => {
+      'subscriptionId': s.subscriptionId,
+      'planId': s.planId,
+      'planName': s.planName,
+      'expiresAt': s.expiresAt?.toIso8601String(),
+      'status': s.status,
+      'defaultConfigs': s.defaultConfigs.map((c) => {'functionType': c.functionType, 'modelPattern': c.modelPattern}).toList(),
+      'apiPolicies': s.apiPolicies.map((p) => p.toJson()).toList(),
+      'allowedModels': s.allowedModels,
+      'features': s.features,
+      'isRecommended': s.isRecommended,
+    }).toList(),
+    'activeSubscriptionId': activeSubscriptionId,
+    'totalQuota': totalQuota,
+    'usedQuota': usedQuota,
+  };
+
+  /// 从 JSON 反序列化（用于读取本地缓存）
+  factory SubscriptionState.fromJson(Map<String, dynamic> json) {
+    TokenBalance parseTokenBalance(dynamic raw) {
+      if (raw is! Map) return const TokenBalance(balanceTokens: 0, freeTokensRemaining: 0, totalTokens: 0, usedTokens: 0);
+      return TokenBalance(
+        balanceTokens: (raw['balanceTokens'] as num?)?.toInt() ?? 0,
+        freeTokensRemaining: (raw['freeTokensRemaining'] as num?)?.toInt() ?? 0,
+        totalTokens: (raw['totalTokens'] as num?)?.toInt() ?? 0,
+        usedTokens: (raw['usedTokens'] as num?)?.toInt() ?? 0,
+        totalQuota: (raw['totalQuota'] as num?)?.toInt() ?? 0,
+        usedQuota: (raw['usedQuota'] as num?)?.toInt() ?? 0,
+        quotaRemaining: (raw['quotaRemaining'] as num?)?.toInt() ?? 0,
+        rechargeBalance: (raw['rechargeBalance'] as num?)?.toInt() ?? 0,
+      );
+    }
+
+    return SubscriptionState(
+      isActive: json['isActive'] as bool? ?? false,
+      planId: json['planId'] as String?,
+      planName: json['planName'] as String?,
+      expiresAt: json['expiresAt'] != null ? DateTime.tryParse(json['expiresAt'] as String) : null,
+      tokenBalance: parseTokenBalance(json['tokenBalance']),
+      apiPolicies: (json['apiPolicies'] as List<dynamic>?)
+              ?.map((e) => ApiPolicy.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      defaultConfigs: (json['defaultConfigs'] as List<dynamic>?)
+              ?.map((e) => DefaultConfig.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      subscriptions: (json['subscriptions'] as List<dynamic>?)
+              ?.map((e) => PlanSubscription.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      activeSubscriptionId: json['activeSubscriptionId'] as String?,
+      totalQuota: (json['totalQuota'] as num?)?.toInt() ?? 0,
+      usedQuota: (json['usedQuota'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
+  static const _cacheKey = 'subscription_state_cache';
+  static const _cacheMaxAge = Duration(hours: 24);
+
   static int _parseInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -198,6 +286,58 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
   @override
   Future<SubscriptionState> build() async {
     return _fetchSubscriptionInternal();
+  }
+
+  /// 从本地缓存加载套餐状态
+  Future<SubscriptionState?> _loadCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedJson = prefs.getString(_cacheKey);
+      if (cachedJson == null) return null;
+
+      final cached = jsonDecode(cachedJson) as Map<String, dynamic>;
+      final cachedAt = DateTime.tryParse(cached['cachedAt'] ?? '');
+      if (cachedAt == null) return null;
+
+      final age = DateTime.now().difference(cachedAt);
+      if (age > _cacheMaxAge) {
+        AppLogger().i('Subscription', '缓存已过期 (${age.inHours}h)，忽略');
+        return null;
+      }
+
+      final state = SubscriptionState.fromJson(cached['state'] as Map<String, dynamic>);
+      AppLogger().i('Subscription', '从缓存加载套餐数据: plan=${state.planName}, age=${age.inMinutes}min');
+      return state;
+    } catch (e) {
+      AppLogger().w('Subscription', '加载缓存失败: $e');
+      return null;
+    }
+  }
+
+  /// 保存套餐状态到本地缓存
+  Future<void> _saveCache(SubscriptionState state) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheData = {
+        'cachedAt': DateTime.now().toIso8601String(),
+        'state': state.toJson(),
+      };
+      await prefs.setString(_cacheKey, jsonEncode(cacheData));
+      AppLogger().i('Subscription', '套餐数据已缓存');
+    } catch (e) {
+      AppLogger().w('Subscription', '保存缓存失败: $e');
+    }
+  }
+
+  /// 清除本地缓存
+  Future<void> _clearCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cacheKey);
+      AppLogger().i('Subscription', '套餐缓存已清除');
+    } catch (e) {
+      AppLogger().w('Subscription', '清除缓存失败: $e');
+    }
   }
 
   Future<SubscriptionState> _fetchSubscriptionInternal({String? subscriptionId}) async {
@@ -272,7 +412,7 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         );
       }
 
-      return SubscriptionState(
+      final result = SubscriptionState(
         isActive: data['status'] == 'active',
         planId: data['planId'],
         planName: data['planName'],
@@ -287,8 +427,31 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
         totalQuota: _parseInt(data['totalQuota']),
         usedQuota: _parseInt(data['usedQuota']),
       );
+
+      // 成功获取后保存到缓存
+      await _saveCache(result);
+      return result;
     } catch (e) {
-      return const SubscriptionState();
+      // API 请求失败时：
+      // - 401/token 过期：尝试返回缓存，无缓存则返回空状态
+      // - 其他错误：尝试返回缓存，无缓存则 rethrow
+      AppLogger().w('Subscription', '获取套餐数据失败: $e');
+      final errStr = e.toString();
+      if (errStr.contains('401') || errStr.contains('Unauthorized')) {
+        final cached = await _loadCache();
+        if (cached != null) {
+          AppLogger().i('Subscription', '401 时返回缓存数据');
+          return cached;
+        }
+        return const SubscriptionState();
+      }
+      // 其他错误（网络超时等）也尝试返回缓存
+      final cached = await _loadCache();
+      if (cached != null) {
+        AppLogger().i('Subscription', '网络错误时返回缓存数据');
+        return cached;
+      }
+      rethrow;
     }
   }
 
@@ -332,7 +495,10 @@ class SubscriptionNotifier extends AsyncNotifier<SubscriptionState> {
       final balanceData = balanceResponse.data['data'] as Map<String, dynamic>;
       final tokenBalance = TokenBalance.fromJson(balanceData);
 
-      state = AsyncData(current.copyWith(tokenBalance: tokenBalance));
+      final updated = current.copyWith(tokenBalance: tokenBalance);
+      state = AsyncData(updated);
+      // 余额更新后也保存缓存
+      await _saveCache(updated);
     } catch (_) {}
   }
 }

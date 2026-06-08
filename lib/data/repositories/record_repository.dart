@@ -65,7 +65,7 @@ class RecordRepository {
     String? audioPath,
     String? imagePath,
     List<String> tags = const [],
-    TranscriptionStatus transcriptionStatus = TranscriptionStatus.none,
+    TranscriptionStatus transcriptionStatus = TranscriptionStatus.pending,
     String? transcriptionError,
     bool isRealtime = false,
   }) async {

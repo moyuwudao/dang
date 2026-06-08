@@ -12,7 +12,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     TypeOrmModule.forFeature([User]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'changji_jwt_secret_change_me',
-      signOptions: { expiresIn: '15m' },
+      signOptions: { expiresIn: '7d' },
     }),
     forwardRef(() => SubscriptionModule),
   ],

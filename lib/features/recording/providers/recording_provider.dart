@@ -280,7 +280,17 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
         onStatusChange: (status, detail) {
           AppLogger().i('Realtime', 'Status: $status - $detail');
           if (status == 'error') {
-            state = AsyncData(state.valueOrNull!.copyWith(error: '实时转写不可用，录音完成后将自动转写'));
+            state = AsyncData(state.valueOrNull!.copyWith(
+              isRealtimeEnabled: false,
+              error: '实时转写不可用，录音完成后将自动转写',
+            ));
+          } else if (status == 'disconnected') {
+            // WebSocket 服务端超时断开（如 Qwen 10分钟限制）
+            AppLogger().w('Realtime', '实时转写连接断开: $detail');
+            state = AsyncData(state.valueOrNull!.copyWith(
+              isRealtimeEnabled: false,
+              error: '实时转写已断开，录音完成后将自动离线转写',
+            ));
           }
         },
       );
@@ -351,14 +361,15 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
         // 刷新首页列表
         ref.invalidate(paginatedRecordsProvider);
 
-        // 如果开启了实时转写，保存实时转写结果到记录
-        if (state.valueOrNull!.isRealtimeEnabled && state.valueOrNull!.realtimeText != null && state.valueOrNull!.realtimeText!.isNotEmpty) {
+        // 如果有实时转写结果，先保存（作为部分内容），但始终加入离线转写队列
+        // 原因：WebSocket 可能中途断开（如 Qwen 10分钟超时），实时结果只覆盖部分录音
+        if (state.valueOrNull!.realtimeText != null && state.valueOrNull!.realtimeText!.isNotEmpty) {
           await _recordRepository.updateRecordContent(recordId, state.valueOrNull!.realtimeText!);
-          await _recordRepository.updateTranscriptionStatus(recordId, TranscriptionStatus.success, null);
-        } else {
-          // 添加到后台转写队列
-          _transcriptionQueue.addToQueue(recordId);
+          // 不标记为 success，因为实时转写可能不完整
+          await _recordRepository.updateTranscriptionStatus(recordId, TranscriptionStatus.pending, null);
         }
+        // 始终加入离线转写队列，确保完整覆盖
+        _transcriptionQueue.addToQueue(recordId);
         
         // 状态更新为等待转写
         state = AsyncData(state.valueOrNull!.copyWith(

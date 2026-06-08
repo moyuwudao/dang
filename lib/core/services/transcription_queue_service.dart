@@ -37,9 +37,12 @@ class TranscriptionQueueService {
   }
 
   /// 重置卡住的记录（上次异常退出遗留的 processing 状态）
+  /// 同时把尚未进入队列的音频记录（none 状态）标记为 pending，确保应用重启后不会漏转
   Future<void> _resetStuckRecords() async {
     try {
       final records = await _recordRepository.getAllRecords();
+
+      // 1) 重置上次异常退出遗留的 processing 状态
       final stuckRecords = records.where((r) =>
         r.transcriptionStatus == TranscriptionStatus.processing
       ).toList();
@@ -47,6 +50,25 @@ class TranscriptionQueueService {
       if (stuckRecords.isNotEmpty) {
         AppLogger().w('TranscriptionQueue', 'Found ${stuckRecords.length} stuck records, resetting to pending');
         for (final record in stuckRecords) {
+          await _recordRepository.updateTranscriptionStatus(
+            record.id,
+            TranscriptionStatus.pending,
+            null,
+          );
+        }
+      }
+
+      // 2) 把尚未进入队列的音频记录（none 状态，有音频文件）标记为 pending
+      // 这样即使应用被杀死，重启后也能继续转写
+      final missedRecords = records.where((r) =>
+        r.transcriptionStatus == TranscriptionStatus.none &&
+        r.audioPath != null &&
+        r.audioPath!.isNotEmpty
+      ).toList();
+
+      if (missedRecords.isNotEmpty) {
+        AppLogger().w('TranscriptionQueue', 'Found ${missedRecords.length} missed records, enqueueing for transcription');
+        for (final record in missedRecords) {
           await _recordRepository.updateTranscriptionStatus(
             record.id,
             TranscriptionStatus.pending,

@@ -190,6 +190,13 @@ class BillingService {
       final estimatedTokens = (_estimateTokens(type, amount) * multiplier).ceil();
       return balance.hasEnough(estimatedTokens);
     } catch (e) {
+      // 401/token 过期时，不阻止用户使用——让服务端做最终判断
+      // 避免 token 过期导致所有功能被误拒绝
+      final errStr = e.toString();
+      if (errStr.contains('401') || errStr.contains('Unauthorized')) {
+        AppLogger().w('Billing', 'canUseFeature: 401/token过期，放行让服务端判断');
+        return true;
+      }
       return false;
     }
   }

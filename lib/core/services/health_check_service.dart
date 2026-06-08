@@ -301,19 +301,27 @@ class HealthCheckService {
       case AiProvider.tingwu:
         return null;
       case AiProvider.openAI:
-      case AiProvider.deepSeek:
-      case AiProvider.grok:
-      case AiProvider.qwen:
-      case AiProvider.zhipu:
-      case AiProvider.kimi:
-      case AiProvider.spark:
-      case AiProvider.claude:
-      case AiProvider.gemini:
-      case AiProvider.ernie:
-      case AiProvider.custom:
-        // 简化：所有非听悟都使用 OpenAI 兼容端点
-        // 实际生产应根据 key.baseUrl 或 model 决定
         return 'https://api.openai.com/v1';
+      case AiProvider.deepSeek:
+        return 'https://api.deepseek.com/v1';
+      case AiProvider.grok:
+        return 'https://api.x.ai/v1';
+      case AiProvider.qwen:
+        return 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+      case AiProvider.claude:
+        return 'https://api.anthropic.com/v1';
+      case AiProvider.gemini:
+        return 'https://generativelanguage.googleapis.com/v1beta';
+      case AiProvider.zhipu:
+        return 'https://open.bigmodel.cn/api/paas/v4';
+      case AiProvider.kimi:
+        return 'https://api.moonshot.cn/v1';
+      case AiProvider.spark:
+        return 'https://spark-api-open.xf-yun.com/v1';
+      case AiProvider.ernie:
+        return 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1';
+      case AiProvider.custom:
+        return AiModelConfig.getConfig(pool.provider).baseUrl;
     }
   }
 

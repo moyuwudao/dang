@@ -69,8 +69,9 @@ class CloudApiService {
                 // 重试失败，继续处理错误
               }
             }
-            // 刷新失败或重试失败，清除 Token
+            // 刷新失败或重试失败，清除 Token 并通知上层登录态变化
             await clearToken();
+            AppLogger().w('API', 'Token 已清除，需要重新登录');
           } else if (error.response?.statusCode == 429) {
             final message = error.response?.data?['message'] as String? ?? '';
             if (message.contains('请求过于频繁')) {

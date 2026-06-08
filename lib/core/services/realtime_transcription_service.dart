@@ -182,6 +182,8 @@ class RealtimeTranscriptionService {
       },
       onDone: () {
         AppLogger().i('Realtime', 'Qwen WS closed');
+        // 通知上层 WebSocket 已断开（服务端超时等）
+        onStatusChange?.call('disconnected', '实时转写连接已断开');
         if (!completer.isCompleted) {
           completer.complete();
         }
@@ -377,6 +379,8 @@ class RealtimeTranscriptionService {
         },
         onDone: () {
           AppLogger().i('Realtime', 'Tingwu WS closed');
+          // 通知上层 WebSocket 已断开（服务端超时等）
+          onStatusChange?.call('disconnected', '听悟实时转写连接已断开');
           if (!completer.isCompleted) {
             completer.complete();
           }

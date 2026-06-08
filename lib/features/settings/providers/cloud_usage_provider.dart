@@ -41,16 +41,31 @@ class CloudUsageRecord {
     required this.createdAt,
   });
 
+  /// 防御性解析 num：PostgreSQL numeric 类型序列化为字符串（如 "1298.0000"）
+  static int _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.split('.').first) ?? 0;
+    return 0;
+  }
+
+  static double _parseDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
   factory CloudUsageRecord.fromJson(Map<String, dynamic> json) {
     return CloudUsageRecord(
       id: json['id'] as String? ?? '',
       provider: json['provider'] as String? ?? '',
       model: json['model'] as String? ?? '',
-      promptTokens: (json['promptTokens'] as num?)?.toInt() ?? 0,
-      completionTokens: (json['completionTokens'] as num?)?.toInt() ?? 0,
-      tokenConsumed: (json['tokenConsumed'] as num?)?.toInt() ?? 0,
-      apiCoefficient: (json['apiCoefficient'] as num?)?.toDouble() ?? 1.0,
-      costYuan: (json['costYuan'] as num?)?.toDouble(),
+      promptTokens: _parseInt(json['promptTokens']),
+      completionTokens: _parseInt(json['completionTokens']),
+      tokenConsumed: _parseInt(json['tokenConsumed']),
+      apiCoefficient: _parseDouble(json['apiCoefficient']),
+      costYuan: json['costYuan'] != null ? _parseDouble(json['costYuan']) : null,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
@@ -120,12 +135,14 @@ class CloudUsageState {
   final bool isLoading;
   final String? error;
   final DateTime? lastFetchedAt;
+  final DateTime? lastFailedAt; // 上次失败时间（用于节流防循环重试）
 
   const CloudUsageState({
     this.summary = const CloudUsageSummary(),
     this.isLoading = false,
     this.error,
     this.lastFetchedAt,
+    this.lastFailedAt,
   });
 
   CloudUsageState copyWith({
@@ -133,12 +150,14 @@ class CloudUsageState {
     bool? isLoading,
     String? error,
     DateTime? lastFetchedAt,
+    DateTime? lastFailedAt,
   }) {
     return CloudUsageState(
       summary: summary ?? this.summary,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       lastFetchedAt: lastFetchedAt ?? this.lastFetchedAt,
+      lastFailedAt: lastFailedAt ?? this.lastFailedAt,
     );
   }
 
@@ -171,6 +190,15 @@ class CloudUsageNotifier extends StateNotifier<CloudUsageState> {
     // 非强制模式下，5分钟内不重复请求
     if (!force && !state.needsRefresh && state.summary.logs.isNotEmpty) return;
 
+    // 防循环节流：60 秒内失败过则不重试（除非 force）
+    if (!force && state.lastFailedAt != null) {
+      final sinceFail = DateTime.now().difference(state.lastFailedAt!);
+      if (sinceFail.inSeconds < 60) {
+        AppLogger().w('CloudUsage', '60秒内已失败，跳过重试 (距上次失败 ${sinceFail.inSeconds}s)');
+        return;
+      }
+    }
+
     state = state.copyWith(isLoading: true, error: null);
     try {
       final now = DateTime.now();
@@ -183,7 +211,11 @@ class CloudUsageNotifier extends StateNotifier<CloudUsageState> {
 
       final data = response.data['data'] as Map<String, dynamic>?;
       if (data == null) {
-        state = state.copyWith(isLoading: false, error: '响应数据为空');
+        state = state.copyWith(
+          isLoading: false,
+          error: '响应数据为空',
+          lastFailedAt: DateTime.now(),
+        );
         return;
       }
 
@@ -194,10 +226,9 @@ class CloudUsageNotifier extends StateNotifier<CloudUsageState> {
           [];
 
       final summary = CloudUsageSummary(
-        totalCalls: (data['totalCalls'] as num?)?.toInt() ?? 0,
-        totalTokens: (data['totalTokens'] as num?)?.toInt() ?? 0,
-        totalQuotaConsumed:
-            (data['totalQuotaConsumed'] as num?)?.toInt() ?? 0,
+        totalCalls: CloudUsageRecord._parseInt(data['totalCalls']),
+        totalTokens: CloudUsageRecord._parseInt(data['totalTokens']),
+        totalQuotaConsumed: CloudUsageRecord._parseInt(data['totalQuotaConsumed']),
         logs: logs,
         fetchedAt: now,
       );
@@ -206,22 +237,39 @@ class CloudUsageNotifier extends StateNotifier<CloudUsageState> {
         summary: summary,
         isLoading: false,
         lastFetchedAt: now,
+        // 成功时清除 lastFailedAt
+        lastFailedAt: null,
       );
 
       // 缓存到本地
       await _cacheSummary(summary);
     } catch (e) {
       AppLogger().w('CloudUsage', '获取云端用量失败: $e');
-      state = state.copyWith(isLoading: false, error: e.toString());
+      final errStr = e.toString();
+      final isUnauthorized = errStr.contains('401') || errStr.contains('Unauthorized');
+
+      // 401 或网络错误时，优先使用本地缓存，避免 UI 清空
+      if (isUnauthorized || errStr.contains('SocketException') || errStr.contains('Network')) {
+        final hasCache = await _tryLoadCache();
+        if (hasCache) {
+          AppLogger().i('CloudUsage', '请求失败，已回退到本地缓存');
+        }
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+        lastFailedAt: DateTime.now(),
+      );
     }
   }
 
-  /// 从本地缓存加载
-  Future<void> loadCache() async {
+  /// 尝试从本地缓存加载，返回是否成功
+  Future<bool> _tryLoadCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jsonStr = prefs.getString(_cacheKey);
-      if (jsonStr == null || jsonStr.isEmpty) return;
+      if (jsonStr == null || jsonStr.isEmpty) return false;
 
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
       final logs = (data['logs'] as List<dynamic>?)
@@ -234,10 +282,9 @@ class CloudUsageNotifier extends StateNotifier<CloudUsageState> {
           : null;
 
       final summary = CloudUsageSummary(
-        totalCalls: (data['totalCalls'] as num?)?.toInt() ?? 0,
-        totalTokens: (data['totalTokens'] as num?)?.toInt() ?? 0,
-        totalQuotaConsumed:
-            (data['totalQuotaConsumed'] as num?)?.toInt() ?? 0,
+        totalCalls: CloudUsageRecord._parseInt(data['totalCalls']),
+        totalTokens: CloudUsageRecord._parseInt(data['totalTokens']),
+        totalQuotaConsumed: CloudUsageRecord._parseInt(data['totalQuotaConsumed']),
         logs: logs,
       );
 
@@ -245,9 +292,16 @@ class CloudUsageNotifier extends StateNotifier<CloudUsageState> {
         summary: summary,
         lastFetchedAt: cachedAt,
       );
+      return true;
     } catch (e) {
       AppLogger().w('CloudUsage', '加载缓存失败: $e');
+      return false;
     }
+  }
+
+  /// 从本地缓存加载（公开方法，供初始化调用）
+  Future<void> loadCache() async {
+    await _tryLoadCache();
   }
 
   Future<void> _cacheSummary(CloudUsageSummary summary) async {
