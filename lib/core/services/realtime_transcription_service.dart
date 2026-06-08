@@ -23,6 +23,150 @@ class RealtimeTranscriptionService {
 
   bool get isConfigured => _httpClient.isConfigured;
 
+  /// 带自动重连的长录音实时转写
+  ///
+  /// Qwen 实时转写 WebSocket 服务端限制约 10 分钟，因此：
+  /// - 每 9 分钟主动断开当前连接
+  /// - 携带 15 秒重叠音频缓冲区建立新连接
+  /// - 多段结果自动拼接，用户无感知
+  Stream<RealtimeTranscriptionResult> transcribeRealtimeWithReconnect({
+    required Stream<List<int>> audioStream,
+    void Function(String status, String detail)? onStatusChange,
+    String? language,
+    Duration maxSessionDuration = const Duration(minutes: 9),
+    Duration overlapDuration = const Duration(seconds: 15),
+  }) async* {
+    final config = _httpClient.currentConfig;
+    if (config == null) {
+      throw Exception('未配置语音识别服务');
+    }
+
+    if (config.name != 'qwen') {
+      // 目前仅 Qwen 需要重连策略，其他服务走原逻辑
+      yield* transcribeRealtime(
+        audioStream: audioStream,
+        onStatusChange: onStatusChange,
+        language: language,
+      );
+      return;
+    }
+
+    AppLogger().i('Realtime', '=== 启动带重连的实时转写 ===');
+
+    final controller = StreamController<RealtimeTranscriptionResult>();
+    final audioBuffer = <List<int>>[];
+    final overlapBytes = _overlapBytesForDuration(overlapDuration);
+    var sessionCount = 0;
+    StreamSubscription? audioSubscription;
+    var isActive = true;
+    Timer? sessionTimer;
+    var currentSessionCompleter = Completer<void>();
+
+    Future<void> startNewSession({List<int>? initialAudio}) async {
+      if (!isActive) return;
+      sessionCount++;
+      AppLogger().i('Realtime', '启动第 $sessionCount 个实时转写会话');
+
+      // 为当前会话创建独立的音频流
+      final sessionController = StreamController<List<int>>();
+      final sessionBuffer = <List<int>>[];
+
+      // 先发送重叠音频（如果有）
+      if (initialAudio != null && initialAudio.isNotEmpty) {
+        AppLogger().i('Realtime', '发送 ${initialAudio.length} 字节重叠音频');
+        sessionController.add(initialAudio);
+      }
+
+      // 订阅音频流：把新数据同时发给当前会话和全局缓冲区
+      audioSubscription?.cancel();
+      audioSubscription = audioStream.listen(
+        (chunk) {
+          if (!isActive) return;
+          sessionController.add(chunk);
+          sessionBuffer.add(chunk);
+          audioBuffer.add(chunk);
+          // 限制全局缓冲区大小，避免内存无限增长
+          while (_totalBytes(audioBuffer) > overlapBytes * 4) {
+            audioBuffer.removeAt(0);
+          }
+        },
+        onError: (e) {
+          AppLogger().e('Realtime', '音频流错误: $e');
+          sessionController.addError(e);
+        },
+        onDone: () {
+          if (!sessionController.isClosed) {
+            sessionController.close();
+          }
+        },
+      );
+
+      // 启动会话定时器：9分钟后启动新会话
+      sessionTimer?.cancel();
+      sessionTimer = Timer(maxSessionDuration - overlapDuration, () {
+        AppLogger().i('Realtime', '会话即将到期，准备带重叠重连');
+        // 提取最近 15 秒音频作为重叠
+        final overlapAudio = _extractRecentAudio(audioBuffer, overlapBytes);
+        sessionController.close();
+        startNewSession(initialAudio: overlapAudio);
+      });
+
+      try {
+        await for (final result in _transcribeQwenRealtime(
+          audioStream: sessionController.stream,
+          onStatusChange: onStatusChange,
+          language: language,
+          autoCloseOnDone: false,
+        )) {
+          if (!controller.isClosed) {
+            controller.add(result);
+          }
+        }
+      } catch (e) {
+        AppLogger().e('Realtime', '第 $sessionCount 个会话异常: $e');
+        onStatusChange?.call('error', '转写会话异常: $e');
+      }
+    }
+
+    // 启动第一个会话
+    unawaited(startNewSession().then((_) {
+      if (!currentSessionCompleter.isCompleted) {
+        currentSessionCompleter.complete();
+      }
+    }));
+
+    try {
+      yield* controller.stream;
+    } finally {
+      isActive = false;
+      sessionTimer?.cancel();
+      audioSubscription?.cancel();
+      if (!controller.isClosed) {
+        await controller.close();
+      }
+    }
+  }
+
+  /// 估算指定时长的音频字节数（16kHz 16bit 单声道 PCM = 32000 字节/秒）
+  static int _overlapBytesForDuration(Duration duration) {
+    return duration.inMilliseconds * 32; // 32000 bytes / 1000 ms
+  }
+
+  static int _totalBytes(List<List<int>> chunks) {
+    return chunks.fold(0, (sum, c) => sum + c.length);
+  }
+
+  static List<int> _extractRecentAudio(List<List<int>> buffer, int maxBytes) {
+    final result = <int>[];
+    for (var i = buffer.length - 1; i >= 0; i--) {
+      result.insertAll(0, buffer[i]);
+      if (result.length >= maxBytes) {
+        return result.sublist(result.length - maxBytes);
+      }
+    }
+    return result;
+  }
+
   Stream<RealtimeTranscriptionResult> transcribeRealtime({
     required Stream<List<int>> audioStream,
     void Function(String status, String detail)? onStatusChange,
@@ -54,6 +198,7 @@ class RealtimeTranscriptionService {
     required Stream<List<int>> audioStream,
     void Function(String status, String detail)? onStatusChange,
     String? language,
+    bool autoCloseOnDone = true,
   }) async* {
     onStatusChange?.call('connecting', '连接通义千问实时转写服务...');
 
@@ -72,7 +217,6 @@ class RealtimeTranscriptionService {
 
     onStatusChange?.call('connected', '已连接，开始发送音频...');
 
-    final sessionId = const Uuid().v4();
     final completer = Completer<void>();
     final controller = StreamController<RealtimeTranscriptionResult>();
     StreamSubscription? wsSubscription;
@@ -142,7 +286,6 @@ class RealtimeTranscriptionService {
 
             case 'conversation.item.input_audio_transcription.completed':
               final transcript = data['transcript'] as String? ?? '';
-              final itemId = data['item_id'] as String? ?? '';
               AppLogger().i('Realtime', 'Qwen WS full text: "$transcript"');
 
               if (transcript.isNotEmpty) {
@@ -182,8 +325,9 @@ class RealtimeTranscriptionService {
       },
       onDone: () {
         AppLogger().i('Realtime', 'Qwen WS closed');
-        // 通知上层 WebSocket 已断开（服务端超时等）
-        onStatusChange?.call('disconnected', '实时转写连接已断开');
+        if (autoCloseOnDone) {
+          onStatusChange?.call('disconnected', '实时转写连接已断开');
+        }
         if (!completer.isCompleted) {
           completer.complete();
         }
@@ -194,7 +338,6 @@ class RealtimeTranscriptionService {
     audioSubscription = audioStream.listen(
       (chunk) {
         if (chunk.isNotEmpty) {
-          // 发送音频数据
           final audioEvent = {
             'event_id': 'event_${DateTime.now().millisecondsSinceEpoch}',
             'type': 'input_audio_buffer.append',
@@ -204,7 +347,6 @@ class RealtimeTranscriptionService {
         }
       },
       onDone: () {
-        // 音频发送完成，发送 finish 事件
         final finishEvent = {
           'event_id': 'event_${DateTime.now().millisecondsSinceEpoch}',
           'type': 'session.finish',
@@ -229,9 +371,6 @@ class RealtimeTranscriptionService {
   }
 
   String _getQwenRealtimeWsUrl() {
-    // 通义千问实时转写 WebSocket 端点
-    // 官方文档: wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen3-asr-flash-realtime
-    // 关键：必须在URL中添加model查询参数！
     return 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen3-asr-flash-realtime';
   }
 
@@ -243,7 +382,6 @@ class RealtimeTranscriptionService {
     onStatusChange?.call('connecting', '连接听悟实时转写服务...');
 
     try {
-      // 1. 先创建实时会议，获取 WebSocket 连接信息
       final meetingInfo = await _tingwuService.createMeeting(
         audioFormat: 'pcm',
         sampleRate: 16000,
@@ -261,7 +399,6 @@ class RealtimeTranscriptionService {
         throw Exception('获取 WebSocket 连接地址失败');
       }
 
-      // 2. 连接 WebSocket
       final wsUrl = meetingInfo.wsUrl;
       final channel = IOWebSocketChannel.connect(
         Uri.parse(wsUrl),
@@ -272,7 +409,6 @@ class RealtimeTranscriptionService {
 
       onStatusChange?.call('connected', '已连接，开始发送音频...');
 
-      // 3. 发送 StartTranscription 指令（NLS 协议）
       final taskId = _generateTaskId();
       final startTranscriptionMessage = {
         'header': {
@@ -296,35 +432,29 @@ class RealtimeTranscriptionService {
       AppLogger().i('Realtime', 'Sending StartTranscription: ${jsonEncode(startTranscriptionMessage)}');
       channel.sink.add(jsonEncode(startTranscriptionMessage));
 
-      // 4. 等待服务器确认后开始发送音频
       final completer = Completer<void>();
       final controller = StreamController<RealtimeTranscriptionResult>();
       var isTaskStarted = false;
       StreamSubscription? audioSubscription;
       StreamSubscription? wsSubscription;
 
-      // 监听 WebSocket 消息
       wsSubscription = channel.stream.listen(
         (message) {
           try {
             final data = jsonDecode(message as String);
             AppLogger().d('Realtime', 'Tingwu WS received: $data');
 
-            // 处理响应
             final header = data['header'] as Map<String, dynamic>?;
             final payload = data['payload'] as Map<String, dynamic>?;
-            
-            // 提取 name 用于后续处理
             final eventName = header?['name'] as String?;
 
             if (header != null) {
               final status = header['status'] as int?;
               final statusText = header['status_text'] as String?;
-              
+
               if (eventName == 'TranscriptionStarted') {
                 AppLogger().i('Realtime', 'Transcription started successfully');
                 isTaskStarted = true;
-                // 开始发送音频数据
                 audioSubscription = _startAudioStream(audioStream, channel, taskId, controller, completer);
               } else if (eventName == 'TranscriptionCompleted') {
                 AppLogger().i('Realtime', 'Transcription completed');
@@ -345,19 +475,14 @@ class RealtimeTranscriptionService {
               }
             }
 
-            // 处理转写结果
             if (payload != null) {
               final result = payload['result'] as String? ?? '';
               final beginTime = payload['begin_time'] as int? ?? 0;
               final endTime = payload['end_time'] as int? ?? 0;
-              final index = payload['index'] as int? ?? 0;
-              
+
               if (result.isNotEmpty) {
                 AppLogger().i('Realtime', 'Tingwu result [$eventName]: "$result"');
-                
-                // 根据事件类型设置 isFinal
                 final isFinal = eventName == 'SentenceEnd' || eventName == 'TranscriptionCompleted';
-                
                 controller.add(RealtimeTranscriptionResult(
                   text: result,
                   isFinal: isFinal,
@@ -379,7 +504,6 @@ class RealtimeTranscriptionService {
         },
         onDone: () {
           AppLogger().i('Realtime', 'Tingwu WS closed');
-          // 通知上层 WebSocket 已断开（服务端超时等）
           onStatusChange?.call('disconnected', '听悟实时转写连接已断开');
           if (!completer.isCompleted) {
             completer.complete();
@@ -412,11 +536,9 @@ class RealtimeTranscriptionService {
   ) {
     AppLogger().i('Realtime', 'Starting audio stream...');
 
-    // 心跳包机制：防止听悟服务端 25s 空闲断开
-    // 录音 pause 时 audioStream 不会有数据，每 10s 发一个 320 字节静音帧（10ms @ 16kHz 16bit PCM）
     final heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       try {
-        final silentFrame = Uint8List(320); // 10ms silence @ 16kHz/16bit
+        final silentFrame = Uint8List(320);
         channel.sink.add(silentFrame);
         AppLogger().d('Realtime', 'Heartbeat: sent 320 bytes silence');
       } catch (e) {
@@ -427,8 +549,6 @@ class RealtimeTranscriptionService {
     return audioStream.listen(
       (chunk) {
         if (chunk.isNotEmpty) {
-          // 直接发送音频数据 - 使用二进制帧
-          // record 插件的 startStream 返回的是裸 PCM 数据
           channel.sink.add(Uint8List.fromList(chunk));
           AppLogger().d('Realtime', 'Sending audio chunk: ${chunk.length} bytes');
         }
@@ -437,7 +557,6 @@ class RealtimeTranscriptionService {
         AppLogger().i('Realtime', 'Audio stream done');
         heartbeatTimer.cancel();
 
-        // 发送 StopTranscription 指令
         final stopMessage = {
           'header': {
             'appkey': _httpClient.appId,
@@ -457,14 +576,11 @@ class RealtimeTranscriptionService {
   }
 
   String _generateTaskId() {
-    // NLS 协议要求 32 位十六进制字符串（不含连字符）
-    // 例如: 802738f37fb24459bbe7b241210e19b8
     final uuid = const Uuid().v4().replaceAll('-', '');
     return uuid;
   }
 
   String _generateMessageId() {
-    // NLS 协议要求 32 位十六进制字符串（不含连字符）
     final uuid = const Uuid().v4().replaceAll('-', '');
     return uuid;
   }

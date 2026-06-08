@@ -264,8 +264,6 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
     }
   }
 
-  Timer? _realtimeTimeoutTimer;
-
   void _startRealtimeTranscription() {
     try {
       AppLogger().i('Realtime', '=== _startRealtimeTranscription CALLED ===');
@@ -275,9 +273,10 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
         return;
       }
 
-      AppLogger().i('Realtime', 'Calling _realtimeService.transcribeRealtime...');
+      AppLogger().i('Realtime', 'Calling _realtimeService.transcribeRealtimeWithReconnect...');
       AppLogger().i('Realtime', 'Audio stream available: ${audioStream != null}');
-      final realtimeStream = _realtimeService.transcribeRealtime(
+      // 使用带自动重连的实时转写，支持 9 分钟+ 长录音
+      final realtimeStream = _realtimeService.transcribeRealtimeWithReconnect(
         audioStream: audioStream,
         onStatusChange: (status, detail) {
           AppLogger().i('Realtime', 'Status: $status - $detail');
@@ -286,29 +285,10 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
               isRealtimeEnabled: false,
               error: '实时转写不可用，录音完成后将自动转写',
             ));
-          } else if (status == 'disconnected') {
-            // WebSocket 服务端超时断开（如 Qwen 10分钟限制）
-            AppLogger().w('Realtime', '实时转写连接断开: $detail');
-            state = AsyncData(state.valueOrNull!.copyWith(
-              isRealtimeEnabled: false,
-              // 不再显示错误提示，用户无感知
-            ));
           }
+          // 连接断开/重连时不提示用户，保持无感知
         },
       );
-
-      // 【关键】9分钟后主动断开实时转写，避免服务端10分钟超时导致的问题
-      // 断开前保存已转写内容，录音继续，后续走离线转写
-      _realtimeTimeoutTimer?.cancel();
-      _realtimeTimeoutTimer = Timer(const Duration(minutes: 9), () {
-        AppLogger().i('Realtime', '录音超过9分钟，主动断开实时转写，切换到离线模式');
-        _realtimeSubscription?.cancel();
-        _realtimeTimeoutTimer = null;
-        // 静默切换，用户无感知
-        state = AsyncData(state.valueOrNull!.copyWith(
-          isRealtimeEnabled: false,
-        ));
-      });
 
       _realtimeSubscription = realtimeStream.listen(
         (result) {
@@ -348,8 +328,6 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
 
   Future<void> stopRecording({List<String> tags = const []}) async {
     try {
-      _realtimeTimeoutTimer?.cancel();
-      _realtimeTimeoutTimer = null;
       await _amplitudeSubscription?.cancel();
       await _durationSubscription?.cancel();
       await _realtimeSubscription?.cancel();
@@ -426,8 +404,6 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
 
   Future<void> cancelRecording() async {
     try {
-      _realtimeTimeoutTimer?.cancel();
-      _realtimeTimeoutTimer = null;
       _amplitudeSubscription?.cancel();
       _durationSubscription?.cancel();
       _realtimeSubscription?.cancel();
