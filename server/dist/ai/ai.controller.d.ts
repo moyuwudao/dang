@@ -24,8 +24,8 @@ export declare class AiController {
             totalTokens: any;
             tokenConsumed: number;
             costYuan: number;
-            balanceRemaining: number;
-            freeTokensRemaining: number;
+            quotaRemaining: number;
+            rechargeRemaining: number;
         };
     }>;
     transcribe(req: any, body: {
@@ -46,8 +46,8 @@ export declare class AiController {
             totalTokens: any;
             tokenConsumed: number;
             costYuan: number;
-            balanceRemaining: number;
-            freeTokensRemaining: number;
+            quotaRemaining: number;
+            rechargeRemaining: number;
         };
     }>;
     getUsage(req: any, startDate?: string, endDate?: string): Promise<{
@@ -64,8 +64,37 @@ export declare class AiController {
                 promptTokens: number;
                 completionTokens: number;
                 tokenConsumed: number;
+                apiCoefficient: number;
+                costYuan: number;
                 createdAt: Date;
             }[];
+        };
+    }>;
+    reportUsage(req: any, body: {
+        provider: string;
+        model: string;
+        promptTokens: number;
+        completionTokens: number;
+        featureType?: string;
+    }): Promise<{
+        code: number;
+        message: string;
+        data: {
+            tokenConsumed: number;
+            costYuan?: undefined;
+            quotaRemaining?: undefined;
+            rechargeRemaining?: undefined;
+            success?: undefined;
+        };
+    } | {
+        code: number;
+        message: string;
+        data: {
+            tokenConsumed: number;
+            costYuan: number;
+            quotaRemaining: number;
+            rechargeRemaining: number;
+            success: boolean;
         };
     }>;
 }

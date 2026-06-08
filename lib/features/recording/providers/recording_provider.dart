@@ -264,6 +264,8 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
     }
   }
 
+  Timer? _realtimeTimeoutTimer;
+
   void _startRealtimeTranscription() {
     try {
       AppLogger().i('Realtime', '=== _startRealtimeTranscription CALLED ===');
@@ -289,11 +291,24 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
             AppLogger().w('Realtime', '实时转写连接断开: $detail');
             state = AsyncData(state.valueOrNull!.copyWith(
               isRealtimeEnabled: false,
-              error: '实时转写已断开，录音完成后将自动离线转写',
+              // 不再显示错误提示，用户无感知
             ));
           }
         },
       );
+
+      // 【关键】9分钟后主动断开实时转写，避免服务端10分钟超时导致的问题
+      // 断开前保存已转写内容，录音继续，后续走离线转写
+      _realtimeTimeoutTimer?.cancel();
+      _realtimeTimeoutTimer = Timer(const Duration(minutes: 9), () {
+        AppLogger().i('Realtime', '录音超过9分钟，主动断开实时转写，切换到离线模式');
+        _realtimeSubscription?.cancel();
+        _realtimeTimeoutTimer = null;
+        // 静默切换，用户无感知
+        state = AsyncData(state.valueOrNull!.copyWith(
+          isRealtimeEnabled: false,
+        ));
+      });
 
       _realtimeSubscription = realtimeStream.listen(
         (result) {
@@ -333,6 +348,8 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
 
   Future<void> stopRecording({List<String> tags = const []}) async {
     try {
+      _realtimeTimeoutTimer?.cancel();
+      _realtimeTimeoutTimer = null;
       await _amplitudeSubscription?.cancel();
       await _durationSubscription?.cancel();
       await _realtimeSubscription?.cancel();
@@ -409,6 +426,8 @@ class RecordingStateNotifier extends AsyncNotifier<RecordingState> {
 
   Future<void> cancelRecording() async {
     try {
+      _realtimeTimeoutTimer?.cancel();
+      _realtimeTimeoutTimer = null;
       _amplitudeSubscription?.cancel();
       _durationSubscription?.cancel();
       _realtimeSubscription?.cancel();

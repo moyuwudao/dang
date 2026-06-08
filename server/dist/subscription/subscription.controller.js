@@ -42,6 +42,9 @@ let SubscriptionController = class SubscriptionController {
     async getRechargeRecords(req) {
         return this.subscriptionService.getRechargeRecords(req.user.sub);
     }
+    async switchSubscription(req, subscriptionId) {
+        return this.subscriptionService.getSubscriptionById(req.user.sub, subscriptionId);
+    }
 };
 exports.SubscriptionController = SubscriptionController;
 __decorate([
@@ -101,6 +104,15 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], SubscriptionController.prototype, "getRechargeRecords", null);
+__decorate([
+    (0, common_1.Get)('switch/:subscriptionId'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('subscriptionId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], SubscriptionController.prototype, "switchSubscription", null);
 exports.SubscriptionController = SubscriptionController = __decorate([
     (0, common_1.Controller)('subscription'),
     __metadata("design:paramtypes", [subscription_service_1.SubscriptionService])

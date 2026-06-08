@@ -57,6 +57,16 @@ export declare class AdminService {
         success: boolean;
     }>;
     getPlans(): Promise<{
+        allowedModels: string[];
+        features: string[];
+        defaultConfigs: Record<string, string>;
+        apiPolicies: {
+            provider: string;
+            model?: string;
+            modelPattern?: string;
+            multiplier: number;
+            isAllowed?: boolean;
+        }[];
         description: string;
         id: string;
         name: string;
@@ -65,9 +75,21 @@ export declare class AdminService {
         durationDays: number;
         type: string;
         isActive: boolean;
-        allowedModels: string[];
+        isRecommended: boolean;
+        quotaType: string;
+        quotaValue: number;
     }[]>;
     createPlan(data: Partial<Plan>): Promise<{
+        allowedModels: string[];
+        features: string[];
+        defaultConfigs: Record<string, string>;
+        apiPolicies: {
+            provider: string;
+            model?: string;
+            modelPattern?: string;
+            multiplier: number;
+            isAllowed?: boolean;
+        }[];
         description: string;
         id: string;
         name: string;
@@ -76,9 +98,21 @@ export declare class AdminService {
         durationDays: number;
         type: string;
         isActive: boolean;
-        allowedModels: string[];
+        isRecommended: boolean;
+        quotaType: string;
+        quotaValue: number;
     }>;
     updatePlan(planId: string, data: Partial<Plan>): Promise<{
+        allowedModels: string[];
+        features: string[];
+        defaultConfigs: Record<string, string>;
+        apiPolicies: {
+            provider: string;
+            model?: string;
+            modelPattern?: string;
+            multiplier: number;
+            isAllowed?: boolean;
+        }[];
         description: string;
         id: string;
         name: string;
@@ -87,23 +121,27 @@ export declare class AdminService {
         durationDays: number;
         type: string;
         isActive: boolean;
-        allowedModels: string[];
+        isRecommended: boolean;
+        quotaType: string;
+        quotaValue: number;
     }>;
     deletePlan(planId: string): Promise<{
         success: boolean;
     }>;
     getSubscriptions(page?: number, limit?: number, status?: string): Promise<{
         items: {
-            id: string;
-            userId: string;
-            planId: string;
-            status: string;
-            startedAt: Date;
-            expiresAt: Date;
-            tokenQuota: number;
-            usedTokens: number;
-            balanceTokens: number;
-            createdAt: Date;
+            id: any;
+            userId: any;
+            userPhone: any;
+            userNickname: any;
+            planId: any;
+            status: any;
+            startedAt: any;
+            expiresAt: any;
+            tokenQuota: any;
+            usedTokens: any;
+            balanceTokens: any;
+            createdAt: any;
         }[];
         total: number;
         page: number;
@@ -139,8 +177,8 @@ export declare class AdminService {
         status: string;
         startedAt: Date;
         expiresAt: Date;
-        tokenQuota: number;
-        usedTokens: number;
+        totalQuota: number;
+        usedQuota: number;
     }>;
     getRevenueTrend(days?: number): Promise<any[]>;
     getApiUsageLogs(page?: number, limit?: number, userId?: string, provider?: string): Promise<{

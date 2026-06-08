@@ -348,22 +348,16 @@ final cloudUsageProvider =
   (ref) => CloudUsageNotifier(),
 );
 
-/// 自动初始化：登录后自动加载缓存 + 按需刷新
+/// 云端用量 Provider（仅登录后可用）
+///
+/// 【重要】不再自动刷新！
+/// 原因：用量统计以本地为主，云端仅作参考。
+/// 频繁请求服务端会造成不必要的负载。
+/// 刷新方式：
+///   1. 用户进入用量页面时手动加载缓存
+///   2. 用户点击"刷新"按钮时手动请求服务端
+///   3. 每次录音/AI调用后，本地统计实时更新（不走服务端）
 final cloudUsageAutoProvider = Provider<CloudUsageState>((ref) {
-  final authState = ref.watch(authNotifierProvider).valueOrNull;
-  final cloudUsage = ref.watch(cloudUsageProvider);
-
-  // 登录后自动初始化
-  if (authState?.isLoggedIn == true) {
-    Future.microtask(() {
-      final notifier = ref.read(cloudUsageProvider.notifier);
-      if (cloudUsage.lastFetchedAt == null) {
-        notifier.loadCache().then((_) => notifier.fetchIfNeeded());
-      } else if (cloudUsage.needsRefresh) {
-        notifier.fetchIfNeeded();
-      }
-    });
-  }
-
-  return cloudUsage;
+  // 仅透传状态，不再自动触发任何请求
+  return ref.watch(cloudUsageProvider);
 });

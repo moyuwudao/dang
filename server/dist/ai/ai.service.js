@@ -85,8 +85,8 @@ let AiService = class AiService {
                     totalTokens,
                     tokenConsumed: billingResult.tokenConsumed,
                     costYuan: billingResult.costYuan,
-                    balanceRemaining: billingResult.balanceRemaining,
-                    freeTokensRemaining: billingResult.freeTokensRemaining,
+                    quotaRemaining: billingResult.quotaRemaining,
+                    rechargeRemaining: billingResult.rechargeRemaining,
                 },
             };
         }
@@ -128,6 +128,8 @@ let AiService = class AiService {
                     promptTokens: log.promptTokens,
                     completionTokens: log.completionTokens,
                     tokenConsumed: log.tokenConsumed,
+                    apiCoefficient: log.apiCoefficient,
+                    costYuan: log.costYuan,
                     createdAt: log.createdAt,
                 })),
             },
@@ -180,6 +182,30 @@ let AiService = class AiService {
             completionTokens: tokens,
         });
         return result.tokenConsumed || tokens;
+    }
+    async reportUsage(userId, params) {
+        const totalTokens = params.promptTokens + params.completionTokens;
+        if (totalTokens <= 0) {
+            return { code: 200, message: 'no tokens consumed', data: { tokenConsumed: 0 } };
+        }
+        const billingResult = await this.tokenBillingService.consumeToken(userId, {
+            provider: params.provider,
+            model: params.model,
+            rawAmount: totalTokens,
+            promptTokens: params.promptTokens,
+            completionTokens: params.completionTokens,
+        });
+        return {
+            code: 200,
+            message: billingResult.success ? 'success' : billingResult.message,
+            data: {
+                tokenConsumed: billingResult.tokenConsumed,
+                costYuan: billingResult.costYuan,
+                quotaRemaining: billingResult.quotaRemaining,
+                rechargeRemaining: billingResult.rechargeRemaining,
+                success: billingResult.success,
+            },
+        };
     }
 };
 exports.AiService = AiService;

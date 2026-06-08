@@ -15,4 +15,5 @@ export declare class CreateApiKeyDto {
     expiresAt?: string;
     isDefault?: boolean;
     allowedIpRanges?: string;
+    supportedFeatures?: string[];
 }

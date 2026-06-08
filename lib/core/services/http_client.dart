@@ -256,7 +256,9 @@ class HttpClient {
   ///   :generateContent   → Gemini，响应无 usage，需估算
   ///   /audio/transcriptions → Whisper，响应无 usage，需估算
   void _tryReportUsage(String path, dynamic responseData, dynamic requestData) {
-    if (!_isCloudConfig || onUsageReport == null) return;
+    // 【关键】无论本地API还是云端API，都计入用量统计
+    // 本地统计以客户端实际调用为准，不依赖服务端
+    if (onUsageReport == null) return;
     try {
       // 匹配所有 AI API 路径
       final isAiPath = path.contains('/chat/completions') ||

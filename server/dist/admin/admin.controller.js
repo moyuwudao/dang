@@ -175,8 +175,8 @@ let AdminController = class AdminController {
             data: results,
         };
     }
-    async testApiKey(id) {
-        const result = await this.apiKeyService.testApiKey(id);
+    async testApiKey(id, dto) {
+        const result = await this.apiKeyService.testApiKey(id, dto);
         return result;
     }
     async updateApiKey(id, dto) {
@@ -475,8 +475,9 @@ __decorate([
 __decorate([
     (0, common_1.Post)('api-keys/:id/test'),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, dto_1.TestApiKeyDto]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "testApiKey", null);
 __decorate([

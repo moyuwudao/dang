@@ -23,8 +23,8 @@ let ApiKeyController = class ApiKeyController {
     constructor(apiKeyService) {
         this.apiKeyService = apiKeyService;
     }
-    async getApiKey(req) {
-        return this.apiKeyService.getApiKey(req.user.sub);
+    async getApiKey(req, provider) {
+        return this.apiKeyService.getApiKey(req.user.sub, provider);
     }
     async refreshApiKey(req) {
         return this.apiKeyService.refreshApiKey(req.user.sub);
@@ -67,8 +67,8 @@ let ApiKeyController = class ApiKeyController {
     async deleteApiKey(id) {
         return this.apiKeyService.deleteApiKey(id);
     }
-    async testApiKey(id) {
-        return this.apiKeyService.testApiKey(id);
+    async testApiKey(id, dto) {
+        return this.apiKeyService.testApiKey(id, dto);
     }
 };
 exports.ApiKeyController = ApiKeyController;
@@ -77,8 +77,9 @@ __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.UseInterceptors)(rate_limit_interceptor_1.RateLimitInterceptor),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('provider')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], ApiKeyController.prototype, "getApiKey", null);
 __decorate([
@@ -155,8 +156,9 @@ __decorate([
     (0, common_1.Post)('admin/:id/test'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, admin_guard_1.AdminGuard),
     __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, dto_1.TestApiKeyDto]),
     __metadata("design:returntype", Promise)
 ], ApiKeyController.prototype, "testApiKey", null);
 exports.ApiKeyController = ApiKeyController = __decorate([

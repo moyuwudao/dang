@@ -30,6 +30,9 @@ let AiController = class AiController {
     async getUsage(req, startDate, endDate) {
         return this.aiService.getUsage(req.user.sub, startDate, endDate);
     }
+    async reportUsage(req, body) {
+        return this.aiService.reportUsage(req.user.sub, body);
+    }
 };
 exports.AiController = AiController;
 __decorate([
@@ -62,6 +65,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", Promise)
 ], AiController.prototype, "getUsage", null);
+__decorate([
+    (0, common_1.Post)('report-usage'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "reportUsage", null);
 exports.AiController = AiController = __decorate([
     (0, common_1.Controller)('ai'),
     __metadata("design:paramtypes", [ai_service_1.AiService])

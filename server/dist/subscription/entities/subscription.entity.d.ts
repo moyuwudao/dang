@@ -7,9 +7,8 @@ export declare class Subscription {
     status: string;
     startedAt: Date;
     expiresAt: Date;
-    tokenQuota: number;
-    usedTokens: number;
-    balanceTokens: number;
+    totalQuota: number;
+    usedQuota: number;
     type: string;
     createdAt: Date;
     updatedAt: Date;

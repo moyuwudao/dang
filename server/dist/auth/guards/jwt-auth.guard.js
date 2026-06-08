@@ -21,7 +21,9 @@ let JwtAuthGuard = class JwtAuthGuard {
             { path: '/auth/login', method: 'POST' },
             { path: '/auth/register', method: 'POST' },
             { path: '/auth/refresh', method: 'POST' },
-            { path: '/auth/send-verification-code', method: 'POST' },
+            { path: '/auth/send-sms-code', method: 'POST' },
+            { path: '/auth/sms-login', method: 'POST' },
+            { path: '/auth/captcha', method: 'GET' },
             { path: '/health', method: 'GET' },
         ];
     }

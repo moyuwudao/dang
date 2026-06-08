@@ -40,11 +40,11 @@ let SmsService = class SmsService {
             throw new common_1.InternalServerErrorException('短信发送失败');
         }
     }
-    async sendVerificationCode(phone) {
+    async sendVerificationCode(phone, code) {
         if (!this.accessKeyId || !this.accessKeySecret || !this.signName || !this.templateCode) {
             throw new common_1.BadRequestException('短信服务未配置');
         }
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const finalCode = code || Math.floor(100000 + Math.random() * 900000).toString();
         const params = {
             AccessKeyId: this.accessKeyId,
             Action: 'SendSms',
@@ -56,7 +56,7 @@ let SmsService = class SmsService {
             SignatureNonce: Date.now().toString() + Math.random().toString(36).substr(2, 9),
             SignatureVersion: '1.0',
             TemplateCode: this.templateCode,
-            TemplateParam: JSON.stringify({ code }),
+            TemplateParam: JSON.stringify({ code: finalCode }),
             Timestamp: new Date().toISOString(),
             Version: '2017-05-25',
         };

@@ -7,5 +7,17 @@ export declare class Plan {
     durationDays: number;
     type: string;
     isActive: boolean;
-    allowedModels: string[];
+    isRecommended: boolean;
+    quotaType: string;
+    quotaValue: number;
+    features: string;
+    allowedModels: string;
+    defaultConfigs: Record<string, string>;
+    apiPolicies: Array<{
+        provider: string;
+        model?: string;
+        modelPattern?: string;
+        multiplier: number;
+        isAllowed?: boolean;
+    }>;
 }

@@ -87,4 +87,10 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateApiKeyDto.prototype, "allowedIpRanges", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], CreateApiKeyDto.prototype, "supportedFeatures", void 0);
 //# sourceMappingURL=create-api-key.dto.js.map

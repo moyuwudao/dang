@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { ApiKey, ApiKeyProvider, ApiKeyStatus, ApiKeyScope } from './entities/api-key.entity';
 import { UserApiKey } from './entities/user-api-key.entity';
-import { CreateApiKeyDto } from './dto';
+import { CreateApiKeyDto, TestApiKeyDto } from './dto';
 import { HttpService } from '@nestjs/axios';
 import { RedisService } from '../redis/redis.service';
 export declare class ApiKeyService {
@@ -14,7 +14,7 @@ export declare class ApiKeyService {
     private readonly KEY_USAGE_PREFIX;
     private readonly CACHE_TTL;
     constructor(apiKeyRepository: Repository<ApiKey>, userApiKeyRepository: Repository<UserApiKey>, httpService: HttpService, redisService: RedisService);
-    getApiKey(userId: string): Promise<{
+    getApiKey(userId: string, preferredProvider?: string): Promise<{
         code: number;
         message: string;
         data: {
@@ -58,6 +58,7 @@ export declare class ApiKeyService {
             model: string;
             status: ApiKeyStatus;
             scopes: ApiKeyScope[];
+            supportedFeatures: string[];
             rateLimitPerMin: number;
             maxConcurrentRequests: number;
             dailyQuota: number;
@@ -112,29 +113,19 @@ export declare class ApiKeyService {
         message: string;
         data: any;
     }>;
-    testApiKey(id: string): Promise<{
+    testApiKey(id: string, dto?: TestApiKeyDto): Promise<{
         code: number;
         message: string;
-        data: {
-            status: string;
-            provider: ApiKeyProvider;
-            model: string;
-            responseTime: number;
-            details: any;
-            error?: undefined;
-        };
-    } | {
-        code: number;
-        message: string;
-        data: {
-            status: string;
-            provider: ApiKeyProvider;
-            model: string;
-            error: any;
-            responseTime?: undefined;
-            details?: undefined;
-        };
+        data: any;
     }>;
+    private performFeatureTest;
+    private testTextFeature;
+    private testTranscriptionFeature;
+    private testRealtimeFeature;
+    private testImageFeature;
+    private queryBalance;
+    private getChatCompletionsUrl;
+    private getAuthHeaders;
     getHealthyModels(): Promise<{
         code: number;
         message: string;

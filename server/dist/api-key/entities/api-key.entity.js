@@ -128,6 +128,10 @@ __decorate([
     __metadata("design:type", String)
 ], ApiKey.prototype, "allowedIpRanges", void 0);
 __decorate([
+    (0, typeorm_1.Column)('jsonb', { name: 'supported_features', default: () => "'[]'::jsonb" }),
+    __metadata("design:type", Array)
+], ApiKey.prototype, "supportedFeatures", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], ApiKey.prototype, "createdAt", void 0);

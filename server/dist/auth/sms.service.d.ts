@@ -6,5 +6,5 @@ export declare class SmsService {
     constructor();
     private generateSignature;
     private sendRequest;
-    sendVerificationCode(phone: string): Promise<boolean>;
+    sendVerificationCode(phone: string, code?: string): Promise<boolean>;
 }

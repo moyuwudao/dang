@@ -47,9 +47,33 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Plan.prototype, "isActive", void 0);
 __decorate([
-    (0, typeorm_1.Column)('simple-array', { name: 'allowed_models', nullable: true }),
-    __metadata("design:type", Array)
+    (0, typeorm_1.Column)({ name: 'isRecommended', default: false }),
+    __metadata("design:type", Boolean)
+], Plan.prototype, "isRecommended", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'quotaType', default: 'minutes' }),
+    __metadata("design:type", String)
+], Plan.prototype, "quotaType", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'quotaValue', nullable: true }),
+    __metadata("design:type", Number)
+], Plan.prototype, "quotaValue", void 0);
+__decorate([
+    (0, typeorm_1.Column)('text', { name: 'features', nullable: true }),
+    __metadata("design:type", String)
+], Plan.prototype, "features", void 0);
+__decorate([
+    (0, typeorm_1.Column)('text', { name: 'allowed_models', nullable: true }),
+    __metadata("design:type", String)
 ], Plan.prototype, "allowedModels", void 0);
+__decorate([
+    (0, typeorm_1.Column)('jsonb', { name: 'default_configs', default: () => "'{}'::jsonb" }),
+    __metadata("design:type", Object)
+], Plan.prototype, "defaultConfigs", void 0);
+__decorate([
+    (0, typeorm_1.Column)('jsonb', { name: 'api_policies', default: () => "'[]'::jsonb" }),
+    __metadata("design:type", Array)
+], Plan.prototype, "apiPolicies", void 0);
 exports.Plan = Plan = __decorate([
     (0, typeorm_1.Entity)('plans')
 ], Plan);

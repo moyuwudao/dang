@@ -11,14 +11,17 @@ import '../providers/daily_usage_provider.dart';
 import '../providers/multi_api_pools_provider.dart';
 
 /// ============================================================================
-/// 用量统计 Tab（方案B：云端为主 + 本地折叠）
+/// 用量统计 Tab（本地为主 + 云端参考）
+///
+/// 【重要】策略变更：
+///   - 本地统计是主数据源，实时、准确、不依赖网络
+///   - 云端统计仅作参考，需手动刷新，不自动请求服务端
+///   - 所有 API 调用（本地Key + 云端Key）都计入本地统计
 ///
 /// 展示逻辑：
-///   1. 主区域：云端计费数据（登录后可用，标注"以云端计费为准"）
-///   2. 折叠区：本地统计数据（始终可用，标注"仅供参考"）
-///   3. 来源标注：每个 Provider 标注云端/本地 + 是否计费
-///   4. 刷新：自动5分钟 + 手动刷新按钮
-///   5. 离线降级：无云端数据时主区域展示本地数据
+///   1. 主区域：本地统计数据（始终可用，实时更新）
+///   2. 副区域：云端计费数据（登录后手动刷新，标注"以云端为准"）
+///   3. 来源标注：每个 Provider 标注本地/云端 + 是否计费
 /// ============================================================================
 class UsageTab extends ConsumerStatefulWidget {
   const UsageTab({super.key});
@@ -31,6 +34,15 @@ class _UsageTabState extends ConsumerState<UsageTab> {
   bool _showLocalStats = false;
 
   @override
+  void initState() {
+    super.initState();
+    // 页面初始化时加载本地缓存（不触发网络请求）
+    Future.microtask(() {
+      ref.read(dailyUsageProvider.notifier).load();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider).valueOrNull;
     final isLoggedIn = authState?.isLoggedIn == true;
@@ -40,26 +52,14 @@ class _UsageTabState extends ConsumerState<UsageTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // ===== 主区域：云端计费统计 =====
-        if (isLoggedIn && !cloudUsage.isLoading || cloudUsage.summary.logs.isNotEmpty)
-          _buildCloudSection(context, cloudUsage)
-        else if (isLoggedIn && cloudUsage.isLoading && cloudUsage.summary.logs.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
-            ),
-          ),
-
-        // ===== 离线/未登录降级：本地统计作为主展示 =====
-        if (!isLoggedIn || (cloudUsage.summary.logs.isEmpty && !cloudUsage.isLoading))
-          _buildLocalAsMainSection(context, localUsage, isLoggedIn),
+        // ===== 主区域：本地统计（始终展示，实时更新） =====
+        _buildLocalAsMainSection(context, localUsage, isLoggedIn),
 
         const SizedBox(height: 16),
 
-        // ===== 折叠区：本地统计（登录后折叠，未登录时已展示） =====
-        if (isLoggedIn && cloudUsage.summary.logs.isNotEmpty) ...[
-          _buildLocalStatsCollapsible(context, localUsage),
+        // ===== 副区域：云端计费统计（登录后展示，需手动刷新） =====
+        if (isLoggedIn) ...[
+          _buildCloudSection(context, cloudUsage),
           const SizedBox(height: 16),
         ],
 
@@ -153,7 +153,7 @@ class _UsageTabState extends ConsumerState<UsageTab> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                isLoggedIn ? '本地统计（离线模式）' : '本地统计',
+                isLoggedIn ? '本地用量统计' : '本地用量统计',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),

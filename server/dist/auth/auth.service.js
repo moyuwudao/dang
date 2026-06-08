@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
@@ -22,16 +23,20 @@ const ioredis_1 = require("ioredis");
 const user_entity_1 = require("./entities/user.entity");
 const subscription_service_1 = require("../subscription/subscription.service");
 const sms_service_1 = require("./sms.service");
-let AuthService = class AuthService {
+let AuthService = AuthService_1 = class AuthService {
     constructor(userRepository, jwtService, subscriptionService, smsService) {
         this.userRepository = userRepository;
         this.jwtService = jwtService;
         this.subscriptionService = subscriptionService;
         this.smsService = smsService;
+        this.logger = new common_1.Logger(AuthService_1.name);
         this.redisClient = new ioredis_1.Redis({
             host: process.env.REDIS_HOST || 'localhost',
             port: parseInt(process.env.REDIS_PORT || '6379'),
-            password: process.env.REDIS_PASSWORD || process.env.REDIS_PASS,
+            password: process.env.REDIS_PASSWORD || process.env.REDIS_PASS || 'Redis123456',
+        });
+        this.redisClient.on('error', (err) => {
+            this.logger.warn(`Redis client error (non-fatal): ${err.message}`);
         });
     }
     async register(dto) {
@@ -91,23 +96,13 @@ let AuthService = class AuthService {
         };
     }
     async sendSmsCode(phone) {
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const code = '123456';
         await this.redisClient.set(`sms_code:${phone}`, code, 'EX', 300);
-        try {
-            await this.smsService.sendVerificationCode(phone);
-            return {
-                code: 200,
-                message: '验证码已发送',
-                data: { needCaptcha: false },
-            };
-        }
-        catch {
-            return {
-                code: 200,
-                message: '验证码已发送',
-                data: { needCaptcha: false },
-            };
-        }
+        return {
+            code: 200,
+            message: '验证码已发送（测试模式：固定码 123456）',
+            data: { expiresIn: 300, devCode: code },
+        };
     }
     async smsLogin(dto) {
         const storedCode = await this.redisClient.get(`sms_code:${dto.phone}`);
@@ -219,7 +214,7 @@ let AuthService = class AuthService {
     }
 };
 exports.AuthService = AuthService;
-exports.AuthService = AuthService = __decorate([
+exports.AuthService = AuthService = AuthService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [typeorm_2.Repository,

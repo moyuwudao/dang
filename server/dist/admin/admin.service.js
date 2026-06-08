@@ -111,15 +111,18 @@ let AdminService = class AdminService {
             totalTokens: 0,
             usedTokens: 0,
             balanceTokens: 0,
-            freeTokensRemaining: 500,
+            freeTokensRemaining: 0,
         });
         await this.userTokenBalanceRepo.save(balance);
+        const trialPlan = await this.planService.getPlanById('trial');
+        const trialQuota = trialPlan?.tokenQuota || 100000;
+        const trialDays = trialPlan?.durationDays || 15;
         const now = new Date();
-        const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const expiresAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
         await this.subscriptionService.createTrialSubscription(user.id, {
             planId: 'trial',
-            planName: '新手体验包',
-            totalQuota: 100,
+            planName: trialPlan?.name || '新手体验包',
+            totalQuota: trialQuota,
             usedQuota: 0,
             expiresAt,
         });
@@ -150,26 +153,36 @@ let AdminService = class AdminService {
     }
     async getSubscriptions(page = 1, limit = 20, status) {
         const qb = this.subscriptionRepo.createQueryBuilder('s')
+            .leftJoin('users', 'u', 'u.id = s."userId"')
+            .addSelect(['u.phone AS "userPhone"', 'u.nickname AS "userNickname"'])
             .orderBy('s.createdAt', 'DESC')
             .skip((page - 1) * limit)
             .take(limit);
         if (status) {
             qb.where('s.status = :status', { status });
         }
-        const [subscriptions, total] = await qb.getManyAndCount();
+        const countQb = this.subscriptionRepo.createQueryBuilder('s');
+        if (status) {
+            countQb.where('s.status = :status', { status });
+        }
+        const total = await countQb.getCount();
+        const raws = await qb.getRawMany();
+        const items = raws.map((r) => ({
+            id: r.s_id,
+            userId: r.s_userId,
+            userPhone: r.userPhone || null,
+            userNickname: r.userNickname || null,
+            planId: r.s_planId,
+            status: r.s_status,
+            startedAt: r.s_startedAt,
+            expiresAt: r.s_expiresAt,
+            tokenQuota: r.s_tokenQuota,
+            usedTokens: r.s_usedTokens,
+            balanceTokens: r.s_balanceTokens,
+            createdAt: r.s_createdAt,
+        }));
         return {
-            items: subscriptions.map(s => ({
-                id: s.id,
-                userId: s.userId,
-                planId: s.planId,
-                status: s.status,
-                startedAt: s.startedAt,
-                expiresAt: s.expiresAt,
-                tokenQuota: s.tokenQuota,
-                usedTokens: s.usedTokens,
-                balanceTokens: s.balanceTokens,
-                createdAt: s.createdAt,
-            })),
+            items,
             total,
             page,
             totalPages: Math.ceil(total / limit),
@@ -251,9 +264,8 @@ let AdminService = class AdminService {
             status: 'active',
             startedAt: now,
             expiresAt,
-            tokenQuota: plan.tokenQuota || 0,
-            usedTokens: 0,
-            balanceTokens: plan.tokenQuota || 0,
+            totalQuota: plan.tokenQuota || 0,
+            usedQuota: 0,
             type: plan.type || 'monthly',
         });
         await this.subscriptionRepo.save(subscription);
@@ -267,8 +279,8 @@ let AdminService = class AdminService {
             status: 'active',
             startedAt: now,
             expiresAt,
-            tokenQuota: plan.tokenQuota || 0,
-            usedTokens: 0,
+            totalQuota: plan.tokenQuota || 0,
+            usedQuota: 0,
         };
     }
     async getRevenueTrend(days = 7) {
@@ -343,7 +355,7 @@ let AdminService = class AdminService {
                 totalTokens: amount,
                 usedTokens: 0,
                 balanceTokens: amount,
-                freeTokensRemaining: 500,
+                freeTokensRemaining: 0,
             });
         }
         else {

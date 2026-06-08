@@ -24,6 +24,7 @@ const recharge_record_entity_1 = require("../subscription/entities/recharge-reco
 const api_usage_log_entity_1 = require("../subscription/entities/api-usage-log.entity");
 const token_pricing_entity_1 = require("../subscription/entities/token-pricing.entity");
 const api_config_entity_1 = require("../subscription/entities/api-config.entity");
+const user_token_balance_entity_1 = require("../subscription/entities/user-token-balance.entity");
 const plan_entity_1 = require("../subscription/entities/plan.entity");
 const audit_log_entity_1 = require("./entities/audit-log.entity");
 let AdminModule = class AdminModule {
@@ -40,6 +41,7 @@ exports.AdminModule = AdminModule = __decorate([
                 api_usage_log_entity_1.ApiUsageLog,
                 token_pricing_entity_1.TokenPricing,
                 api_config_entity_1.ApiConfig,
+                user_token_balance_entity_1.UserTokenBalance,
                 plan_entity_1.Plan,
                 audit_log_entity_1.AuditLog,
             ]),

@@ -1,9 +1,9 @@
 import { ApiKeyService } from './api-key.service';
-import { CreateApiKeyDto } from './dto';
+import { CreateApiKeyDto, TestApiKeyDto } from './dto';
 export declare class ApiKeyController {
     private readonly apiKeyService;
     constructor(apiKeyService: ApiKeyService);
-    getApiKey(req: any): Promise<{
+    getApiKey(req: any, provider?: string): Promise<{
         code: number;
         message: string;
         data: {
@@ -36,6 +36,7 @@ export declare class ApiKeyController {
             model: string;
             status: import("./entities/api-key.entity").ApiKeyStatus;
             scopes: import("./entities/api-key.entity").ApiKeyScope[];
+            supportedFeatures: string[];
             rateLimitPerMin: number;
             maxConcurrentRequests: number;
             dailyQuota: number;
@@ -125,27 +126,9 @@ export declare class ApiKeyController {
         message: string;
         data: any;
     }>;
-    testApiKey(id: string): Promise<{
+    testApiKey(id: string, dto?: TestApiKeyDto): Promise<{
         code: number;
         message: string;
-        data: {
-            status: string;
-            provider: import("./entities/api-key.entity").ApiKeyProvider;
-            model: string;
-            responseTime: number;
-            details: any;
-            error?: undefined;
-        };
-    } | {
-        code: number;
-        message: string;
-        data: {
-            status: string;
-            provider: import("./entities/api-key.entity").ApiKeyProvider;
-            model: string;
-            error: any;
-            responseTime?: undefined;
-            details?: undefined;
-        };
+        data: any;
     }>;
 }

@@ -3,12 +3,14 @@ import { ApiConfig } from '../entities/api-config.entity';
 import { TokenPricing } from '../entities/token-pricing.entity';
 import { UserTokenBalance } from '../entities/user-token-balance.entity';
 import { ApiUsageLog } from '../entities/api-usage-log.entity';
+import { Subscription } from '../entities/subscription.entity';
+import { Plan } from '../entities/plan.entity';
 export interface ConsumeTokenResult {
     success: boolean;
     tokenConsumed: number;
     costYuan: number;
-    balanceRemaining: number;
-    freeTokensRemaining: number;
+    quotaRemaining: number;
+    rechargeRemaining: number;
     message?: string;
 }
 export interface TokenUsageMetadata {
@@ -23,7 +25,9 @@ export declare class TokenBillingService {
     private pricingRepo;
     private balanceRepo;
     private usageLogRepo;
-    constructor(apiConfigRepo: Repository<ApiConfig>, pricingRepo: Repository<TokenPricing>, balanceRepo: Repository<UserTokenBalance>, usageLogRepo: Repository<ApiUsageLog>);
+    private subscriptionRepo;
+    private planRepo;
+    constructor(apiConfigRepo: Repository<ApiConfig>, pricingRepo: Repository<TokenPricing>, balanceRepo: Repository<UserTokenBalance>, usageLogRepo: Repository<ApiUsageLog>, subscriptionRepo: Repository<Subscription>, planRepo: Repository<Plan>);
     consumeToken(userId: string, metadata: TokenUsageMetadata): Promise<ConsumeTokenResult>;
     getOrCreateBalance(userId: string): Promise<UserTokenBalance>;
     rechargeTokens(userId: string, tokens: number): Promise<UserTokenBalance>;

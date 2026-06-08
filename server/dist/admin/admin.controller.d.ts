@@ -3,7 +3,7 @@ import { PlanService } from '../plan/plan.service';
 import { ApiKeyService } from '../api-key/api-key.service';
 import { MonitorService } from '../monitor/monitor.service';
 import { MetricsService } from '../monitor/metrics.service';
-import { CreateApiKeyDto } from '../api-key/dto';
+import { CreateApiKeyDto, TestApiKeyDto } from '../api-key/dto';
 export declare class AdminController {
     private readonly adminService;
     private readonly planService;
@@ -65,6 +65,16 @@ export declare class AdminController {
         code: number;
         message: string;
         data: {
+            allowedModels: string[];
+            features: string[];
+            defaultConfigs: Record<string, string>;
+            apiPolicies: {
+                provider: string;
+                model?: string;
+                modelPattern?: string;
+                multiplier: number;
+                isAllowed?: boolean;
+            }[];
             description: string;
             id: string;
             name: string;
@@ -73,13 +83,25 @@ export declare class AdminController {
             durationDays: number;
             type: string;
             isActive: boolean;
-            allowedModels: string[];
+            isRecommended: boolean;
+            quotaType: string;
+            quotaValue: number;
         }[];
     }>;
     getPlanById(id: string): Promise<{
         code: number;
         message: string;
         data: {
+            allowedModels: string[];
+            features: string[];
+            defaultConfigs: Record<string, string>;
+            apiPolicies: {
+                provider: string;
+                model?: string;
+                modelPattern?: string;
+                multiplier: number;
+                isAllowed?: boolean;
+            }[];
             description: string;
             id: string;
             name: string;
@@ -88,13 +110,25 @@ export declare class AdminController {
             durationDays: number;
             type: string;
             isActive: boolean;
-            allowedModels: string[];
+            isRecommended: boolean;
+            quotaType: string;
+            quotaValue: number;
         };
     }>;
     createPlan(data: any): Promise<{
         code: number;
         message: string;
         data: {
+            allowedModels: string[];
+            features: string[];
+            defaultConfigs: Record<string, string>;
+            apiPolicies: {
+                provider: string;
+                model?: string;
+                modelPattern?: string;
+                multiplier: number;
+                isAllowed?: boolean;
+            }[];
             description: string;
             id: string;
             name: string;
@@ -103,13 +137,25 @@ export declare class AdminController {
             durationDays: number;
             type: string;
             isActive: boolean;
-            allowedModels: string[];
+            isRecommended: boolean;
+            quotaType: string;
+            quotaValue: number;
         };
     }>;
     updatePlan(id: string, data: any): Promise<{
         code: number;
         message: string;
         data: {
+            allowedModels: string[];
+            features: string[];
+            defaultConfigs: Record<string, string>;
+            apiPolicies: {
+                provider: string;
+                model?: string;
+                modelPattern?: string;
+                multiplier: number;
+                isAllowed?: boolean;
+            }[];
             description: string;
             id: string;
             name: string;
@@ -118,7 +164,9 @@ export declare class AdminController {
             durationDays: number;
             type: string;
             isActive: boolean;
-            allowedModels: string[];
+            isRecommended: boolean;
+            quotaType: string;
+            quotaValue: number;
         };
     }>;
     deletePlan(id: string): Promise<{
@@ -131,16 +179,18 @@ export declare class AdminController {
         message: string;
         data: {
             items: {
-                id: string;
-                userId: string;
-                planId: string;
-                status: string;
-                startedAt: Date;
-                expiresAt: Date;
-                tokenQuota: number;
-                usedTokens: number;
-                balanceTokens: number;
-                createdAt: Date;
+                id: any;
+                userId: any;
+                userPhone: any;
+                userNickname: any;
+                planId: any;
+                status: any;
+                startedAt: any;
+                expiresAt: any;
+                tokenQuota: any;
+                usedTokens: any;
+                balanceTokens: any;
+                createdAt: any;
             }[];
             total: number;
             page: number;
@@ -172,8 +222,8 @@ export declare class AdminController {
             status: string;
             startedAt: Date;
             expiresAt: Date;
-            tokenQuota: number;
-            usedTokens: number;
+            totalQuota: number;
+            usedQuota: number;
         };
     }>;
     getRechargeRecords(page?: string, limit?: string): Promise<{
@@ -307,6 +357,7 @@ export declare class AdminController {
             model: string;
             status: import("../api-key/entities/api-key.entity").ApiKeyStatus;
             scopes: import("../api-key/entities/api-key.entity").ApiKeyScope[];
+            supportedFeatures: string[];
             rateLimitPerMin: number;
             maxConcurrentRequests: number;
             dailyQuota: number;
@@ -352,28 +403,10 @@ export declare class AdminController {
         message: string;
         data: any[];
     }>;
-    testApiKey(id: string): Promise<{
+    testApiKey(id: string, dto?: TestApiKeyDto): Promise<{
         code: number;
         message: string;
-        data: {
-            status: string;
-            provider: import("../api-key/entities/api-key.entity").ApiKeyProvider;
-            model: string;
-            responseTime: number;
-            details: any;
-            error?: undefined;
-        };
-    } | {
-        code: number;
-        message: string;
-        data: {
-            status: string;
-            provider: import("../api-key/entities/api-key.entity").ApiKeyProvider;
-            model: string;
-            error: any;
-            responseTime?: undefined;
-            details?: undefined;
-        };
+        data: any;
     }>;
     updateApiKey(id: string, dto: Partial<CreateApiKeyDto>): Promise<{
         code: number;

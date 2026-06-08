@@ -20,7 +20,7 @@ __decorate([
     __metadata("design:type", String)
 ], Subscription.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'user_id' }),
+    (0, typeorm_1.Column)(),
     __metadata("design:type", String)
 ], Subscription.prototype, "userId", void 0);
 __decorate([
@@ -28,7 +28,7 @@ __decorate([
     __metadata("design:type", user_entity_1.User)
 ], Subscription.prototype, "user", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'plan_id' }),
+    (0, typeorm_1.Column)(),
     __metadata("design:type", String)
 ], Subscription.prototype, "planId", void 0);
 __decorate([
@@ -36,35 +36,31 @@ __decorate([
     __metadata("design:type", String)
 ], Subscription.prototype, "status", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'started_at', type: 'timestamp' }),
+    (0, typeorm_1.Column)({ type: 'timestamp' }),
     __metadata("design:type", Date)
 ], Subscription.prototype, "startedAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'expires_at', type: 'timestamp' }),
+    (0, typeorm_1.Column)({ type: 'timestamp' }),
     __metadata("design:type", Date)
 ], Subscription.prototype, "expiresAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'token_quota', default: 0 }),
+    (0, typeorm_1.Column)({ default: 0 }),
     __metadata("design:type", Number)
-], Subscription.prototype, "tokenQuota", void 0);
+], Subscription.prototype, "totalQuota", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'used_tokens', default: 0 }),
+    (0, typeorm_1.Column)({ default: 0 }),
     __metadata("design:type", Number)
-], Subscription.prototype, "usedTokens", void 0);
+], Subscription.prototype, "usedQuota", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'balance_tokens', default: 0 }),
-    __metadata("design:type", Number)
-], Subscription.prototype, "balanceTokens", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ default: 'monthly' }),
+    (0, typeorm_1.Column)({ default: 'subscription' }),
     __metadata("design:type", String)
 ], Subscription.prototype, "type", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ name: 'created_at' }),
+    (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], Subscription.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ name: 'updated_at' }),
+    (0, typeorm_1.UpdateDateColumn)(),
     __metadata("design:type", Date)
 ], Subscription.prototype, "updatedAt", void 0);
 exports.Subscription = Subscription = __decorate([

@@ -22,6 +22,8 @@ description: 错误案例集锦 - 记录项目中遇到的典型问题及解决�
 | 11 | TypeORM 实体 snake_case 与 DB camelCase schema 不匹配 | 高 | ✅ 已解决 |
 | 12 | Admin passwordHash 字段 hash 写入截断（bcrypt 12 轮应 60 字符） | 中 | ⚠️ 临时解决 |
 | 13 | WSL 端 `/mnt/d/` 文件缓存延迟（write 后立即执行报 No such file） | 低 | ✅ 已识别 |
+| 14 | 重装后云端配置条目残留（版本标记检测失效） | 高 | ✅ 已解决 |
+| 15 | 服务器端核心文件被写入 shell 命令而非实际代码 | 高 | ✅ 已解决 |
 
 ---
 
@@ -658,6 +660,8 @@ Get-Item "d:\trae_projects\dang\changji_app_20260602_2255.apk" | Select-Object N
 
 | 日期 | 案例 | 更新内容 |
 |-----|------|---------|
+| 2026-06-06 | 案例 14-15 | 新增：重装后云端配置条目残留（版本标记检测失效→改用登录状态检测）、服务器端核心文件被写入 shell 命令而非实际代码 |
+| 2026-06-08 | 案例 16-17 | 新增：WSL PATH 含括号导致 `wsl bash -c "export PATH=..."` 报 syntax error（4 层解析链陷阱）、Flutter pub get 在 WSL 中下载极慢（pub.dev 镜像不可用） |
 | 2026-06-02 | 案例 9-10 | 新增：rsync --delete 误删 WSL 端签名配置（key.properties）、PowerShell 把 `$(date ...)` 误解析为 `$(Get-Date ...)` |
 | 2026-06-04 | 案例 11-13 | 新增：TypeORM 实体 snake_case 与 DB camelCase schema 不匹配（导致分配套餐 500）、Admin passwordHash 字段 hash 写入截断（临时解决）、WSL 端 `/mnt/d/` 文件缓存延迟 |
 | 2026-06-02 | 案例 7-8 | 新增：SSH 路径解析错误、API Key 分配不均问题 |
@@ -802,6 +806,300 @@ const r = await client.query({
 **预防**：
 - ⚠️ 涉及 `/mnt/d/` 路径的脚本执行时，前面加 `sleep 2`
 - ⚠️ 复杂命令链需要脚本化的，必须分步 sleep 等待
+
+---
+
+## 案例 14：重装后云端配置条目残留（版本标记检测失效）
+
+**问题描述**：
+- 用户卸载重装 APP 后，API 配置页面仍显示云端配置条目（如"通义千问 qwen-plus"等）
+- 期望行为：未登录时不应有云端配置，登录后才从服务器同步
+
+**错误现象**：
+- 重装后打开 APP → API 配置页面 → 仍显示云端条目
+- 即使 `_cleanupResidualCloudData()` 已实现，但清理逻辑未触发
+
+**根本原因**：
+- `_cleanupResidualCloudData()` 使用版本标记（`app_installed_version`）检测重装
+- 但某些 Android 设备重装后 SharedPreferences 不被清除，版本标记仍存在
+- 导致 `lastVersion != null`，清理逻辑不触发
+- 即使清理成功，登录后 `fetchSubscription()` → `_autoSyncCloudConfig()` → `CloudConfigSyncService.syncCloudDefaults()` 又从服务器同步回来
+
+**关键诊断**：
+```dart
+// 旧逻辑：依赖版本标记（不可靠）
+final lastVersion = prefs.getString('app_installed_version');
+if (lastVersion == null) {  // 某些设备重装后 SharedPreferences 不清除，这里不触发
+  // 清理云端配置...
+}
+```
+
+**解决方案**：
+- 改用**登录状态检测**替代版本标记
+- 检查 `cloud_access_token` 是否存在：
+  - **未登录**（无 token）→ 清除所有云端配置（SecureStorage + SharedPreferences 中的云端条目）
+  - **已登录**（有 token）→ 保留云端配置（登录时从服务器自动同步的）
+
+```dart
+// 新逻辑：依赖登录状态（可靠）
+final hasToken = prefs.getString('cloud_access_token') != null;
+if (!hasToken) {
+  // 未登录 → 清除云端配置
+  await SecureStorageService().delete('cloud_api_config');
+  await SecureStorageService().deleteCloudApiEnabled();
+  // 清除 multi_api_config_v2 中的云端条目...
+}
+```
+
+**预防措施**：
+- ⚠️ 不要依赖 SharedPreferences 的"重装后清除"行为——不同 Android 版本行为不一致
+- ⚠️ 清理逻辑应基于**业务状态**（如登录状态）而非**安装状态**
+- ⚠️ 云端配置的生命周期应与登录状态绑定：未登录=无云端配置，已登录=从服务器同步
+
+**影响文件**：
+- [main.dart](../../lib/main.dart) - `_cleanupResidualCloudData()` 方法
+
+---
+
+## 案例 15：服务器端核心文件被写入 shell 命令而非实际代码
+
+**问题描述**：
+- 验证码 123456 无法登录，API 返回 404 或其他异常
+- 服务器上 `auth.service.ts`、`api-key.service.ts`、`api-key.controller.ts` 等核心文件只有 1 行
+
+**错误现象**：
+```bash
+$ wc -l /home/admin/dang/server/src/auth/auth.service.ts
+1 /home/admin/dang/server/src/auth/auth.service.ts
+
+$ cat /home/admin/dang/server/src/auth/auth.service.ts
+$(cat /mnt/d/trae_projects/dang/server/src/auth/auth.service.ts)
+```
+
+**根本原因**：
+- 部署时通过 SSH 写入文件，使用了类似 `echo "$(cat /mnt/d/...)" > target` 的命令
+- 但 shell 执行时 `$(cat /mnt/d/...)` 被展开为文件内容，写入成功
+- 然而**某些情况下**（如 PowerShell 转义问题），`$(...)` 未被 shell 展开，而是作为字面字符串写入了文件
+- 结果：服务器上的 `.ts` 文件内容是 shell 命令本身，而非实际代码
+- `npm run build` 后生成的 `.js` 文件也是无效的，导致服务端逻辑完全失效
+
+**关键诊断**：
+```bash
+# 1. 检查文件行数（正常应 >100 行，1 行则异常）
+wc -l /home/admin/dang/server/src/auth/auth.service.ts
+# 输出：1  ← 异常！
+
+# 2. 查看文件内容
+cat /home/admin/dang/server/src/auth/auth.service.ts
+# 输出：$(cat /mnt/d/trae_projects/dang/server/src/auth/auth.service.ts)  ← shell 命令！
+
+# 3. 批量检查所有 .ts 文件行数
+find /home/admin/dang/server/src -name '*.ts' -exec wc -l {} \; | sort -n | head -20
+# 1 行的文件都是异常的
+```
+
+**解决方案**：
+- 用 rsync 从本地同步正确代码到服务器，重新构建并重启 pm2
+```bash
+rsync -av --delete --exclude 'node_modules' --exclude 'dist' --exclude '.env' \
+  /mnt/d/trae_projects/dang/server/src/ changji:/home/admin/dang/server/src/
+ssh changji "cd /home/admin/dang/server && npm run build && pm2 restart changji-api"
+```
+
+**预防措施**：
+- ⚠️ **部署后必须验证**：`wc -l` 检查关键文件行数，`cat` 抽查文件内容
+- ⚠️ **不要通过 SSH echo/cat 写入多行代码**——用 rsync 或 scp 传输文件
+- ⚠️ **复杂命令必须用 Write 写脚本**——避免 PowerShell + SSH + heredoc 的多层转义问题
+- ⚠️ **部署验证清单**：
+  1. `wc -l` 关键 .ts 文件行数 > 10
+  2. `npm run build` 无错误
+  3. `pm2 restart` 后状态 = online
+  4. `curl` 测试关键 API 端点
+
+**影响文件**：
+- [auth.service.ts](../../server/src/auth/auth.service.ts) - 验证码发送/校验
+- [api-key.service.ts](../../server/src/api-key/api-key.service.ts) - API Key 分配
+- [api-key.controller.ts](../../server/src/api-key/api-key.controller.ts) - API Key 路由
+
+---
+
+## 案例 16：WSL PATH 含括号导致 `wsl bash -c "export PATH=..."` 报 syntax error
+
+**问题描述**：
+- 在 PowerShell 终端执行 `wsl -d dang bash -c 'export PATH=$PATH:/home/mayn/flutter/bin && flutter ...'`
+- PowerShell 把整个 `$PATH` 展开后注入到 bash -c 的单引号中
+- 但 Windows 端 PATH 包含 `/mnt/c/Program Files (x86)/...` 这种带**空格和括号**的路径
+- bash 在解析时把 `(` 当作命令组开始符号，触发 `syntax error near unexpected token '('`
+
+**错误日志**：
+```
+bash: -c: line 1: syntax error near unexpected token `('
+bash: -c: line 1: `export PATH=/usr/local/sbin:...:/mnt/c/Program Files (x86)/Trae CN/...:/home/mayn/flutter/bin && cd /home/mayn/dang && flutter clean 2>&1 | tail -3'
+```
+
+**根本原因**：
+- PowerShell 把 `$PATH` 完整字符串拼接到 `wsl ... -c '...'` 中
+- 单引号在 PowerShell 端是字面量，但当字符串已经包含**外层双引号**且内部有 `$PATH` 时，PowerShell 会先把 `$PATH` 展开
+- WSL 端的 bash 收到的命令字符串中包含了**未转义的 `(` 和 `)`**
+- bash 把 `Program Files (x86)` 中的 `(` 当作 subshell 起始，解析失败
+- 即使外层用单引号也没用——`$PATH` 在 PowerShell 端就已被展开，bash 收到的是**已经污染**的字符串
+
+**排查过程**：
+1. ❌ 单引号包裹：`wsl -d dang bash -c '...'` —— 无效，`$PATH` 已被 PowerShell 展开
+2. ❌ 双单引号嵌套：`wsl -d dang bash -c ''export ...'' ` —— 语法更乱
+3. ✅ **最终方案**：把整个脚本写到 `.sh` 文件，WSL 调用 `bash xxx.sh`
+
+**解决方案**：
+
+**方案 A（推荐）**：用 Write 工具写完整脚本到 Windows 端，WSL 调用
+
+```bash
+# 1. Write 工具写脚本（PowerShell 完全不介入）
+# 文件 d:\trae_projects\dang\tmp\build_apk_fix.sh 内容：
+#!/bin/bash
+export PATH=$PATH:/home/mayn/flutter/bin
+cd /home/mayn/dang
+flutter clean
+flutter pub get
+flutter build apk --release
+
+# 2. WSL 调用脚本（单引号包裹整个 bash 调用，命令字符串里无 $PATH 展开）
+wsl -d dang bash -c 'bash /mnt/d/trae_projects/dang/tmp/build_apk_fix.sh'
+```
+
+**方案 B**：PowerShell 端先清空 PATH，再手动指定需要的路径
+
+```powershell
+# 构造一个不含空格的 PATH 字符串
+$wslPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/mayn/flutter/bin"
+wsl -d dang bash -c "export PATH='$wslPath' && cd /home/mayn/dang && flutter build apk --release"
+```
+
+**验证方式**：
+```bash
+# 1. 确认脚本可执行
+wsl -d dang bash -c 'bash -n /mnt/d/trae_projects/dang/tmp/build_apk_fix.sh && echo OK'
+
+# 2. 执行后 flutter 命令可达
+wsl -d dang bash -c 'bash /mnt/d/trae_projects/dang/tmp/build_apk_fix.sh' 2>&1 | tail -20
+# 应输出 flutter clean / pub get / build apk 进度
+```
+
+**经验教训**：
+- ⚠️ **绝对不要**在 `wsl bash -c "..."` 中包含 `$PATH`、`$HOME` 等含未转义空格的 PowerShell 变量
+- ⚠️ PATH 中的 `(x86)`、`Program Files`、`NVIDIA App` 等是**高危触发点**
+- ⚠️ trae-sandbox → PowerShell → wsl → bash 是 **4 层解析链**，任何一层都可能把元字符解释到错误位置
+- ⚠️ **铁律**：含 `$PATH`、`$HOME`、引号、heredoc 的 WSL 命令 → 全部走 Write+脚本方案
+- ⚠️ 即使是简单命令（如 `flutter clean`），只要加了 `export PATH=$PATH:...` 就必须走脚本文件
+
+**影响文件**：
+- [INTERACTION.md](INTERACTION.md) §"复杂命令处理原则" - 已明确写出此反模式
+- [RED_LINES.md](RED_LINES.md) §5.5 - 跨环境 PowerShell + SSH + bash 规则
+
+---
+
+## 案例 17：Flutter pub get 在 WSL 中解析/下载极慢（10+ 分钟仍卡住）
+
+**问题描述**：
+- WSL 中执行 `flutter pub get` 一直停留在 `Resolving dependencies...` 阶段
+- 超过 10 分钟无任何下载进度或错误提示
+- `ping pub.dev` 显示 0% 丢包、延迟 0.024ms（网络完全可达）
+- 但下载实际被严重限速或部分包被墙
+
+**错误日志**：
+```
+=== Step 2: flutter pub get ===
+Resolving dependencies... (11:17.7s)Failed to update packages.
+ERROR: flutter pub get failed
+```
+
+**根本原因**：
+- pub.dev 主站在国内访问**不稳定**——TCP 握手可达，但 HTTPS 下载经常被 GFW 限速/阻断
+- Flutter 解析时需要拉取所有依赖的 pubspec 元数据（数十个包），任一卡住就整体超时
+- `Failed to update packages` 错误信息不明确，实际可能是部分包下载失败
+- 之前配置过 `PUB_HOSTED_URL` 镜像但被 `.bashrc` 覆盖回默认
+
+**排查过程**：
+1. ❌ `flutter pub get` 等待 10+ 分钟 → 失败
+2. ✅ `ping pub.dev` 0% 丢包 → 误判网络正常
+3. ❌ 重试 `flutter pub get --verbose` → 同样卡住
+4. ✅ **最终方案**：配置国内镜像 `PUB_HOSTED_URL=https://pub.flutter-io.cn` → 1 分钟内完成
+
+**解决方案**：
+
+**方案 A（推荐）**：在执行脚本中临时设置国内镜像环境变量
+
+```bash
+#!/bin/bash
+# 配置 Flutter 国内镜像（必须在 flutter pub get 之前）
+export PUB_HOSTED_URL=https://pub.flutter-io.cn
+export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+export PATH=$PATH:/home/mayn/flutter/bin
+cd /home/mayn/dang
+
+flutter clean
+timeout 300 flutter pub get 2>&1
+if [ $? -ne 0 ]; then
+  # 备用：清华镜像
+  export PUB_HOSTED_URL=https://mirrors.tuna.tsinghua.edu.cn/dart-pub
+  export FLUTTER_STORAGE_BASE_URL=https://mirrors.tuna.tsinghua.edu.cn/flutter
+  timeout 300 flutter pub get 2>&1
+fi
+timeout 1200 flutter build apk --release
+```
+
+**方案 B**：永久写入 `~/.bashrc`（WSL 端）
+
+```bash
+echo 'export PUB_HOSTED_URL=https://pub.flutter-io.cn' >> ~/.bashrc
+echo 'export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn' >> ~/.bashrc
+source ~/.bashrc
+flutter pub get
+```
+
+**方案 C**：Flutter 自带 mirror 配置
+
+```bash
+flutter config --no-analytics
+flutter config --enable-mirrors
+# 或通过 .flutter_settings 文件
+```
+
+**验证方式**：
+```bash
+# 1. 确认镜像生效
+echo $PUB_HOSTED_URL
+# 应输出：https://pub.flutter-io.cn
+
+# 2. 确认 pub get 在 2 分钟内完成
+time flutter pub get
+# real    1m23s
+# user    ...
+
+# 3. 确认下载到包（46 packages）
+flutter pub get 2>&1 | grep "Got dependencies"
+# 输出：Got dependencies!
+```
+
+**国内可用镜像清单**：
+| 镜像 | PUB_HOSTED_URL | FLUTTER_STORAGE_BASE_URL |
+|-----|----------------|--------------------------|
+| Flutter 中国官方 | `https://pub.flutter-io.cn` | `https://storage.flutter-io.cn` |
+| 清华大学 TUNA | `https://mirrors.tuna.tsinghua.edu.cn/dart-pub` | `https://mirrors.tuna.tsinghua.edu.cn/flutter` |
+| 中科大 USTC | `https://mirrors.ustc.edu.cn/dart-pub` | `https://mirrors.ustc.edu.cn/flutter` |
+| 上海交大 | `https://mirrors.sjtug.sjtu.edu.cn` | `https://mirrors.sjtug.sjtu.edu.cn` |
+
+**经验教训**：
+- ⚠️ `ping` 通不等于 HTTPS 下载通——GFW 对 HTTPS 经常做协议级限速
+- ⚠️ `Resolving dependencies...` 长时间无进度 = 90% 是下载问题，不是解析问题
+- ⚠️ 看到 `(5分钟+)` 还在 Resolving，**立即**切换镜像，不要等 10 分钟
+- ⚠️ **永久建议**：WSL `.bashrc` 中预设 `PUB_HOSTED_URL` 国内镜像，所有项目受益
+- ⚠️ `Failed to update packages` 错误信息不可信——实际是部分包失败，错误被静默吞掉
+- ⚠️ 设置 `timeout 300`（5 分钟）作为硬上限，超时立即切换备用镜像
+
+**影响文件**：
+- [BUILD.md](BUILD.md) - 构建规范中应包含镜像配置说明
+- WSL 端 `~/.bashrc` - 建议永久配置
 
 ---
 

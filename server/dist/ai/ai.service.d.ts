@@ -35,8 +35,8 @@ export declare class AiService {
             totalTokens: any;
             tokenConsumed: number;
             costYuan: number;
-            balanceRemaining: number;
-            freeTokensRemaining: number;
+            quotaRemaining: number;
+            rechargeRemaining: number;
         };
     }>;
     transcribe(userId: string, params: {
@@ -57,8 +57,8 @@ export declare class AiService {
             totalTokens: any;
             tokenConsumed: number;
             costYuan: number;
-            balanceRemaining: number;
-            freeTokensRemaining: number;
+            quotaRemaining: number;
+            rechargeRemaining: number;
         };
     }>;
     getUsage(userId: string, startDate?: string, endDate?: string): Promise<{
@@ -75,6 +75,8 @@ export declare class AiService {
                 promptTokens: number;
                 completionTokens: number;
                 tokenConsumed: number;
+                apiCoefficient: number;
+                costYuan: number;
                 createdAt: Date;
             }[];
         };
@@ -83,4 +85,31 @@ export declare class AiService {
     private getDefaultBaseUrl;
     private getDefaultModel;
     private calculateQuotaConsumed;
+    reportUsage(userId: string, params: {
+        provider: string;
+        model: string;
+        promptTokens: number;
+        completionTokens: number;
+        featureType?: string;
+    }): Promise<{
+        code: number;
+        message: string;
+        data: {
+            tokenConsumed: number;
+            costYuan?: undefined;
+            quotaRemaining?: undefined;
+            rechargeRemaining?: undefined;
+            success?: undefined;
+        };
+    } | {
+        code: number;
+        message: string;
+        data: {
+            tokenConsumed: number;
+            costYuan: number;
+            quotaRemaining: number;
+            rechargeRemaining: number;
+            success: boolean;
+        };
+    }>;
 }

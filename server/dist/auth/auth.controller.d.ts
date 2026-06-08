@@ -66,7 +66,8 @@ export declare class AuthController {
         code: number;
         message: string;
         data: {
-            needCaptcha: boolean;
+            expiresIn: number;
+            devCode: string;
         };
     }>;
     smsLogin(dto: SmsLoginDto): Promise<{

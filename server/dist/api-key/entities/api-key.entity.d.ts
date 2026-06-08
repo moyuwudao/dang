@@ -41,6 +41,7 @@ export declare class ApiKey {
     lastHealthCheckAt: Date;
     lastHealthCheckStatus: string;
     allowedIpRanges: string;
+    supportedFeatures: string[];
     createdAt: Date;
     updatedAt: Date;
 }

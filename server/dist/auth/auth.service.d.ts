@@ -9,6 +9,7 @@ export declare class AuthService {
     private jwtService;
     private subscriptionService;
     private smsService;
+    private readonly logger;
     private redisClient;
     constructor(userRepository: Repository<User>, jwtService: JwtService, subscriptionService: SubscriptionService, smsService: SmsService);
     register(dto: RegisterDto): Promise<{
@@ -33,7 +34,8 @@ export declare class AuthService {
         code: number;
         message: string;
         data: {
-            needCaptcha: boolean;
+            expiresIn: number;
+            devCode: string;
         };
     }>;
     smsLogin(dto: SmsLoginDto): Promise<{
