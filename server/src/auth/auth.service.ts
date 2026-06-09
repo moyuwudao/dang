@@ -56,7 +56,7 @@ export class AuthService {
     await this.subscriptionService.createTrialSubscription(user.id, {
       planId: 'trial',
       planName: '新手体验包',
-      totalQuota: 100,
+      totalQuota: 100000,
       usedQuota: 0,
       expiresAt,
     });
