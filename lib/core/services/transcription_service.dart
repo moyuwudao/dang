@@ -356,12 +356,8 @@ class TranscriptionService {
       throw Exception('所有分片转写均失败');
     }
 
-    await StorageService.incrementUsageStat(
-      _httpClient.currentConfig!.name,
-      'transcription',
-      tokens: combinedResult.length,
-    );
-
+    // 【注意】分片转写的用量已通过 _httpClient._tryReportUsage 自动统计
+    // 不再重复调用 StorageService.incrementUsageStat
     return combinedResult;
   }
 

@@ -78,17 +78,24 @@ class ApiService {
   }
 
   /// 记录本地使用量统计
+  ///
+  /// 【重要】本地统计与云端对齐：
+  ///   - 使用 Provider 返回的 usage 字段（准确）
+  ///   - 应用 API 系数（与云端计费一致）
+  ///   - 统一聚合维度为 provider（不再区分 cloud/local）
   void _recordLocalUsage(String provider, String model, int promptTokens, int completionTokens) {
     try {
       if (_ref == null) return;
       final totalTokens = promptTokens + completionTokens;
-      // 使用 provider 作为 poolId 和 keyId 的简化标识
-      // DailyUsageNotifier.recordCall 需要 poolId/keyId，这里用 provider 代替
+      // 应用 API 系数，与云端计费对齐
+      final multiplier = _httpClient.currentMultiplier;
+      final billedTokens = (totalTokens * multiplier).ceil();
+
       final notifier = _ref!.read(dailyUsageProvider.notifier);
       notifier.recordCall(
-        poolId: _httpClient.isCloudConfig ? 'cloud_$provider' : 'local_$provider',
-        keyId: '${provider}_${model}',
-        tokensConsumed: totalTokens,
+        poolId: provider,  // 统一为 provider，不再区分 cloud/local
+        keyId: '${provider}_$model',
+        tokensConsumed: billedTokens,  // 应用系数后的计费Token
         isSuccess: true,
         providerName: _httpClient.isCloudConfig ? '云端 $provider' : '本地 $provider',
       );

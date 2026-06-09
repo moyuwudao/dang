@@ -162,8 +162,8 @@ class _UsageTabState extends ConsumerState<UsageTab> {
         const SizedBox(height: 4),
         Text(
           isLoggedIn
-              ? '云端数据暂不可用，展示本地统计（不含计费系数）'
-              : '使用本地 API Key 的用量统计（不计费）',
+              ? '本地实时统计（已应用 API 系数，与云端计费对齐）'
+              : '本地 API Key 用量统计（已应用系数）',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 12),
