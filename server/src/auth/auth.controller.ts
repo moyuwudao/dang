@@ -105,6 +105,16 @@ export class AuthController {
     return this.authService.sendSmsCode(dto.phone, dto.captchaId, dto.captcha);
   }
 
+  @Post('verify-captcha')
+  async verifyCaptcha(@Body() dto: { captchaId: string; captcha: string }) {
+    const valid = await this.authService.verifyCaptcha(dto.captchaId, dto.captcha);
+    return {
+      code: 200,
+      message: valid ? '验证通过' : '验证码错误或已过期',
+      data: { valid },
+    };
+  }
+
   @Post('sms-login')
   async smsLogin(@Body() dto: SmsLoginDto) {
     return this.authService.smsLogin(dto);
