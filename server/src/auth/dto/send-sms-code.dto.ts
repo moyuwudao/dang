@@ -8,4 +8,8 @@ export class SendSmsCodeDto {
   @IsString()
   @IsOptional()
   captcha?: string;
+
+  @IsString()
+  @IsOptional()
+  captchaId?: string;
 }

@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Redis } from 'ioredis';
 import { User } from './entities/user.entity';
-import { RegisterDto, LoginDto, UpdateProfileDto, SmsLoginDto } from './dto';
+import { RegisterDto, LoginDto, UpdateProfileDto, SmsLoginDto, ChangePasswordDto } from './dto';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { SmsService } from './sms.service';
 
@@ -33,6 +33,17 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
+    // 验证短信验证码
+    const storedCode = await this.redisClient.get(`sms_code:${dto.phone}`);
+    if (!storedCode) {
+      throw new BadRequestException('验证码已过期，请重新获取');
+    }
+    if (storedCode !== dto.smsCode) {
+      throw new BadRequestException('验证码错误');
+    }
+    // 验证通过后删除验证码，防止重用
+    await this.redisClient.del(`sms_code:${dto.phone}`);
+
     const existingUser = await this.userRepository.findOne({
       where: { phone: dto.phone },
     });
@@ -91,6 +102,11 @@ export class AuthService {
       throw new UnauthorizedException('账户已被禁用');
     }
 
+    // 记录登录信息
+    await this.userRepository.update(user.id, {
+      lastLoginAt: new Date(),
+    });
+
     const tokens = await this.generateTokens(user);
 
     return {
@@ -103,25 +119,38 @@ export class AuthService {
     };
   }
 
+  // 存储图片验证码
+  async setCaptcha(captchaId: string, captcha: string) {
+    await this.redisClient.set(`captcha:${captchaId}`, captcha, 'EX', 300);
+  }
+
+  // 验证图片验证码
+  async verifyCaptcha(captchaId: string, captcha: string): Promise<boolean> {
+    const stored = await this.redisClient.get(`captcha:${captchaId}`);
+    if (!stored) return false;
+    const valid = stored.toUpperCase() === captcha.toUpperCase();
+    if (valid) {
+      await this.redisClient.del(`captcha:${captchaId}`);
+    }
+    return valid;
+  }
+
   // 发送短信验证码
-  // 修复异常2：catch 不再吞错；如果 SMS 未配置，把 code 直接返回给客户端（dev fallback）
-  async sendSmsCode(phone: string) {
-    // 修复：测试环境固定验证码 123456，跳过真实短信发送
-    const code = '123456';
-    await this.redisClient.set(`sms_code:${phone}`, code, 'EX', 300);
+  async sendSmsCode(phone: string, captchaId?: string, captcha?: string) {
+    // 验证图片验证码
+    if (captchaId && captcha) {
+      const valid = await this.verifyCaptcha(captchaId, captcha);
+      if (!valid) {
+        throw new BadRequestException('图片验证码错误或已过期');
+      }
+    }
 
-    return {
-      code: 200,
-      message: '验证码已发送（测试模式：固定码 123456）',
-      data: { expiresIn: 300, devCode: code },
-    };
-
-    /* 生产环境恢复以下代码：
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     await this.redisClient.set(`sms_code:${phone}`, code, 'EX', 300);
 
     try {
       await this.smsService.sendVerificationCode(phone, code);
+      this.logger.log(`SMS sent successfully to ${phone}`);
       return {
         code: 200,
         message: '验证码已发送',
@@ -129,14 +158,11 @@ export class AuthService {
       };
     } catch (e) {
       const errorMsg = e?.message || String(e);
-      this.logger.warn(`SMS service unavailable, dev fallback for ${phone}: ${errorMsg}`);
-      return {
-        code: 200,
-        message: '验证码已发送（开发模式：SMS 未配置）',
-        data: { expiresIn: 300, devCode: code },
-      };
+      this.logger.error(`SMS send failed for ${phone}: ${errorMsg}`);
+      // 删除已写入 Redis 的无效验证码
+      await this.redisClient.del(`sms_code:${phone}`);
+      throw new BadRequestException(`短信发送失败: ${errorMsg}`);
     }
-    */
   }
 
   async smsLogin(dto: SmsLoginDto) {
@@ -169,7 +195,7 @@ export class AuthService {
       await this.subscriptionService.createTrialSubscription(user.id, {
         planId: 'trial',
         planName: '新手体验包',
-        totalQuota: 100,
+        totalQuota: 100000,
         usedQuota: 0,
         expiresAt,
       });
@@ -178,6 +204,11 @@ export class AuthService {
     if (user.status !== 'active') {
       throw new UnauthorizedException('账户已被禁用');
     }
+
+    // 记录登录信息
+    await this.userRepository.update(user.id, {
+      lastLoginAt: new Date(),
+    });
 
     const tokens = await this.generateTokens(user);
 
@@ -254,6 +285,51 @@ export class AuthService {
     };
   }
 
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    // 验证短信验证码
+    const storedCode = await this.redisClient.get(`sms_code:${dto.phone}`);
+    if (!storedCode) {
+      throw new BadRequestException('验证码已过期，请重新获取');
+    }
+    if (storedCode !== dto.smsCode) {
+      throw new BadRequestException('验证码错误');
+    }
+    await this.redisClient.del(`sms_code:${dto.phone}`);
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+
+    // 判断用户是否有密码（短信登录注册的用户密码为空字符串）
+    const hasPassword = user.passwordHash && user.passwordHash.length > 0;
+
+    if (hasPassword) {
+      // 有密码的用户：必须提供旧密码
+      if (!dto.oldPassword) {
+        throw new BadRequestException('请提供旧密码');
+      }
+      const isValid = await bcrypt.compare(dto.oldPassword, user.passwordHash);
+      if (!isValid) {
+        throw new UnauthorizedException('旧密码错误');
+      }
+    }
+    // 没有密码的用户（短信登录注册）：只需要验证码，不需要旧密码
+
+    // 更新密码
+    const newPasswordHash = await bcrypt.hash(dto.newPassword, 12);
+    await this.userRepository.update(userId, { passwordHash: newPasswordHash });
+
+    return {
+      code: 200,
+      message: '密码修改成功',
+      data: null,
+    };
+  }
+
   private async generateTokens(user: User) {
     const payload = { sub: user.id, phone: user.phone, role: user.role };
 
@@ -268,6 +344,9 @@ export class AuthService {
 
   private sanitizeUser(user: User) {
     const { passwordHash, ...result } = user as any;
-    return result;
+    return {
+      ...result,
+      hasPassword: passwordHash && passwordHash.length > 0,
+    };
   }
 }

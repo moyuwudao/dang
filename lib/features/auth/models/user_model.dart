@@ -4,6 +4,7 @@ class UserModel {
   final String? nickname;
   final String? avatarUrl;
   final DateTime createdAt;
+  final bool hasPassword;
 
   const UserModel({
     required this.id,
@@ -11,6 +12,7 @@ class UserModel {
     this.nickname,
     this.avatarUrl,
     required this.createdAt,
+    this.hasPassword = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class UserModel {
       nickname: json['nickname'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
+      hasPassword: json['hasPassword'] as bool? ?? false,
     );
   }
 
@@ -30,6 +33,7 @@ class UserModel {
       'nickname': nickname,
       'avatarUrl': avatarUrl,
       'createdAt': createdAt.toIso8601String(),
+      'hasPassword': hasPassword,
     };
   }
 }

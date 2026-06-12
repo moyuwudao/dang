@@ -15,6 +15,15 @@ export class User {
   @Column()
   passwordHash: string;
 
+  @Column({ nullable: true })
+  lastLoginAt: Date;
+
+  @Column({ nullable: true })
+  lastLoginIp: string;
+
+  @Column({ nullable: true })
+  lastLoginLocation: string;
+
   @Column({ default: '用户' })
   nickname: string;
 

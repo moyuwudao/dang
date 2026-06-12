@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, Put, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, UpdateProfileDto, SendSmsCodeDto, SmsLoginDto } from './dto';
+import { RegisterDto, LoginDto, RefreshTokenDto, UpdateProfileDto, SendSmsCodeDto, SmsLoginDto, ChangePasswordDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -51,18 +51,15 @@ export class AuthController {
     const captcha = Math.random().toString(36).substring(2, 8).toUpperCase();
     const captchaId = Date.now().toString();
     
+    // 将验证码存入 Redis，5分钟过期
+    await this.authService.setCaptcha(captchaId, captcha);
+    
     return {
       code: 200,
       message: 'success',
       data: {
         captchaId,
-        captchaUrl: `data:image/svg+xml;base64,${Buffer.from(
-          `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40">
-            <rect width="100%" height="100%" fill="#f0f0f0"/>
-            <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" 
-                  font-family="monospace" font-size="20" fill="#333">${captcha}</text>
-          </svg>`
-        ).toString('base64')}`,
+        captchaText: captcha,  // 直接返回文本，客户端显示为文字验证码
         needCaptcha: true,
       },
     };
@@ -70,11 +67,17 @@ export class AuthController {
 
   @Post('send-sms-code')
   async sendSmsCode(@Body() dto: SendSmsCodeDto) {
-    return this.authService.sendSmsCode(dto.phone);
+    return this.authService.sendSmsCode(dto.phone, dto.captchaId, dto.captcha);
   }
 
   @Post('sms-login')
   async smsLogin(@Body() dto: SmsLoginDto) {
     return this.authService.smsLogin(dto);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(@Req() req, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(req.user.sub, dto);
   }
 }
