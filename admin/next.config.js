@@ -7,7 +7,8 @@ const nextConfig = {
     unoptimized: true,
   },
   env: {
-    NEXT_PUBLIC_API_URL: 'http://101.133.238.249/api/v1',
+    // 使用相对路径，自动跟随当前域名和协议（避免 HTTPS 页面请求 HTTP API 的混合内容问题）
+    NEXT_PUBLIC_API_URL: '/api/v1',
   },
 }
 
