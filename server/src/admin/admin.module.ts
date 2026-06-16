@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AdminAuthController } from './admin-auth.controller';
+import { AdminAuthService } from './admin-auth.service';
 import { AuditService } from './services/audit.service';
 import { AuthModule } from '../auth/auth.module';
 import { SubscriptionModule } from '../subscription/subscription.module';
@@ -39,8 +42,8 @@ import { AuditLog } from './entities/audit-log.entity';
     ApiKeyModule,
     MonitorModule,
   ],
-  controllers: [AdminController],
-  providers: [AdminService, AuditService],
+  controllers: [AdminController, AdminAuthController],
+  providers: [AdminService, AdminAuthService, AuditService],
   exports: [AuditService],
 })
 export class AdminModule {}

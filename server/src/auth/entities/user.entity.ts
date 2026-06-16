@@ -15,13 +15,13 @@ export class User {
   @Column()
   passwordHash: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'last_login_at', nullable: true })
   lastLoginAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ name: 'last_login_ip', nullable: true })
   lastLoginIp: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'last_login_location', nullable: true })
   lastLoginLocation: string;
 
   @Column({ default: '用户' })

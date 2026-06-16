@@ -47,6 +47,10 @@ export class SendSmsCodeDto {
   @IsString()
   @IsOptional()
   captcha?: string;
+
+  @IsString()
+  @IsOptional()
+  captchaId?: string;
 }
 
 export class SmsLoginDto {
@@ -74,6 +78,6 @@ export class ChangePasswordDto {
   newPassword: string;
 
   @IsString()
-  @Matches(/^\d{6}$/, { message: '验证码为6位数字' })
-  smsCode: string;
+  @IsOptional()
+  smsCode?: string;
 }

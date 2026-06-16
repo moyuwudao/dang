@@ -286,16 +286,6 @@ export class AuthService {
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
-    // 验证短信验证码
-    const storedCode = await this.redisClient.get(`sms_code:${dto.phone}`);
-    if (!storedCode) {
-      throw new BadRequestException('验证码已过期，请重新获取');
-    }
-    if (storedCode !== dto.smsCode) {
-      throw new BadRequestException('验证码错误');
-    }
-    await this.redisClient.del(`sms_code:${dto.phone}`);
-
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -307,17 +297,26 @@ export class AuthService {
     // 判断用户是否有密码（短信登录注册的用户密码为空字符串）
     const hasPassword = user.passwordHash && user.passwordHash.length > 0;
 
-    if (hasPassword) {
-      // 有密码的用户：必须提供旧密码
-      if (!dto.oldPassword) {
-        throw new BadRequestException('请提供旧密码');
-      }
+    if (hasPassword && dto.oldPassword) {
+      // 方案1：已知旧密码 - 验证旧密码
       const isValid = await bcrypt.compare(dto.oldPassword, user.passwordHash);
       if (!isValid) {
         throw new UnauthorizedException('旧密码错误');
       }
+    } else if (dto.smsCode) {
+      // 方案2：忘记旧密码 - 验证短信验证码
+      const storedCode = await this.redisClient.get(`sms_code:${dto.phone}`);
+      if (!storedCode) {
+        throw new BadRequestException('验证码已过期，请重新获取');
+      }
+      if (storedCode !== dto.smsCode) {
+        throw new BadRequestException('验证码错误');
+      }
+      await this.redisClient.del(`sms_code:${dto.phone}`);
+    } else {
+      // 既没有旧密码也没有短信验证码
+      throw new BadRequestException('请提供旧密码或短信验证码');
     }
-    // 没有密码的用户（短信登录注册）：只需要验证码，不需要旧密码
 
     // 更新密码
     const newPasswordHash = await bcrypt.hash(dto.newPassword, 12);

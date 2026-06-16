@@ -48,7 +48,7 @@ export class AuthController {
 
   @Get('captcha')
   async getCaptcha() {
-    const captcha = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const captcha = Math.random().toString(36).substring(2, 6).toUpperCase();
     const captchaId = Date.now().toString();
     
     // 将验证码存入 Redis，5分钟过期

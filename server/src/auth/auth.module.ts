@@ -18,6 +18,6 @@ import { SubscriptionModule } from '../subscription/subscription.module';
   ],
   controllers: [AuthController],
   providers: [AuthService, SmsService],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, SmsService, JwtModule],
 })
 export class AuthModule {}

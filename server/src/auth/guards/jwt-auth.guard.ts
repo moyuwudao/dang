@@ -17,6 +17,9 @@ export class JwtAuthGuard implements CanActivate {
     { path: '/auth/send-sms-code', method: 'POST' },
     { path: '/auth/sms-login', method: 'POST' },
     { path: '/auth/captcha', method: 'GET' },
+    { path: '/auth/verify-captcha', method: 'POST' },
+    { path: '/admin/login', method: 'POST' },
+    { path: '/admin/send-sms-code', method: 'POST' },
     { path: '/health', method: 'GET' },
   ];
 
