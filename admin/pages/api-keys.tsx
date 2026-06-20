@@ -62,6 +62,60 @@ const FEATURE_LABEL: Record<string, string> = FEATURE_OPTIONS.reduce(
   {} as Record<string, string>,
 );
 
+// 判断指定 provider + model 是否支持某功能（与移动端 ai_model_config.dart 对齐）
+function isVisionModel(provider: string, model: string): boolean {
+  if (!model) return false;
+  const lower = model.toLowerCase();
+  switch (provider) {
+    case 'qwen':
+      return lower.includes('-vl-') ||
+        lower.startsWith('qwen-vl-') ||
+        lower.startsWith('qwen2-vl-') ||
+        lower.startsWith('qwen2.5-vl-') ||
+        lower.startsWith('qwen3-vl-');
+    case 'openai':
+      return lower.startsWith('gpt-4o') ||
+        lower.startsWith('gpt-4.1') ||
+        lower.startsWith('o1') ||
+        lower.startsWith('o3');
+    case 'gemini':
+      return true;
+    case 'anthropic':
+      return lower.startsWith('claude-');
+    case 'grok':
+      return lower.startsWith('grok-3') || lower.includes('vision');
+    case 'custom':
+      return lower.includes('vl') ||
+        lower.includes('vision') ||
+        lower.startsWith('gpt-4o') ||
+        lower.startsWith('gpt-4.1') ||
+        lower.startsWith('gemini');
+    default:
+      return false;
+  }
+}
+
+function isModelCompatibleWithFeature(
+  provider: string,
+  model: string,
+  feature: SupportedFeature,
+): boolean {
+  // 'all' 是特殊标记，不在这里判断
+  if (feature === 'all') return true;
+  // 只有图像识别需要精确到模型；其他功能保持 provider 级判断
+  if (feature !== 'imageRecognition') return true;
+  return isVisionModel(provider, model);
+}
+
+function getFeatureCompatibilityHint(provider: string, model: string): string {
+  if (!model) return '请先输入模型名称';
+  const supportsImage = isVisionModel(provider, model);
+  if (supportsImage) {
+    return `当前模型 ${model} 支持图像识别`;
+  }
+  return `当前模型 ${model} 不支持图像识别。Qwen 视觉模型命名示例：qwen3-vl-plus、qwen-vl-plus、qwen-vl-max`;
+}
+
 const FEATURE_COLOR: Record<string, 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'default'> = {
   textAnalysis: 'primary',
   speechTranscribe: 'secondary',
@@ -705,7 +759,17 @@ export default function ApiKeysPage() {
                       <Select
                         label="提供商"
                         selectedKeys={[newKey.provider]}
-                        onChange={(e) => setNewKey({ ...newKey, provider: e.target.value })}
+                        onChange={(e) => {
+                          const provider = e.target.value;
+                          setNewKey((prev) => {
+                            const next = { ...prev, provider };
+                            // provider 切换时自动移除不兼容的功能勾选
+                            const filtered = next.supportedFeatures.filter(
+                              (f) => f === 'all' || isModelCompatibleWithFeature(provider, next.model, f)
+                            );
+                            return { ...next, supportedFeatures: filtered };
+                          });
+                        }}
                         classNames={{ trigger: 'rounded-xl' }}
                       >
                         {PROVIDER_OPTIONS.map((p) => (
@@ -732,9 +796,19 @@ export default function ApiKeysPage() {
                     />
                     <Input
                       label="模型名称"
-                      placeholder="如: qwen-max"
+                      placeholder="如: qwen-max / qwen3-vl-plus"
                       value={newKey.model}
-                      onChange={(e) => setNewKey({ ...newKey, model: e.target.value })}
+                      onChange={(e) => {
+                        const model = e.target.value;
+                        setNewKey((prev) => {
+                          const next = { ...prev, model };
+                          // 模型变化时自动移除不兼容的功能勾选
+                          const filtered = next.supportedFeatures.filter(
+                            (f) => f === 'all' || isModelCompatibleWithFeature(next.provider, model, f)
+                          );
+                          return { ...next, supportedFeatures: filtered };
+                        });
+                      }}
                       classNames={{ inputWrapper: 'rounded-xl' }}
                       isRequired
                     />
@@ -809,6 +883,9 @@ export default function ApiKeysPage() {
                       <p className="text-xs text-gray-500 mb-3">
                         勾选此 API Key 实际能调用的能力。套餐编辑页面将只展示能匹配所选功能的 API。
                       </p>
+                      <p className={`text-xs mb-3 ${isVisionModel(newKey.provider, newKey.model) ? 'text-green-600' : 'text-orange-500'}`}>
+                        {getFeatureCompatibilityHint(newKey.provider, newKey.model)}
+                      </p>
                       <CheckboxGroup
                         value={newKey.supportedFeatures}
                         onValueChange={(v) => setNewKey({ ...newKey, supportedFeatures: v as SupportedFeature[] })}
@@ -817,18 +894,21 @@ export default function ApiKeysPage() {
                       >
                         {FEATURE_OPTIONS.map((f) => {
                           const Icon = f.icon;
+                          const compatible = isModelCompatibleWithFeature(newKey.provider, newKey.model, f.key);
                           return (
                             <Checkbox
                               key={f.key}
                               value={f.key}
+                              isDisabled={!compatible}
                               classNames={{
-                                base: 'max-w-full m-0 border border-gray-200 rounded-lg p-2 hover:bg-white data-[selected=true]:bg-blue-50 data-[selected=true]:border-blue-300',
+                                base: `max-w-full m-0 border border-gray-200 rounded-lg p-2 hover:bg-white data-[selected=true]:bg-blue-50 data-[selected=true]:border-blue-300 ${!compatible ? 'opacity-50' : ''}`,
                                 label: 'text-xs',
                               }}
                             >
                               <div className="flex items-center gap-1.5">
                                 <Icon className="w-3.5 h-3.5 text-blue-600" />
                                 <span className="font-medium">{f.label}</span>
+                                {!compatible && <span className="text-[10px] text-orange-500">(模型不支持)</span>}
                               </div>
                             </Checkbox>
                           );
@@ -1386,7 +1466,17 @@ export default function ApiKeysPage() {
                   <Select
                     label="提供商"
                     selectedKeys={[newKey.provider]}
-                    onChange={(e) => setNewKey({ ...newKey, provider: e.target.value })}
+                    onChange={(e) => {
+                      const provider = e.target.value;
+                      setNewKey((prev) => {
+                        const next = { ...prev, provider };
+                        // provider 切换时自动移除不兼容的功能勾选
+                        const filtered = next.supportedFeatures.filter(
+                          (f) => f === 'all' || isModelCompatibleWithFeature(provider, next.model, f)
+                        );
+                        return { ...next, supportedFeatures: filtered };
+                      });
+                    }}
                     classNames={{ trigger: 'rounded-xl' }}
                   >
                     {PROVIDER_OPTIONS.map((p) => (
@@ -1414,9 +1504,19 @@ export default function ApiKeysPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <Input
                     label="模型"
-                    placeholder="如：qwen-turbo"
+                    placeholder="如：qwen-turbo / qwen3-vl-plus"
                     value={newKey.model}
-                    onChange={(e) => setNewKey({ ...newKey, model: e.target.value })}
+                    onChange={(e) => {
+                      const model = e.target.value;
+                      setNewKey((prev) => {
+                        const next = { ...prev, model };
+                        // 模型变化时自动移除不兼容的功能勾选
+                        const filtered = next.supportedFeatures.filter(
+                          (f) => f === 'all' || isModelCompatibleWithFeature(next.provider, model, f)
+                        );
+                        return { ...next, supportedFeatures: filtered };
+                      });
+                    }}
                     classNames={{ inputWrapper: 'rounded-xl' }}
                     isRequired
                   />
@@ -1491,6 +1591,9 @@ export default function ApiKeysPage() {
                   <p className="text-xs text-gray-500 mb-3">
                     勾选此 API Key 实际能调用的能力。
                   </p>
+                  <p className={`text-xs mb-3 ${isVisionModel(newKey.provider, newKey.model) ? 'text-green-600' : 'text-orange-500'}`}>
+                    {getFeatureCompatibilityHint(newKey.provider, newKey.model)}
+                  </p>
                   <CheckboxGroup
                     value={newKey.supportedFeatures}
                     onValueChange={(v) => setNewKey({ ...newKey, supportedFeatures: v as SupportedFeature[] })}
@@ -1499,18 +1602,21 @@ export default function ApiKeysPage() {
                   >
                     {FEATURE_OPTIONS.map((f) => {
                       const Icon = f.icon;
+                      const compatible = isModelCompatibleWithFeature(newKey.provider, newKey.model, f.key);
                       return (
                         <Checkbox
                           key={f.key}
                           value={f.key}
+                          isDisabled={!compatible}
                           classNames={{
-                            base: 'max-w-full m-0 border border-gray-200 rounded-lg p-2 hover:bg-white data-[selected=true]:bg-blue-50 data-[selected=true]:border-blue-300',
+                            base: `max-w-full m-0 border border-gray-200 rounded-lg p-2 hover:bg-white data-[selected=true]:bg-blue-50 data-[selected=true]:border-blue-300 ${!compatible ? 'opacity-50' : ''}`,
                             label: 'text-xs',
                           }}
                         >
                           <div className="flex items-center gap-1.5">
                             <Icon className="w-3.5 h-3.5 text-blue-600" />
                             <span className="font-medium">{f.label}</span>
+                            {!compatible && <span className="text-[10px] text-orange-500">(模型不支持)</span>}
                           </div>
                         </Checkbox>
                       );
