@@ -511,18 +511,33 @@ export class ApiKeyService {
     const dataUrl = imageUrl || `data:image/png;base64,${tinyPng}`;
     const startTime = Date.now();
     if (provider === ApiKeyProvider.QWEN) {
-      const url = (baseUrl || 'https://dashscope.aliyuncs.com/api/v1').replace(/\/$/, '') + '/services/aigc/multimodal-generation/generation';
+      // 与移动端保持一致：使用 OpenAI 兼容接口 /compatible-mode/v1/chat/completions
+      const url = this.getChatCompletionsUrl(provider, baseUrl);
+      // 使用配置的 model，回退到 qwen-vl-plus
+      const visionModel = model || 'qwen-vl-plus';
       const response = await firstValueFrom(
         this.httpService.post(
           url,
-          { model: 'qwen-vl-plus', input: { messages: [{ role: 'user', content: [{ image: dataUrl }, { text: '描述' }] }] }, parameters: {} },
-          { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, timeout: 10000 },
+          {
+            model: visionModel,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: '描述这张图片' },
+                  { type: 'image_url', image_url: { url: dataUrl } },
+                ],
+              },
+            ],
+            max_tokens: 1,
+          },
+          { headers: this.getAuthHeaders(provider, apiKey), timeout: 10000 },
         ),
       );
       return {
         ok: true,
         responseTime: Date.now() - startTime,
-        details: { feature: 'imageRecognition', status: response.status },
+        details: { feature: 'imageRecognition', status: response.status, model: visionModel },
       };
     }
     // fallback：OpenAI vision
