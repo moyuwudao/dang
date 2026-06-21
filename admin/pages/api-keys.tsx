@@ -895,11 +895,14 @@ export default function ApiKeysPage() {
                         {FEATURE_OPTIONS.map((f) => {
                           const Icon = f.icon;
                           const compatible = isModelCompatibleWithFeature(newKey.provider, newKey.model, f.key);
+                          const checked = newKey.supportedFeatures.includes(f.key);
+                          // 已勾选但不兼容的功能允许取消；未勾选且不兼容的才禁用
+                          const disabled = !compatible && !checked;
                           return (
                             <Checkbox
                               key={f.key}
                               value={f.key}
-                              isDisabled={!compatible}
+                              isDisabled={disabled}
                               classNames={{
                                 base: `max-w-full m-0 border border-gray-200 rounded-lg p-2 hover:bg-white data-[selected=true]:bg-blue-50 data-[selected=true]:border-blue-300 ${!compatible ? 'opacity-50' : ''}`,
                                 label: 'text-xs',
@@ -908,7 +911,8 @@ export default function ApiKeysPage() {
                               <div className="flex items-center gap-1.5">
                                 <Icon className="w-3.5 h-3.5 text-blue-600" />
                                 <span className="font-medium">{f.label}</span>
-                                {!compatible && <span className="text-[10px] text-orange-500">(模型不支持)</span>}
+                                {!compatible && checked && <span className="text-[10px] text-red-500">(请取消)</span>}
+                                {!compatible && !checked && <span className="text-[10px] text-orange-500">(模型不支持)</span>}
                               </div>
                             </Checkbox>
                           );
@@ -1603,11 +1607,14 @@ export default function ApiKeysPage() {
                     {FEATURE_OPTIONS.map((f) => {
                       const Icon = f.icon;
                       const compatible = isModelCompatibleWithFeature(newKey.provider, newKey.model, f.key);
+                      const checked = newKey.supportedFeatures.includes(f.key);
+                      // 已勾选但不兼容的功能允许取消；未勾选且不兼容的才禁用
+                      const disabled = !compatible && !checked;
                       return (
                         <Checkbox
                           key={f.key}
                           value={f.key}
-                          isDisabled={!compatible}
+                          isDisabled={disabled}
                           classNames={{
                             base: `max-w-full m-0 border border-gray-200 rounded-lg p-2 hover:bg-white data-[selected=true]:bg-blue-50 data-[selected=true]:border-blue-300 ${!compatible ? 'opacity-50' : ''}`,
                             label: 'text-xs',
@@ -1616,7 +1623,8 @@ export default function ApiKeysPage() {
                           <div className="flex items-center gap-1.5">
                             <Icon className="w-3.5 h-3.5 text-blue-600" />
                             <span className="font-medium">{f.label}</span>
-                            {!compatible && <span className="text-[10px] text-orange-500">(模型不支持)</span>}
+                            {!compatible && checked && <span className="text-[10px] text-red-500">(请取消)</span>}
+                            {!compatible && !checked && <span className="text-[10px] text-orange-500">(模型不支持)</span>}
                           </div>
                         </Checkbox>
                       );
