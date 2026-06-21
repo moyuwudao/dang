@@ -1,9 +1,7 @@
-import 'dart:convert';
 import '../models/api_config.dart';
 import '../models/ai_model_config.dart';
 import '../../features/subscription/providers/subscription_provider.dart';
 import 'storage_service.dart';
-import 'secure_storage_service.dart';
 import 'app_logger.dart';
 import 'cloud_api_service.dart';
 
@@ -38,21 +36,6 @@ class CloudConfigSyncService {
     'offline_transcription': ApiFunctionType.offlineVoice,
     'image_recognition': ApiFunctionType.image,
   };
-
-  /// 从 SecureStorage 读取云端 API Key 与 baseUrl（不入 storage 的敏感信息）
-  static Future<({String? apiKey, String? baseUrl})> _readCloudSecrets() async {
-    final cloudConfigJson = await SecureStorageService().read('cloud_api_config');
-    if (cloudConfigJson == null) return (apiKey: null, baseUrl: null);
-    try {
-      final cloudData = jsonDecode(cloudConfigJson) as Map<String, dynamic>;
-      return (
-        apiKey: cloudData['apiKey'] as String?,
-        baseUrl: cloudData['baseUrl'] as String?,
-      );
-    } catch (_) {
-      return (apiKey: null, baseUrl: null);
-    }
-  }
 
   /// 把 apiPolicies 同步为本地 MultiApiConfig 中的云端条目
   ///
@@ -112,14 +95,14 @@ class CloudConfigSyncService {
         final providerConfig = AiModelConfig.getConfig(providerEnum);
         final displayName = '${providerConfig.displayName} $modelName';
 
-        // 功能列表：优先用套餐 defaultConfigs 推导，否则用 providerSupportsFunction 兜底
+        // 功能列表：优先用套餐 defaultConfigs 推导，否则用 modelSupportsFunction 兜底
         final mappedFromPlan = modelToFunctions[modelName] ?? modelToFunctions[modelPattern];
         final List<ApiFunctionType> compatibleFunctions;
         if (mappedFromPlan != null && mappedFromPlan.isNotEmpty) {
           compatibleFunctions = mappedFromPlan.toList();
         } else {
           compatibleFunctions = ApiFunctionType.values
-              .where((f) => AiModelConfig.providerSupportsFunction(providerEnum, f))
+              .where((f) => AiModelConfig.modelSupportsFunction(providerEnum, modelName, f))
               .toList();
         }
 
@@ -156,7 +139,9 @@ class CloudConfigSyncService {
           provider: providerEnum,
           apiKey: entryApiKey,
           baseUrl: entryBaseUrl ?? providerConfig.baseUrl,
-          model: entryModel ?? modelName,
+          // 模型名称必须以云端套餐配置为准（imageRecognition 场景需要精确的 VL 模型）
+          // API Key 管理接口返回的 model 只是该 provider 的默认值，不能覆盖套餐指定模型
+          model: modelName,
           functions: compatibleFunctions,
           isActive: true,
           isCloudConfig: true,
@@ -205,14 +190,15 @@ class CloudConfigSyncService {
     try {
       AppLogger().i('CloudSync', '开始同步云端默认配置，共 ${defaultConfigs.length} 个场景');
 
-      // 0. 必须有 cloudApiKey
-      final secrets = await _readCloudSecrets();
-      if (secrets.apiKey == null || secrets.apiKey!.isEmpty) {
-        AppLogger().w('CloudSync', '云端 API Key 未配置，无法同步');
+      // 0. 必须已登录（云端配置仅对登录用户有效）
+      // 修复：不再依赖旧的 cloud_api_config 单 Key 存储，改为检查登录态。
+      // 各 provider 的 API Key 由 syncApiPolicies 按需从 /api-key?provider=xxx 获取。
+      if (!CloudApiService.instance.isAuthenticated) {
+        AppLogger().w('CloudSync', '未登录，无法同步云端配置');
         return const CloudSyncResult(
           success: false,
           syncedCount: 0,
-          message: '云端 API Key 未配置，请先登录获取',
+          message: '请先登录以同步云端配置',
         );
       }
 

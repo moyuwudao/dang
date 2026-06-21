@@ -506,8 +506,8 @@ export class ApiKeyService {
   }
 
   private async testImageFeature(provider: string, apiKey: string, model: string, baseUrl?: string, imageUrl?: string) {
-    // 1x1 透明 PNG 的 base64
-    const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    // 100x100 透明 PNG 的 base64（Qwen 兼容接口对 1x1 极小图可能返回 400）
+    const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAQAAADa613fAAAAEklEQVR42u3BAQ0AAAgCIO3fM91kWgAAcA4+IAABT5g3AAAAAElFTkSuQmCC';
     const dataUrl = imageUrl || `data:image/png;base64,${tinyPng}`;
     const startTime = Date.now();
     if (provider === ApiKeyProvider.QWEN) {
@@ -515,30 +515,50 @@ export class ApiKeyService {
       const url = this.getChatCompletionsUrl(provider, baseUrl);
       // 使用配置的 model，回退到 qwen-vl-plus
       const visionModel = model || 'qwen-vl-plus';
-      const response = await firstValueFrom(
-        this.httpService.post(
-          url,
-          {
+      try {
+        const response = await firstValueFrom(
+          this.httpService.post(
+            url,
+            {
+              model: visionModel,
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: '描述这张图片' },
+                    { type: 'image_url', image_url: { url: dataUrl } },
+                  ],
+                },
+              ],
+              max_tokens: 1,
+            },
+            { headers: this.getAuthHeaders(provider, apiKey), timeout: 10000 },
+          ),
+        );
+        return {
+          ok: true,
+          responseTime: Date.now() - startTime,
+          details: { feature: 'imageRecognition', status: response.status, model: visionModel },
+        };
+      } catch (err: any) {
+        const status = err.response?.status;
+        const responseData = err.response?.data;
+        const responseText = err.response?.statusText || err.message;
+        this.logger.warn(
+          `Qwen image test failed: model=${visionModel}, status=${status}, data=${JSON.stringify(responseData)}, error=${responseText}`,
+        );
+        return {
+          ok: false,
+          responseTime: Date.now() - startTime,
+          details: {
+            feature: 'imageRecognition',
+            status,
             model: visionModel,
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: '描述这张图片' },
-                  { type: 'image_url', image_url: { url: dataUrl } },
-                ],
-              },
-            ],
-            max_tokens: 1,
+            error: responseText,
+            responseData,
           },
-          { headers: this.getAuthHeaders(provider, apiKey), timeout: 10000 },
-        ),
-      );
-      return {
-        ok: true,
-        responseTime: Date.now() - startTime,
-        details: { feature: 'imageRecognition', status: response.status, model: visionModel },
-      };
+        };
+      }
     }
     // fallback：OpenAI vision
     if (provider === ApiKeyProvider.OPENAI) {
