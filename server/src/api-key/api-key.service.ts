@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiKey, ApiKeyProvider, ApiKeyStatus, ApiKeyScope } from './entities/api-key.entity';
@@ -20,6 +20,7 @@ export class ApiKeyService {
   private readonly USER_KEY_CACHE_PREFIX = 'api:user_key:';
   private readonly KEY_USAGE_PREFIX = 'api:key_usage:';
   private readonly CACHE_TTL = 300; // 5分钟
+  private readonly logger = new Logger(ApiKeyService.name);
 
   constructor(
     @InjectRepository(ApiKey)
