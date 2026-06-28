@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
 
+/// AI 服务提供商枚举（仅保留国内 6 家：深度求索、通义千问、智谱、Kimi、MiniMax、豆包）
 enum AiProvider {
-  openAI,
-  claude,
-  gemini,
   deepSeek,
   qwen,
-  tingwu,
-  ernie,
   zhipu,
   kimi,
-  spark,
-  grok,
-  custom,
+  minimax,
+  doubao,
 }
 
 enum ApiFunctionType {
@@ -149,19 +144,14 @@ class AiModelConfig {
     this.apiKeyDescription,
   });
 
+  /// 全部国内提供商列表（6 家，已摒弃国外模型）
   static const List<AiModelConfig> allProviders = [
-    openAI,
     deepSeek,
-    claude,
-    gemini,
     qwen,
-    tingwu,
-    ernie,
     zhipu,
     kimi,
-    spark,
-    grok,
-    custom,
+    minimax,
+    doubao,
   ];
 
   static bool canUseFeature(AppFeature feature, AiProvider? configuredProvider) {
@@ -202,194 +192,67 @@ class AiModelConfig {
         return null;
       case AppFeature.textAnalysis:
         if (configuredProvider == null) {
-          return 'Please configure an AI model API Key first';
+          return '请先配置 AI 模型 API Key';
         }
         final config = getConfig(configuredProvider);
         if (!config.supportsTextAnalysis) {
-          return '${config.displayName} does not support text analysis.';
+          return '${config.displayName} 不支持文本分析';
         }
         return null;
       case AppFeature.speechTranscription:
         if (configuredProvider == null) {
-          return 'Please configure an AI model API Key first';
+          return '请先配置 AI 模型 API Key';
         }
         final config = getConfig(configuredProvider);
         if (!config.supportsTranscription) {
-          return '${config.displayName} does not support speech transcription. Please use OpenAI, Gemini, or Qwen.';
+          return '${config.displayName} 不支持语音转写，请使用通义千问';
         }
         return null;
       case AppFeature.speechRealtimeTranscription:
         if (configuredProvider == null) {
-          return 'Please configure an AI model API Key first';
+          return '请先配置 AI 模型 API Key';
         }
         final config = getConfig(configuredProvider);
         if (!config.supportsRealtimeTranscription) {
-          return '${config.displayName} does not support real-time speech transcription. Please use iFlytek Spark or Aliyun Qwen.';
+          return '${config.displayName} 不支持实时语音转写，请使用通义千问';
         }
         return null;
       case AppFeature.speakerDiarization:
         if (configuredProvider == null) {
-          return 'Please configure an AI model API Key first';
+          return '请先配置 AI 模型 API Key';
         }
         final config = getConfig(configuredProvider);
         if (!config.supportsSpeakerDiarization) {
-          return '${config.displayName} does not support speaker diarization (speaker recognition). This feature requires a dedicated speaker recognition API (e.g., Aliyun Voice ID, iFlytek Speaker Recognition).';
+          return '${config.displayName} 不支持说话人分离，需要专用的声纹识别 API';
         }
         return null;
       case AppFeature.ocr:
         if (configuredProvider == null) {
-          return 'Please configure an AI model API Key first';
+          return '请先配置 AI 模型 API Key';
         }
         final config = getConfig(configuredProvider);
         if (!config.supportsOCR) {
-          return '${config.displayName} does not support image recognition. Please use OpenAI (GPT-4o), Gemini, or Qwen.';
+          return '${config.displayName} 不支持图像识别，请使用通义千问 VL 或豆包视觉模型';
         }
         return null;
       case AppFeature.chatSummary:
       case AppFeature.titleGeneration:
         if (configuredProvider == null) {
-          return 'Please configure an AI model API Key first';
+          return '请先配置 AI 模型 API Key';
         }
         final config = getConfig(configuredProvider);
         if (!config.supportsChat && !config.supportsTextAnalysis) {
-          return '${config.displayName} does not support chat or text analysis. Please use a model with chat capabilities.';
+          return '${config.displayName} 不支持对话或文本分析';
         }
         return null;
     }
   }
 
-  static const openAI = AiModelConfig(
-    provider: AiProvider.openAI,
-    name: 'openai',
-    displayName: 'OpenAI',
-    baseUrl: 'https://api.openai.com/v1',
-    defaultModel: 'gpt-4o-mini',
-    availableModels: [
-      'gpt-4o',
-      'gpt-4o-mini',
-      'gpt-4.1',
-      'gpt-4.1-mini',
-      'gpt-4.1-nano',
-    ],
-    supportsTranscription: true,
-    supportsRealtimeTranscription: false,
-    supportsSpeakerDiarization: false,
-    supportsChat: true,
-    supportsTextAnalysis: true,
-    supportsOCR: true,
-    visionModel: 'gpt-4o',
-    apiKeyPrefix: 'sk-',
-    description: 'Industry-leading AI with best-in-class Whisper transcription. Most reliable for voice-to-text. GPT-4o supports image recognition.',
-    transcriptionMethod: TranscriptionMethod.whisperApi,
-    transcriptionLimit: TranscriptionLimit(
-      maxDurationSeconds: 600,
-      maxFileSizeMB: 25,
-      durationLabel: '10 min',
-      note: 'Whisper API supports up to 25MB audio files',
-    ),
-    asrModel: 'whisper-1',
-    asrDescription: 'Whisper v1: OpenAI\'s speech recognition model. Supports 99 languages, auto-detection, punctuation, and timestamps. Best accuracy for most scenarios.',
-    modelDetails: [
-      ModelDetail(name: 'gpt-4.1', description: 'Latest flagship, best reasoning', contextWindow: '1M', recommended: false),
-      ModelDetail(name: 'gpt-4.1-mini', description: 'Balanced performance & cost', contextWindow: '1M', recommended: true),
-      ModelDetail(name: 'gpt-4.1-nano', description: 'Fastest, lowest cost', contextWindow: '1M', recommended: false),
-      ModelDetail(name: 'gpt-4o', description: 'Multimodal, vision support', contextWindow: '128K', recommended: false),
-      ModelDetail(name: 'gpt-4o-mini', description: 'Affordable multimodal', contextWindow: '128K', recommended: false),
-    ],
-    pricingNote: 'Chat: \$0.15-\$2/M tokens | ASR: \$0.006/min',
-  );
-
-  static const claude = AiModelConfig(
-    provider: AiProvider.claude,
-    name: 'claude',
-    displayName: 'Claude',
-    baseUrl: 'https://api.anthropic.com/v1',
-    defaultModel: 'claude-sonnet-4-6',
-    availableModels: [
-      'claude-opus-4-7',
-      'claude-opus-4-6',
-      'claude-sonnet-4-6',
-      'claude-haiku-4-5',
-    ],
-    supportsTranscription: false,
-    supportsChat: true,
-    apiKeyPrefix: 'sk-ant-',
-    description: 'Anthropic\'s Claude 4 series. Excellent at reasoning, writing, and analysis. No ASR support.',
-    limitationNote: 'Does not support audio transcription. Use for chat/summary only.',
-    modelDetails: [
-      ModelDetail(name: 'claude-opus-4-7', description: 'Most capable, complex tasks', contextWindow: '200K', recommended: false),
-      ModelDetail(name: 'claude-opus-4-6', description: 'High capability', contextWindow: '200K', recommended: false),
-      ModelDetail(name: 'claude-sonnet-4-6', description: 'Best balance of speed & quality', contextWindow: '200K', recommended: true),
-      ModelDetail(name: 'claude-haiku-4-5', description: 'Fastest, most affordable', contextWindow: '200K', recommended: false),
-    ],
-    pricingNote: 'Chat: \$0.25-\$15/M tokens',
-  );
-
-  static const gemini = AiModelConfig(
-    provider: AiProvider.gemini,
-    name: 'gemini',
-    displayName: 'Gemini',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    defaultModel: 'gemini-2.5-flash',
-    availableModels: [
-      'gemini-2.5-pro',
-      'gemini-2.5-flash',
-      'gemini-3.1-pro',
-    ],
-    supportsTranscription: true,
-    supportsRealtimeTranscription: false,
-    supportsSpeakerDiarization: false,
-    supportsChat: true,
-    supportsTextAnalysis: true,
-    supportsOCR: true,
-    visionModel: 'gemini-2.5-flash',
-    apiKeyPrefix: null,
-    description: 'Google\'s Gemini with generous free tier. Supports audio upload for transcription via multimodal input. Also supports image recognition.',
-    transcriptionMethod: TranscriptionMethod.audioUpload,
-    transcriptionLimit: TranscriptionLimit(
-      maxDurationSeconds: 300,
-      maxFileSizeMB: 20,
-      durationLabel: '5 min',
-      note: 'Free tier: 15 RPM, 1M tokens/min. Audio processed as inline data.',
-    ),
-    asrModel: 'gemini-2.5-flash',
-    asrDescription: 'Uses Gemini multimodal model to transcribe audio. Supports multiple languages. Less accurate than Whisper for pure ASR.',
-    modelDetails: [
-      ModelDetail(name: 'gemini-3.1-pro', description: 'Latest flagship', contextWindow: '1M', recommended: false),
-      ModelDetail(name: 'gemini-2.5-pro', description: 'High quality reasoning', contextWindow: '1M', recommended: false),
-      ModelDetail(name: 'gemini-2.5-flash', description: 'Fast & free tier available', contextWindow: '1M', recommended: true),
-    ],
-    pricingNote: 'Free tier available | Paid: \$0.075-\$1.25/M tokens',
-  );
-
-  static const grok = AiModelConfig(
-    provider: AiProvider.grok,
-    name: 'grok',
-    displayName: 'Grok',
-    baseUrl: 'https://api.x.ai/v1',
-    defaultModel: 'grok-3',
-    availableModels: [
-      'grok-3',
-      'grok-3-mini',
-      'grok-2-1212',
-    ],
-    supportsTranscription: false,
-    supportsChat: true,
-    apiKeyPrefix: null,
-    description: 'xAI\'s Grok 3 with real-time knowledge from X. Strong reasoning capabilities.',
-    limitationNote: 'Does not support audio transcription. Use for chat/summary only.',
-    modelDetails: [
-      ModelDetail(name: 'grok-3', description: 'Flagship, real-time knowledge', contextWindow: '128K', recommended: true),
-      ModelDetail(name: 'grok-3-mini', description: 'Affordable alternative', contextWindow: '128K', recommended: false),
-      ModelDetail(name: 'grok-2-1212', description: 'Previous generation', contextWindow: '128K', recommended: false),
-    ],
-    pricingNote: 'Chat: \$0.30-\$5/M tokens',
-  );
-
+  /// DeepSeek（深度求索）— 1M 上下文，性价比极高，OpenAI 兼容格式
   static const deepSeek = AiModelConfig(
     provider: AiProvider.deepSeek,
     name: 'deepseek',
-    displayName: 'DeepSeek',
+    displayName: 'DeepSeek 深度求索',
     baseUrl: 'https://api.deepseek.com/v1',
     defaultModel: 'deepseek-v4-flash',
     availableModels: [
@@ -401,17 +264,18 @@ class AiModelConfig {
     supportsTranscription: false,
     supportsChat: true,
     apiKeyPrefix: null,
-    description: 'DeepSeek V4: 1M context, outstanding cost-performance. OpenAI-compatible format.',
-    limitationNote: 'No ASR support. deepseek-chat/reasoner will be deprecated on 2026-07-24.',
+    description: 'DeepSeek V4：1M 上下文，性价比突出，OpenAI 兼容格式。擅长推理与代码。',
+    limitationNote: '不支持语音转写，仅用于对话/摘要。',
     modelDetails: [
-      ModelDetail(name: 'deepseek-v4-pro', description: 'V4 flagship, best quality', contextWindow: '1M', recommended: false),
-      ModelDetail(name: 'deepseek-v4-flash', description: 'V4 fast & affordable', contextWindow: '1M', recommended: true),
-      ModelDetail(name: 'deepseek-chat', description: 'V3 (deprecated 2026-07)', contextWindow: '64K', recommended: false),
-      ModelDetail(name: 'deepseek-reasoner', description: 'Deep thinking (deprecated 2026-07)', contextWindow: '64K', recommended: false),
+      ModelDetail(name: 'deepseek-v4-pro', description: 'V4 旗舰，最佳质量', contextWindow: '1M', recommended: false),
+      ModelDetail(name: 'deepseek-v4-flash', description: 'V4 快速版，性价比高', contextWindow: '1M', recommended: true),
+      ModelDetail(name: 'deepseek-chat', description: 'V3（2026-07 弃用）', contextWindow: '64K', recommended: false),
+      ModelDetail(name: 'deepseek-reasoner', description: '深度思考（2026-07 弃用）', contextWindow: '64K', recommended: false),
     ],
-    pricingNote: 'Chat: \$0.07-\$1.40/M tokens | Very affordable',
+    pricingNote: '对话: ¥0.5-10/百万 tokens | 性价比极高',
   );
 
+  /// 通义千问（阿里云）— 中文理解强，支持 ASR/实时转写/VL 视觉
   static const qwen = AiModelConfig(
     provider: AiProvider.qwen,
     name: 'qwen',
@@ -425,6 +289,19 @@ class AiModelConfig {
       'qwen3.6-flash',
       'qwen3.6-plus',
       'qwen3.6-max',
+      // VL（视觉）模型：只有这些模型支持图像识别
+      'qwen-vl-plus',
+      'qwen-vl-plus-latest',
+      'qwen-vl-max',
+      'qwen-vl-max-latest',
+      'qwen3-vl-plus',
+      'qwen3-vl-plus-latest',
+      'qwen3-vl-flash',
+      'qwen3-vl-flash-latest',
+      'qwen2-vl-7b-instruct',
+      'qwen2-vl-72b-instruct',
+      'qwen2.5-vl-32b-instruct',
+      'qwen2.5-vl-72b-instruct',
     ],
     supportsTranscription: true,
     supportsRealtimeTranscription: true,
@@ -433,64 +310,40 @@ class AiModelConfig {
     supportsChat: true,
     supportsTextAnalysis: true,
     supportsOCR: true,
-    visionModel: 'qwen3.6-vl-plus',
+    visionModel: 'qwen-vl-plus',
     apiKeyPrefix: 'sk-',
-    requiresAppId: true,
-    appIdDescription: '通义听悟 AppID（可选，用于实时转写。在阿里云听悟控制台获取）',
-    description: '阿里云通义千问系列。中文理解能力强，支持语音转写和实时语音转写。语音转写用 qwen-asr-flash，实时转写用 WebSocket 流式接口。不支持声纹识别（说话人分离）。',
+    requiresAppId: false,
+    description: '阿里云通义千问系列。中文理解能力强，支持语音转写和实时语音转写。语音转写用 qwen3-asr-flash，实时转写用 WebSocket 流式接口。不支持声纹识别（说话人分离）。',
     transcriptionMethod: TranscriptionMethod.nativeAsr,
     realtimeTranscriptionMethod: TranscriptionMethod.realtimeWebSocket,
     transcriptionLimit: TranscriptionLimit(
       maxDurationSeconds: 43200,
       maxFileSizeMB: 500,
-      durationLabel: '12 hours',
-      note: 'Short audio (<5min, <10MB): qwen3-asr-flash sync. Long audio: qwen3-asr-flash-filetrans async. Realtime: qwen3-asr-flash via WebSocket.',
+      durationLabel: '12 小时',
+      note: '短音频(<5分钟,<10MB): qwen3-asr-flash 同步。长音频: qwen3-asr-flash-filetrans 异步。实时: qwen3-asr-flash WebSocket。',
     ),
     asrModel: 'qwen3-asr-flash',
-    asrDescription: 'qwen3-asr-flash: 52 languages + 22 Chinese dialects. Best open-source ASR accuracy.\nqwen3-asr-flash-filetrans: For long audio up to 12 hours, async processing.',
+    asrDescription: 'qwen3-asr-flash: 52 种语言 + 22 种中文方言，最佳开源 ASR 精度。\nqwen3-asr-flash-filetrans: 长音频异步转写，最长 12 小时。',
     realtimeAsrModel: 'qwen3-asr-flash',
-    realtimeAsrDescription: 'Realtime ASR via DashScope WebSocket. Supports streaming audio input with incremental text output. Low latency for live transcription.',
+    realtimeAsrDescription: 'DashScope WebSocket 实时 ASR，流式音频输入，增量文本输出，低延迟。',
     modelDetails: [
-      ModelDetail(name: 'qwen3.6-max', description: 'Most capable', contextWindow: '128K', recommended: false),
-      ModelDetail(name: 'qwen3.6-plus', description: 'Balanced quality & cost', contextWindow: '128K', recommended: false),
-      ModelDetail(name: 'qwen3.6-flash', description: 'Fastest, most affordable', contextWindow: '128K', recommended: true),
-      ModelDetail(name: 'qwen3.5-plus', description: 'Previous gen, stable', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'qwen3.6-max', description: '最强能力', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'qwen3.6-plus', description: '质量与成本均衡', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'qwen3.6-flash', description: '最快、最实惠', contextWindow: '128K', recommended: true),
+      ModelDetail(name: 'qwen3-vl-plus', description: '最新视觉模型，图像 OCR 最佳', contextWindow: '128K', recommended: true),
+      ModelDetail(name: 'qwen3-vl-plus-latest', description: '始终指向最新 Qwen3-VL-Plus', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'qwen3-vl-flash', description: '快速视觉模型，低成本', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'qwen-vl-plus', description: '视觉模型，图像 OCR', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'qwen-vl-max', description: '最佳视觉精度', contextWindow: '128K', recommended: false),
     ],
-    pricingNote: 'Chat: ¥0.001-¥2/M tokens | ASR: ¥0.001-¥0.01/min | Realtime: ¥0.003/min',
+    pricingNote: '对话: ¥0.001-2/百万 tokens | ASR: ¥0.001-0.01/分钟 | 实时: ¥0.003/分钟',
   );
 
-  static const ernie = AiModelConfig(
-    provider: AiProvider.ernie,
-    name: 'ernie',
-    displayName: 'Ernie',
-    baseUrl: 'https://qianfan.baidubce.com/v2',
-    defaultModel: 'ernie-4.5-8k',
-    availableModels: [
-      'ernie-4.5-8k',
-      'ernie-4.5-32k',
-      'ernie-4.5-128k',
-      'ernie-speed',
-      'ernie-lite',
-    ],
-    supportsTranscription: false,
-    supportsChat: true,
-    apiKeyPrefix: null,
-    description: 'Baidu Ernie 4.5 series. Optimized for Chinese scenarios.',
-    limitationNote: 'ASR requires separate Baidu OAuth credentials (not compatible with current setup). Chat/summary only.',
-    modelDetails: [
-      ModelDetail(name: 'ernie-4.5-128k', description: 'Long context', contextWindow: '128K', recommended: false),
-      ModelDetail(name: 'ernie-4.5-32k', description: 'Medium context', contextWindow: '32K', recommended: false),
-      ModelDetail(name: 'ernie-4.5-8k', description: 'Standard, affordable', contextWindow: '8K', recommended: true),
-      ModelDetail(name: 'ernie-speed', description: 'Fast inference', contextWindow: '8K', recommended: false),
-      ModelDetail(name: 'ernie-lite', description: 'Lightweight', contextWindow: '8K', recommended: false),
-    ],
-    pricingNote: 'Chat: ¥0.001-¥0.12/M tokens',
-  );
-
+  /// 智谱 GLM — 开源友好，学术表现强
   static const zhipu = AiModelConfig(
     provider: AiProvider.zhipu,
     name: 'zhipu',
-    displayName: 'Zhipu GLM',
+    displayName: '智谱 GLM',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     defaultModel: 'glm-5.1-flash',
     availableModels: [
@@ -499,21 +352,29 @@ class AiModelConfig {
       'glm-4.7',
       'glm-4.7-flash',
       'glm-4-air',
+      // 智谱视觉模型
+      'glm-4v',
+      'glm-4v-flash',
     ],
     supportsTranscription: false,
     supportsChat: true,
+    supportsOCR: true,
+    visionModel: 'glm-4v',
     apiKeyPrefix: null,
-    description: 'Zhipu AI GLM 5.1 series. Open-source friendly, strong academic performance.',
-    limitationNote: 'ASR requires separate integration. Chat/summary only.',
+    description: '智谱 AI GLM 5.1 系列。开源友好，学术表现强。GLM-4V 支持图像识别。',
+    limitationNote: '不支持语音转写，仅用于对话/摘要/图像识别。',
     modelDetails: [
-      ModelDetail(name: 'glm-5.1', description: 'Flagship', contextWindow: '128K', recommended: false),
-      ModelDetail(name: 'glm-5.1-flash', description: 'Fast & affordable', contextWindow: '128K', recommended: true),
-      ModelDetail(name: 'glm-4.7', description: 'Stable generation', contextWindow: '128K', recommended: false),
-      ModelDetail(name: 'glm-4.7-flash', description: 'Fast generation', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'glm-5.1', description: '旗舰模型', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'glm-5.1-flash', description: '快速、实惠', contextWindow: '128K', recommended: true),
+      ModelDetail(name: 'glm-4.7', description: '稳定生成', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'glm-4.7-flash', description: '快速生成', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'glm-4v', description: '视觉模型', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'glm-4v-flash', description: '快速视觉模型', contextWindow: '128K', recommended: false),
     ],
-    pricingNote: 'Chat: ¥0.001-¥0.1/M tokens',
+    pricingNote: '对话: ¥0.001-0.1/百万 tokens',
   );
 
+  /// Kimi（月之暗面）— 1T MoE，256K 上下文，Agent 与编码能力强
   static const kimi = AiModelConfig(
     provider: AiProvider.kimi,
     name: 'kimi',
@@ -531,195 +392,90 @@ class AiModelConfig {
     supportsTranscription: false,
     supportsChat: true,
     apiKeyPrefix: null,
-    description: 'Moonshot Kimi K2.6: 1T MoE, 256K context. Outstanding agent and coding capabilities.',
-    limitationNote: 'No ASR support. Use for chat/summary only.',
+    description: '月之暗面 Kimi K2.6：1T MoE，256K 上下文，Agent 与编码能力突出。',
+    limitationNote: '不支持语音转写，仅用于对话/摘要。',
     modelDetails: [
-      ModelDetail(name: 'kimi-k2.6', description: 'Latest, 1T MoE, best quality', contextWindow: '256K', recommended: true),
-      ModelDetail(name: 'kimi-k2.5', description: 'Previous version', contextWindow: '256K', recommended: false),
-      ModelDetail(name: 'kimi-k2', description: 'Base K2 model', contextWindow: '128K', recommended: false),
-      ModelDetail(name: 'moonshot-v1-128k', description: 'Long context legacy', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'kimi-k2.6', description: '最新，1T MoE，最佳质量', contextWindow: '256K', recommended: true),
+      ModelDetail(name: 'kimi-k2.5', description: '上一版本', contextWindow: '256K', recommended: false),
+      ModelDetail(name: 'kimi-k2', description: '基础 K2 模型', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'moonshot-v1-128k', description: '长上下文 legacy', contextWindow: '128K', recommended: false),
     ],
-    pricingNote: 'Chat: ¥0.012-¥24/M tokens',
+    pricingNote: '对话: ¥0.012-24/百万 tokens',
   );
 
-  static const spark = AiModelConfig(
-    provider: AiProvider.spark,
-    name: 'spark',
-    displayName: 'Spark',
-    baseUrl: 'https://spark-api-open.xf-yun.com/v1',
-    defaultModel: 'x2-flash',
+  /// MiniMax — OpenAI 兼容格式，支持长文本与多模态
+  static const minimax = AiModelConfig(
+    provider: AiProvider.minimax,
+    name: 'minimax',
+    displayName: 'MiniMax',
+    baseUrl: 'https://api.minimax.chat/v1',
+    defaultModel: 'MiniMax-Text-01',
     availableModels: [
-      'x2',
-      'x2-flash',
-      'generalv3.5',
-      'pro-128k',
-      'lite',
+      'MiniMax-Text-01',
+      'MiniMax-M1',
+      'abab6.5s-chat',
+      'abab6.5-chat',
     ],
     supportsTranscription: false,
-    supportsRealtimeTranscription: true,
-    supportsSpeakerDiarization: false,
     supportsChat: true,
-    supportsTextAnalysis: true,
+    supportsOCR: true,
+    visionModel: 'MiniMax-Text-01',
     apiKeyPrefix: null,
-    description: 'iFlytek Spark X2: 293B MoE. Leading voice technology company in China. Supports realtime ASR via iFlytek WebSocket API.',
-    transcriptionMethod: TranscriptionMethod.nativeAsr,
-    realtimeTranscriptionMethod: TranscriptionMethod.realtimeWebSocket,
-    transcriptionLimit: TranscriptionLimit(
-      maxDurationSeconds: 14400,
-      maxFileSizeMB: 200,
-      durationLabel: '4 hours',
-      note: 'Realtime ASR via iFlytek WebSocket. Best Chinese ASR accuracy.',
-    ),
-    asrModel: '',
-    asrDescription: 'iFlytek Spark does not support file-based ASR through this endpoint. Use realtime ASR instead.',
-    realtimeAsrModel: 'iFlytek-realtime-asr',
-    realtimeAsrDescription: 'iFlytek Realtime ASR via WebSocket. Industry-leading Chinese speech recognition. Supports Mandarin, dialects, and mixed-language. Low latency with incremental results.',
-    limitationNote: 'File-based ASR requires separate iFlytek credentials. Realtime ASR available via WebSocket.',
-    requiresAppId: true,
-    appIdDescription: '讯飞开放平台 AppID（在讯飞开放平台控制台获取）',
+    description: 'MiniMax 大模型，OpenAI 兼容格式，支持长文本与多模态（vl-01 视觉）。',
+    limitationNote: '不支持语音转写，仅用于对话/摘要/图像识别。',
     modelDetails: [
-      ModelDetail(name: 'x2', description: 'Flagship, 293B MoE', contextWindow: '128K', recommended: false),
-      ModelDetail(name: 'x2-flash', description: 'Fast & affordable', contextWindow: '128K', recommended: true),
-      ModelDetail(name: 'generalv3.5', description: 'V3.5 stable', contextWindow: '8K', recommended: false),
-      ModelDetail(name: 'pro-128k', description: 'Long context', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'MiniMax-Text-01', description: '旗舰，1M 上下文', contextWindow: '1M', recommended: true),
+      ModelDetail(name: 'MiniMax-M1', description: '推理模型', contextWindow: '1M', recommended: false),
+      ModelDetail(name: 'abab6.5s-chat', description: '快速版', contextWindow: '245K', recommended: false),
+      ModelDetail(name: 'abab6.5-chat', description: '通用版', contextWindow: '245K', recommended: false),
     ],
-    pricingNote: 'Chat: ¥0.001-¥0.12/M tokens | Realtime ASR: ¥0.004/min',
+    pricingNote: '对话: ¥0.001-2/百万 tokens',
   );
 
-  // TODO: Speaker Diarization API - 声纹识别（说话人分离）
-  // 当前没有内置提供商支持声纹识别。
-  // 如需接入，请申请以下服务之一：
-  //
-  // ============================================================
-  // 推荐方案 1: 阿里云通义听悟（Tingwu）- 说话人分离
-  // ============================================================
-  // 通义听悟支持在语音转写中开启"说话人分离"功能，
-  // 能够区分对话中的不同发言人。
-  //
-  // 申请地址: https://tingwu.aliyun.com/
-  // API 文档: https://tingwu.aliyun.com/helpcenter/api
-  // 说话人分离参数:
-  //   - Transcription.DiarizationEnabled = true
-  //   - Transcription.Diarization.SpeakerCount = 0(不定人数) 或 2(2人)
-  //
-  // 计费: 语音转写按音频时长计费，说话人分离不额外收费
-  // 限制: 需提交音频文件 URL，不支持本地文件
-  //
-  // ============================================================
-  // 方案 2: 讯飞开放平台 - 声纹识别
-  // ============================================================
-  // 讯飞声纹识别是身份核验技术（1:1 或 1:N 比对），
-  // 不是说话人分离，但可用于说话人辨认场景。
-  //
-  // 申请地址: https://www.xfyun.cn/
-  // 文档: https://www.xfyun.cn/doc/voiceservice/isv/API.html
-  // 流程: 创建声纹库 → 添加音频特征 → 特征比对
-  //
-  // 计费: 按调用次数计费
-  // 限制: 需要先注册声纹，不适合会议纪要场景
-  //
-  // ============================================================
-  // 方案 3: 百度智能云 - 音频文件转写
-  // ============================================================
-  // 百度语音识别支持音频文件转写，但说话人分离能力较弱。
-  //
-  // 申请地址: https://console.bce.baidu.com/
-  // 文档: https://ai.baidu.com/ai-doc/SPEECH/
-  //
-  // 计费: 按调用次数计费，有免费额度
-  // 限制: 说话人分离不是主要能力
-  //
-  // ============================================================
-  // 推荐选择
-  // ============================================================
-  // 会议纪要场景推荐: 阿里云通义听悟
-  // 原因:
-  //   1. 原生支持说话人分离（Diarization）
-  //   2. 与现有阿里云账号体系兼容
-  //   3. 支持离线文件转写，适合录音后处理
-  //   4. 同时提供摘要、待办提取等会议纪要功能
-  //
-  // 接入步骤:
-  // 1. 在通义听悟官网申请账号和 API Key
-  // 2. 在 AiProvider 枚举中添加 tingwu 提供商
-  // 3. 在 allProviders 列表中添加配置
-  // 4. 设置 supportsSpeakerDiarization = true
-  // 5. 实现 TingwuTranscriptionService（参考通义听悟 API 文档）
-
-  static const tingwu = AiModelConfig(
-    provider: AiProvider.tingwu,
-    name: 'tingwu',
-    displayName: '通义听悟',
-    baseUrl: 'https://tingwu.cn-beijing.aliyuncs.com',
-    defaultModel: 'tingwu-v2',
-    availableModels: ['tingwu-v2'],
-    supportsTranscription: true,
-    supportsRealtimeTranscription: true,
-    supportsOfflineTranscription: true,
-    supportsSpeakerDiarization: true,
-    supportsChat: false,
-    supportsTextAnalysis: false,
-    supportsOCR: false,
-    visionModel: '',
-    apiKeyPrefix: null,
-    description: '阿里云通义听悟 - 音视频内容工作学习AI助手。支持语音转写、说话人分离、全文摘要、章节速览、发言总结、待办提取、关键词提取、翻译等一站式会议纪要功能。',
-    transcriptionMethod: TranscriptionMethod.asyncAsr,
-    realtimeTranscriptionMethod: TranscriptionMethod.realtimeWebSocket,
-    transcriptionLimit: TranscriptionLimit(
-      maxDurationSeconds: 21600,
-      maxFileSizeMB: 6144,
-      durationLabel: '6 hours',
-      note: '需提交音频文件URL。支持mp3/wav/m4a等格式。说话人分离、摘要、待办等能力需额外开启。',
-    ),
-    asrModel: 'tingwu-asr',
-    asrDescription: '通义听悟语音转写，支持中文、英文、粤语、中英混、日语。可开启说话人分离（2人或不定人数）。',
-    realtimeAsrModel: 'tingwu-realtime',
-    realtimeAsrDescription: '通义听悟实时会议记录，支持实时转写和翻译。',
-    limitationNote: '文件转写需提交URL，不支持本地文件直接上传。大模型能力（摘要/待办/关键词）按功能叠加计费。',
-    requiresAppId: true,
-    appIdLabel: 'AppKey',
-    appIdDescription: '通义听悟 AppKey（在通义听悟控制台创建项目后获取）',
-    appIdHint: '如: UFtTh4CAQxxhNdEC',
-    requiresAccessKeySecret: true,
-    accessKeySecretLabel: 'AccessKey Secret',
-    accessKeySecretDescription: '阿里云 AccessKey Secret（RAM 用户密钥）',
-    accessKeySecretHint: '如: your-access-key-secret',
-    apiKeyLabel: 'AccessKey ID',
-    apiKeyHint: '如: your-access-key-id',
-    apiKeyDescription: '阿里云 RAM 用户的 AccessKey ID',
-    modelDetails: [
-      ModelDetail(name: 'tingwu-v2', description: '通义听悟V2，完整会议纪要能力', contextWindow: 'N/A', recommended: true),
+  /// 豆包（字节火山引擎）— OpenAI 兼容格式，支持视觉模型
+  static const doubao = AiModelConfig(
+    provider: AiProvider.doubao,
+    name: 'doubao',
+    displayName: '豆包',
+    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    defaultModel: 'doubao-pro-32k',
+    availableModels: [
+      'doubao-pro-32k',
+      'doubao-pro-128k',
+      'doubao-pro-256k',
+      'doubao-lite-32k',
+      'doubao-lite-128k',
+      // 视觉模型
+      'doubao-vision-pro-32k',
+      'doubao-vision-lite-32k',
     ],
-    pricingNote: '转写: ¥0.6/小时 | 大模型能力: ¥0.064/小时/功能 | 翻译: ¥0.5-4/小时 | 新用户免费试用90天',
-  );
-
-  static const custom = AiModelConfig(
-    provider: AiProvider.custom,
-    name: 'custom',
-    displayName: 'Custom API',
-    baseUrl: '',
-    defaultModel: '',
-    availableModels: [],
     supportsTranscription: false,
-    supportsRealtimeTranscription: false,
-    supportsSpeakerDiarization: false,
     supportsChat: true,
-    supportsTextAnalysis: true,
-    supportsOCR: false,
-    visionModel: '',
+    supportsOCR: true,
+    visionModel: 'doubao-vision-pro-32k',
     apiKeyPrefix: null,
-    description: 'Any OpenAI-compatible API endpoint. Enter your own base URL and model name.',
-    limitationNote: 'ASR/OCR support depends on your endpoint. Whisper-compatible endpoints may work for ASR. Vision models for OCR.',
-    modelDetails: [],
+    description: '字节火山引擎豆包大模型，OpenAI 兼容格式，支持视觉模型。需要先在火山引擎控制台创建接入点（endpoint）。',
+    limitationNote: '不支持语音转写，仅用于对话/摘要/图像识别。模型名需使用火山引擎的 endpoint ID。',
+    modelDetails: [
+      ModelDetail(name: 'doubao-pro-32k', description: '标准版', contextWindow: '32K', recommended: true),
+      ModelDetail(name: 'doubao-pro-128k', description: '长上下文', contextWindow: '128K', recommended: false),
+      ModelDetail(name: 'doubao-pro-256k', description: '超长上下文', contextWindow: '256K', recommended: false),
+      ModelDetail(name: 'doubao-lite-32k', description: '轻量版', contextWindow: '32K', recommended: false),
+      ModelDetail(name: 'doubao-vision-pro-32k', description: '视觉模型', contextWindow: '32K', recommended: false),
+      ModelDetail(name: 'doubao-vision-lite-32k', description: '轻量视觉', contextWindow: '32K', recommended: false),
+    ],
+    pricingNote: '对话: ¥0.0008-5/百万 tokens',
   );
 
+  /// 获取指定 provider 的配置（fallback 到 deepSeek）
   static AiModelConfig getConfig(AiProvider provider) {
     return allProviders.firstWhere(
       (config) => config.provider == provider,
-      orElse: () => openAI,
+      orElse: () => deepSeek,
     );
   }
 
+  /// 按名称获取配置
   static AiModelConfig? getConfigByName(String name) {
     try {
       return allProviders.firstWhere(
@@ -730,22 +486,8 @@ class AiModelConfig {
     }
   }
 
-  static List<AiModelConfig> get domesticProviders => [
-    deepSeek,
-    qwen,
-    tingwu,
-    ernie,
-    zhipu,
-    kimi,
-    spark,
-  ];
-
-  static List<AiModelConfig> get internationalProviders => [
-    openAI,
-    claude,
-    gemini,
-    grok,
-  ];
+  /// 国内提供商列表（全部 6 家）
+  static List<AiModelConfig> get domesticProviders => allProviders;
 
   static List<AiModelConfig> get transcriptionProviders => allProviders
       .where((p) => p.supportsTranscription || p.supportsOfflineTranscription)
@@ -802,6 +544,54 @@ class AiModelConfig {
       case ApiFunctionType.offlineVoice:
         return config.supportsOfflineTranscription;
     }
+  }
+
+  /// 判断指定模型是否为视觉模型（支持图像识别）
+  ///
+  /// 规则：
+  /// - 文本/转写功能：按 provider 级别判断
+  /// - 图像识别：必须具体到模型，避免把普通模型也当成视觉模型
+  static bool isVisionModel(AiProvider provider, String? model) {
+    if (model == null || model.isEmpty) return false;
+    final lower = model.toLowerCase();
+    switch (provider) {
+      case AiProvider.qwen:
+        // Qwen 视觉模型命名规律：包含 -vl- 或 qwen3-vl- 等
+        return lower.contains('-vl-') ||
+            lower.startsWith('qwen-vl-') ||
+            lower.startsWith('qwen2-vl-') ||
+            lower.startsWith('qwen2.5-vl-') ||
+            lower.startsWith('qwen3-vl-');
+      case AiProvider.zhipu:
+        // 智谱视觉模型：glm-4v 系列
+        return lower.contains('glm-4v') || lower.contains('vision');
+      case AiProvider.minimax:
+        // MiniMax: vl-01 / vision 系列
+        return lower.contains('vl-01') || lower.contains('vision');
+      case AiProvider.doubao:
+        // 豆包视觉模型：doubao-vision 系列
+        return lower.contains('vision');
+      case AiProvider.deepSeek:
+      case AiProvider.kimi:
+        // 当前不支持视觉
+        return false;
+    }
+  }
+
+  /// 检查指定 provider + model 是否支持指定功能类型
+  static bool modelSupportsFunction(
+    AiProvider provider,
+    String? model,
+    ApiFunctionType functionType,
+  ) {
+    // 非图像功能保持 provider 级别判断（足够且避免误判）
+    if (functionType != ApiFunctionType.image) {
+      return providerSupportsFunction(provider, functionType);
+    }
+    // 图像识别必须精确到模型能力
+    final config = getConfig(provider);
+    if (!config.supportsOCR) return false;
+    return isVisionModel(provider, model);
   }
 
   /// 获取功能类型对应的中文名称

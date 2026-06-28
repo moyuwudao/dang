@@ -26,6 +26,7 @@ export class AiService {
     provider?: string;
     model?: string;
     stream?: boolean;
+    enableSearch?: boolean;
   }) {
     // 1. 获取 API Key（带负载均衡和缓存）
     const apiKeyResult = await this.apiKeyService.getApiKey(userId);
@@ -166,14 +167,21 @@ export class AiService {
     const url = apiKey.baseUrl || this.getDefaultBaseUrl(apiKey.provider);
     const model = params.model || apiKey.model || this.getDefaultModel(apiKey.provider);
 
+    const requestBody: any = {
+      model,
+      messages: params.messages,
+      stream: params.stream || false,
+    };
+
+    // 阿里云百炼（qwen）支持联网搜索，通过 enable_search 参数启用
+    if (params.enableSearch && apiKey.provider === 'qwen') {
+      requestBody.enable_search = true;
+    }
+
     const response = await firstValueFrom(
       this.httpService.post(
         `${url}/v1/chat/completions`,
-        {
-          model,
-          messages: params.messages,
-          stream: params.stream || false,
-        },
+        requestBody,
         {
           headers: {
             'Authorization': `Bearer ${apiKey.apiKey}`,

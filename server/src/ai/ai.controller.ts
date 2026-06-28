@@ -15,6 +15,7 @@ export class AiController {
     provider?: string;
     model?: string;
     stream?: boolean;
+    enableSearch?: boolean;
   }) {
     return this.aiService.chat(req.user.sub, body);
   }
